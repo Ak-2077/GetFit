@@ -382,7 +382,7 @@ export default function ProfileScreen() {
             color: THEME.textSecondary,
             marginTop: 4,
           }}>
-            On a fitness journey 💪
+            On a fitness journey 
           </Text>
         </View>
 
@@ -588,6 +588,227 @@ export default function ProfileScreen() {
             }}>
               {bmiInfo?.range || '—'}
             </Text>
+          </View>
+        </View>
+
+        {/* ═══════════════ FITNESS INSIGHTS ═══════════════ */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{
+            fontSize: 16,
+            fontWeight: '700',
+            color: THEME.textPrimary,
+            marginBottom: 12,
+          }}>
+            Fitness Insights
+          </Text>
+
+          {/* Row 1 */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+            {/* Body Type */}
+            <View style={{
+              flex: 1,
+              backgroundColor: THEME.card,
+              borderRadius: 16,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: THEME.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.03,
+              shadowRadius: 8,
+              elevation: 2,
+            }}>
+              <View style={{
+                width: 38,
+                height: 38,
+                borderRadius: 11,
+                backgroundColor: '#fae8ff',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}>
+                <FontAwesome name="child" size={18} color="#c026d3" />
+              </View>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: THEME.textSecondary,
+                marginBottom: 4,
+              }}>
+                Body Type
+              </Text>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '800',
+                color: THEME.textPrimary,
+                textTransform: 'capitalize',
+              }}>
+                {user?.bodyType || '—'}
+              </Text>
+              <Text style={{
+                fontSize: 9,
+                color: '#999',
+                marginTop: 3,
+                lineHeight: 13,
+              }}>
+                Based on height, weight & BMI
+              </Text>
+            </View>
+
+            {/* Training Level */}
+            <View style={{
+              flex: 1,
+              backgroundColor: THEME.card,
+              borderRadius: 16,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: THEME.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.03,
+              shadowRadius: 8,
+              elevation: 2,
+            }}>
+              <View style={{
+                width: 38,
+                height: 38,
+                borderRadius: 11,
+                backgroundColor: '#fef3c7',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}>
+                <FontAwesome name="trophy" size={16} color="#d97706" />
+              </View>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: THEME.textSecondary,
+                marginBottom: 4,
+              }}>
+                Training Level
+              </Text>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '800',
+                color: THEME.textPrimary,
+                textTransform: 'capitalize',
+              }}>
+                {user?.level || '—'}
+              </Text>
+              <Text style={{
+                fontSize: 9,
+                color: '#999',
+                marginTop: 3,
+              }}>
+                From onboarding profile
+              </Text>
+            </View>
+          </View>
+
+          {/* Row 2 */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {/* Diet Type */}
+            <View style={{
+              flex: 1,
+              backgroundColor: THEME.card,
+              borderRadius: 16,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: THEME.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.03,
+              shadowRadius: 8,
+              elevation: 2,
+            }}>
+              <View style={{
+                width: 38,
+                height: 38,
+                borderRadius: 11,
+                backgroundColor: '#dcfce7',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}>
+                <FontAwesome name="leaf" size={16} color="#16a34a" />
+              </View>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: THEME.textSecondary,
+                marginBottom: 4,
+              }}>
+                Diet Type
+              </Text>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '800',
+                color: THEME.textPrimary,
+              }}>
+                {user?.dietPreference === 'non_veg' ? 'Non-Veg'
+                  : user?.dietPreference === 'veg' ? 'Veg'
+                  : user?.dietPreference === 'vegan' ? 'Vegan'
+                  : user?.dietPreference === 'keto' ? 'Keto'
+                  : user?.dietPreference || '—'}
+              </Text>
+              <Text style={{
+                fontSize: 9,
+                color: '#999',
+                marginTop: 3,
+              }}>
+                Dietary preference
+              </Text>
+            </View>
+
+            {/* Daily Protein Target */}
+            <View style={{
+              flex: 1,
+              backgroundColor: THEME.card,
+              borderRadius: 16,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: THEME.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.03,
+              shadowRadius: 8,
+              elevation: 2,
+            }}>
+              <View style={{
+                width: 38,
+                height: 38,
+                borderRadius: 11,
+                backgroundColor: '#dbeafe',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}>
+                <FontAwesome name="bolt" size={17} color="#2563eb" />
+              </View>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: THEME.textSecondary,
+                marginBottom: 4,
+              }}>
+                Protein Target
+              </Text>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '800',
+                color: THEME.textPrimary,
+              }}>
+                {user?.dailyProteinTarget ? `${user.dailyProteinTarget}g` : '—'}
+              </Text>
+              <Text style={{
+                fontSize: 9,
+                color: '#999',
+                marginTop: 3,
+              }}>
+                per day
+              </Text>
+            </View>
           </View>
         </View>
 

@@ -45,6 +45,12 @@ function calculateGoalCalories(maintenanceCalories, goal) {
   return maintenanceCalories; // maintain
 }
 
+function calculateDailyProteinTarget(weightKg, goal) {
+  if (goal === 'gain') return Math.round(2.0 * weightKg);
+  if (goal === 'lose') return Math.round(1.8 * weightKg);
+  return Math.round(1.6 * weightKg); // maintain
+}
+
 // ─── SAVE ONBOARDING ───────────────────────────────────
 
 /**
@@ -111,6 +117,7 @@ export async function saveOnboarding(req, res) {
     const bodyType = calculateBodyType(bmi);
     const maintenanceCalories = calculateMaintenanceCalories(weightNum, heightNum, ageNum, gender, level);
     const goalCalories = calculateGoalCalories(maintenanceCalories, goal);
+    const dailyProteinTarget = calculateDailyProteinTarget(weightNum, goal);
 
     // ── Update user ─────────────────────────────────────
     const user = await User.findByIdAndUpdate(
@@ -128,6 +135,7 @@ export async function saveOnboarding(req, res) {
         bodyType,
         maintenanceCalories,
         goalCalories,
+        dailyProteinTarget,
         onboardingCompleted: true,
       },
       { new: true }

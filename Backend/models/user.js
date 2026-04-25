@@ -76,6 +76,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    dailyProteinTarget: {
+      type: Number,
+      default: null,
+    },
     // Subscription
     subscriptionPlan: {
       type: String,

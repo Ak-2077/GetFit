@@ -1,16 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
   Image,
   ImageBackground,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
-  ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,6 +31,7 @@ import {
 
 const loginBackground = require('../../assets/images/Login_image.webp');
 const RESEND_COOLDOWN_SECONDS = 30;
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 function normalizeToIndianPhone(input: string) {
   const value = input.trim();
@@ -54,8 +56,14 @@ function normalizeToIndianPhone(input: string) {
 export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const phoneInputRef = useRef<TextInput>(null);
 
-  // Main mode
+  // ─── ANIMATION VALUES ─────────────────────────────────
+  const focusAnim = useRef(new Animated.Value(0)).current;  // 0 = hero, 1 = focused
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  // ─── STATE ────────────────────────────────────────────
+  const [isFocusedState, setIsFocusedState] = useState(false);
   const [mode, setMode] = useState<'phone' | 'email_password'>('phone');
 
   // Phone OTP flow
@@ -90,13 +98,56 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (resendCountdown <= 0) return;
-
     const interval = setInterval(() => {
       setResendCountdown((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
-
     return () => clearInterval(interval);
   }, [resendCountdown]);
+
+  // ─── ANIMATION HANDLERS ───────────────────────────────
+
+  const enterFocusedState = () => {
+    setIsFocusedState(true);
+    Animated.parallel([
+      Animated.spring(focusAnim, {
+        toValue: 1,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Auto-focus the input after animation completes
+      setTimeout(() => {
+        phoneInputRef.current?.focus();
+      }, 100);
+    });
+  };
+
+  const exitFocusedState = () => {
+    Keyboard.dismiss();
+    Animated.parallel([
+      Animated.spring(focusAnim, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsFocusedState(false);
+    });
+  };
+
+  // ─── AUTH LOGIC ───────────────────────────────────────
 
   const completeAuth = async (token: string) => {
     await AsyncStorage.setItem('token', token);
@@ -236,39 +287,100 @@ export default function AuthScreen() {
     }
   };
 
-  // ─── RENDER HELPERS ───────────────────────────────────
+  // ─── ANIMATED INTERPOLATIONS ──────────────────────────
 
-  const renderPhoneMode = () => {
+  // Hero content slides up and fades out
+  const heroTranslateY = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -SCREEN_HEIGHT * 0.35],
+  });
+  const heroOpacity = focusAnim.interpolate({
+    inputRange: [0, 0.5],
+    outputRange: [1, 0],
+  });
+
+  // Dark overlay fades in
+  const overlayOpacity = overlayAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.92],
+  });
+
+  // Dynamic: move bottom-anchored content up to land at (insets.top + 24)
+  // Content height is ~430px. From flex-end, its top sits at:
+  //   SCREEN_HEIGHT - 430 - insets.bottom - 10
+  // We want it at insets.top + 24, so:
+  const focusedOffset = -(SCREEN_HEIGHT - insets.top - insets.bottom - 430 - 34);
+  const panelTranslateY = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, focusedOffset],
+  });
+
+  // ─── RENDER PHONE MODE ────────────────────────────────
+
+  const renderPhoneInput = () => {
     if (!otpSent) {
       return (
         <>
           {/* Phone Input with Flag */}
-          <View style={styles.inputRow}>
-            <Text style={styles.flagEmoji}>🇮🇳</Text>
-            <Text style={styles.countryCode}>+91</Text>
-            <View style={styles.inputDivider} />
+          <View style={{
+            height: 55,
+            borderRadius: 14,
+            backgroundColor: isFocusedState ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.1)',
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 14,
+            marginBottom: 12,
+            borderWidth: isFocusedState ? 1 : 0,
+            borderColor: 'rgba(255,255,255,0.15)',
+          }}>
+            <Text style={{ fontSize: 22, marginRight: 8 }}>🇮🇳</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>+91</Text>
+            <View style={{
+              width: 1,
+              height: 22,
+              backgroundColor: 'rgba(255,255,255,0.3)',
+              marginHorizontal: 12,
+            }} />
             <TextInput
+              ref={phoneInputRef}
               placeholder="Enter your mobile number"
               placeholderTextColor="rgba(255,255,255,0.4)"
               keyboardType="phone-pad"
               value={phoneInput}
               onChangeText={setPhoneInput}
-              style={styles.phoneTextInput}
+              style={{
+                flex: 1,
+                color: '#fff',
+                fontSize: 16,
+              }}
               editable={!loading}
               maxLength={14}
+              onFocus={() => {
+                if (!isFocusedState) enterFocusedState();
+              }}
+              returnKeyType="done"
             />
           </View>
 
-          {/* Send OTP Button */}
+          {/* Send OTP */}
           <TouchableOpacity
             onPress={onSendOtp}
             disabled={loading}
-            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            activeOpacity={0.85}
+            style={{
+              height: 55,
+              backgroundColor: '#fff',
+              borderRadius: 14,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 12,
+              opacity: loading ? 0.6 : 1,
+            }}
           >
             {loading ? (
               <ActivityIndicator color="#000" />
             ) : (
-              <Text style={styles.primaryButtonText}>Send OTP</Text>
+              <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Send OTP</Text>
             )}
           </TouchableOpacity>
         </>
@@ -284,34 +396,56 @@ export default function AuthScreen() {
           keyboardType="number-pad"
           placeholder="Enter OTP"
           placeholderTextColor="rgba(255,255,255,0.4)"
-          style={styles.otpInput}
+          style={{
+            height: 55,
+            borderRadius: 14,
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            paddingHorizontal: 15,
+            color: '#fff',
+            fontSize: 22,
+            letterSpacing: 6,
+            textAlign: 'center',
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.15)',
+          }}
           editable={!loading}
           maxLength={6}
+          autoFocus
         />
 
         <TouchableOpacity
           onPress={onVerifyOtp}
           disabled={loading}
-          style={[styles.primaryButton, loading && styles.buttonDisabled]}
+          activeOpacity={0.85}
+          style={{
+            height: 55,
+            backgroundColor: '#fff',
+            borderRadius: 14,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 12,
+            opacity: loading ? 0.6 : 1,
+          }}
         >
           {loading ? (
             <ActivityIndicator color="#000" />
           ) : (
-            <Text style={styles.primaryButtonText}>Verify OTP</Text>
+            <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Verify OTP</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onSendOtp}
           disabled={loading || resendCountdown > 0}
-          style={styles.linkButton}
+          style={{ alignSelf: 'center', marginTop: 2, marginBottom: 8, paddingVertical: 4 }}
         >
-          <Text
-            style={[
-              styles.linkText,
-              (loading || resendCountdown > 0) && styles.linkTextDisabled,
-            ]}
-          >
+          <Text style={{
+            color: '#c7d2fe',
+            fontSize: 14,
+            fontWeight: '500',
+            opacity: (loading || resendCountdown > 0) ? 0.5 : 1,
+          }}>
             {resendCountdown > 0 ? `Resend OTP in ${resendCountdown}s` : 'Resend OTP'}
           </Text>
         </TouchableOpacity>
@@ -319,7 +453,9 @@ export default function AuthScreen() {
     );
   };
 
-  const renderEmailMode = () => (
+  // ─── RENDER EMAIL MODE ────────────────────────────────
+
+  const renderEmailInput = () => (
     <>
       <TextInput
         value={emailInput}
@@ -328,8 +464,21 @@ export default function AuthScreen() {
         autoCapitalize="none"
         placeholder="Enter your email"
         placeholderTextColor="rgba(255,255,255,0.4)"
-        style={styles.inputField}
+        style={{
+          height: 55,
+          borderRadius: 14,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          paddingHorizontal: 15,
+          color: '#fff',
+          fontSize: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}
         editable={!loading}
+        onFocus={() => {
+          if (!isFocusedState) enterFocusedState();
+        }}
       />
 
       <TextInput
@@ -338,19 +487,38 @@ export default function AuthScreen() {
         secureTextEntry
         placeholder="Enter your password"
         placeholderTextColor="rgba(255,255,255,0.4)"
-        style={styles.inputField}
+        style={{
+          height: 55,
+          borderRadius: 14,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          paddingHorizontal: 15,
+          color: '#fff',
+          fontSize: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}
         editable={!loading}
       />
 
       <TouchableOpacity
-        style={[styles.primaryButton, loading && styles.buttonDisabled]}
         onPress={onEmailPasswordAuth}
         disabled={loading}
+        activeOpacity={0.85}
+        style={{
+          height: 55,
+          backgroundColor: '#fff',
+          borderRadius: 14,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: 12,
+          opacity: loading ? 0.6 : 1,
+        }}
       >
         {loading ? (
           <ActivityIndicator color="#000" />
         ) : (
-          <Text style={styles.primaryButtonText}>Continue</Text>
+          <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Continue</Text>
         )}
       </TouchableOpacity>
 
@@ -359,16 +527,28 @@ export default function AuthScreen() {
           setForgotMode(true);
           setErrorText('');
         }}
-        style={styles.linkButton}
+        style={{ alignSelf: 'center', marginTop: 2, marginBottom: 8, paddingVertical: 4 }}
       >
-        <Text style={styles.linkText}>Forgot password?</Text>
+        <Text style={{ color: '#c7d2fe', fontSize: 14, fontWeight: '500' }}>
+          Forgot password?
+        </Text>
       </TouchableOpacity>
     </>
   );
 
+  // ─── RENDER FORGOT MODE ───────────────────────────────
+
   const renderForgotMode = () => (
     <>
-      <Text style={styles.forgotTitle}>Reset Password</Text>
+      <Text style={{
+        color: '#f3f4f6',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 14,
+        textAlign: 'center',
+      }}>
+        Reset Password
+      </Text>
 
       <TextInput
         value={forgotEmail}
@@ -377,7 +557,17 @@ export default function AuthScreen() {
         autoCapitalize="none"
         placeholder="Enter your email"
         placeholderTextColor="rgba(255,255,255,0.4)"
-        style={styles.inputField}
+        style={{
+          height: 55,
+          borderRadius: 14,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          paddingHorizontal: 15,
+          color: '#fff',
+          fontSize: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}
         editable={!loading}
       />
 
@@ -387,7 +577,17 @@ export default function AuthScreen() {
         secureTextEntry
         placeholder="New password"
         placeholderTextColor="rgba(255,255,255,0.4)"
-        style={styles.inputField}
+        style={{
+          height: 55,
+          borderRadius: 14,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          paddingHorizontal: 15,
+          color: '#fff',
+          fontSize: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}
         editable={!loading}
       />
 
@@ -397,19 +597,38 @@ export default function AuthScreen() {
         secureTextEntry
         placeholder="Confirm password"
         placeholderTextColor="rgba(255,255,255,0.4)"
-        style={styles.inputField}
+        style={{
+          height: 55,
+          borderRadius: 14,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          paddingHorizontal: 15,
+          color: '#fff',
+          fontSize: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        }}
         editable={!loading}
       />
 
       <TouchableOpacity
-        style={[styles.primaryButton, loading && styles.buttonDisabled]}
         onPress={onForgotPassword}
         disabled={loading}
+        activeOpacity={0.85}
+        style={{
+          height: 55,
+          backgroundColor: '#fff',
+          borderRadius: 14,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: 12,
+          opacity: loading ? 0.6 : 1,
+        }}
       >
         {loading ? (
           <ActivityIndicator color="#000" />
         ) : (
-          <Text style={styles.primaryButtonText}>Reset Password</Text>
+          <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Reset Password</Text>
         )}
       </TouchableOpacity>
 
@@ -421,340 +640,240 @@ export default function AuthScreen() {
           setForgotConfirmPassword('');
           setErrorText('');
         }}
-        style={styles.linkButton}
+        style={{ alignSelf: 'center', marginTop: 2, marginBottom: 8, paddingVertical: 4 }}
       >
-        <Text style={styles.linkText}>Back to login</Text>
+        <Text style={{ color: '#c7d2fe', fontSize: 14, fontWeight: '500' }}>Back to login</Text>
       </TouchableOpacity>
 
-      {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
+      {errorText ? (
+        <Text style={{ color: '#fca5a5', marginTop: 6, marginBottom: 4, fontSize: 13, textAlign: 'center' }}>
+          {errorText}
+        </Text>
+      ) : null}
+    </>
+  );
+
+  // ─── SOCIAL BUTTONS ───────────────────────────────────
+
+  const renderSocialButtons = () => (
+    <>
+      {/* Divider */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+        marginTop: 4,
+      }}>
+        <View style={{ flex: 1, height: 1, backgroundColor: '#444' }} />
+        <Text style={{ marginHorizontal: 10, color: '#aaa', fontSize: 12 }}>Or sign in with</Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: '#444' }} />
+      </View>
+
+      {/* Social Row */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 14,
+      }}>
+        {/* Email / Phone toggle */}
+        <TouchableOpacity
+          style={{
+            width: 100,
+            height: 75,
+            backgroundColor: '#272828',
+            borderRadius: 16,
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 6,
+          }}
+          onPress={() => {
+            if (mode === 'phone') {
+              setMode('email_password');
+            } else {
+              setMode('phone');
+            }
+            resetState();
+          }}
+        >
+          <FontAwesome
+            name={mode === 'phone' ? 'envelope' : 'phone'}
+            size={24}
+            color="#fff"
+          />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+            {mode === 'phone' ? 'Email' : 'Phone'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Google */}
+        <TouchableOpacity style={{
+          width: 100,
+          height: 75,
+          backgroundColor: '#272828',
+          borderRadius: 16,
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <Image
+            source={require('../../assets/icons/google.png')}
+            style={{ width: 26, height: 26 }}
+          />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Google</Text>
+        </TouchableOpacity>
+
+        {/* Facebook */}
+        <TouchableOpacity style={{
+          width: 100,
+          height: 75,
+          backgroundColor: '#272828',
+          borderRadius: 16,
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <FontAwesome name="facebook" size={24} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Facebook</Text>
+        </TouchableOpacity>
+      </View>
     </>
   );
 
   // ─── MAIN RENDER ──────────────────────────────────────
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex1}
-      >
-        <View style={styles.flex1}>
-          {/* FULL SCREEN BACKGROUND IMAGE */}
-          <ImageBackground
-            source={loginBackground}
-            style={styles.flex1}
-            resizeMode="cover"
-          >
-            {/* BOTTOM DARK GRADIENT */}
-            <LinearGradient
-              colors={[
-                'rgba(0, 0, 0, 0)',
-                'rgba(0, 0, 0, 0.78)',
-                'rgba(0, 0, 0, 0.99)',
-                'rgba(0, 0, 0, 1)',
-              ]}
-              locations={[0, 0.6, 0.99, 1]}
-              style={StyleSheet.absoluteFillObject}
-            />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ flex: 1 }}>
 
-            {/* TOP TAGLINES */}
-            <View style={styles.topCopy}>
-              {/* <Text style={styles.taglineSmall}>Life at its fullest</Text>
-              <Text style={styles.taglineBold}>Mornings full of energy</Text> */}
-            </View>
+          {/* ═══ BACKGROUND IMAGE (Hero) ═══ */}
+          <Animated.View style={{
+            ...({ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as any),
+            transform: [{ translateY: heroTranslateY }],
+            opacity: heroOpacity,
+          }}>
+            <ImageBackground
+              source={loginBackground}
+              style={{ flex: 1 }}
+              resizeMode="cover"
+            >
+              {/* Bottom gradient */}
+              <LinearGradient
+                colors={[
+                  'rgba(0, 0, 0, 0)',
+                  'rgba(0, 0, 0, 0.78)',
+                  'rgba(0, 0, 0, 0.99)',
+                  'rgba(0, 0, 0, 1)',
+                ]}
+                locations={[0, 0.6, 0.99, 1]}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                }}
+              />
+            </ImageBackground>
+          </Animated.View>
 
-            {/* SPACER */}
-            <ScrollView style={styles.flex1} showsVerticalScrollIndicator={false}>
-              <View style={styles.topSpacer} />
-            </ScrollView>
-          </ImageBackground>
+          {/* ═══ DARK OVERLAY (appears on focus) ═══ */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              ...({ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as any),
+              backgroundColor: '#000',
+              opacity: overlayOpacity,
+              zIndex: 1,
+            }}
+          />
 
-          {/* ─── FIXED BOTTOM PANEL ─── */}
-          <View
-            style={[
-              styles.bottomPane,
-              { paddingBottom: insets.bottom + 5 },
-            ]}
-          >
-            {/* BRAND */}
-            <Text style={styles.brand}>GetFit</Text>
-            <Text style={styles.subtitle}>Sign in or Sign up</Text>
+          {/* ═══ CONTENT LAYER ═══ */}
+          <View style={{
+            flex: 1,
+            justifyContent: 'flex-end',
+            zIndex: 2,
+          }}>
+            <Animated.View style={{
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom + 10,
+              transform: [{ translateY: panelTranslateY }],
+            }}>
 
-            {/* AUTH FORMS */}
-            {!forgotMode ? (
-              <>
-                {mode === 'phone' ? renderPhoneMode() : renderEmailMode()}
+              {/* ─── BACK BUTTON (visible in focused state) ─── */}
+              {isFocusedState && (
+                <TouchableOpacity
+                  onPress={exitFocusedState}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 20,
+                    alignSelf: 'flex-start',
+                    paddingVertical: 6,
+                    paddingHorizontal: 2,
+                  }}
+                >
+                  <FontAwesome name="chevron-left" size={14} color="rgba(255,255,255,0.7)" />
+                  <Text style={{
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: 14,
+                    fontWeight: '500',
+                    marginLeft: 8,
+                  }}>
+                    Back
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-                {/* Error */}
-                {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
+              {/* ─── BRAND ─── */}
+              <Text style={{
+                color: '#fff',
+                fontSize: isFocusedState ? 26 : 32,
+                fontWeight: '900',
+                fontStyle: 'italic',
+              }}>
+                GetFit
+              </Text>
+              <Text style={{
+                color: '#ccc',
+                marginBottom: 15,
+                fontSize: isFocusedState ? 15 : 18,
+                fontWeight: '600',
+              }}>
+                Sign in or Sign up
+              </Text>
 
-                {/* DIVIDER */}
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>Or sign in with</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+              {/* ─── AUTH FORMS ─── */}
+              {!forgotMode ? (
+                <>
+                  {mode === 'phone' ? renderPhoneInput() : renderEmailInput()}
 
-                {/* ─── SOCIAL BUTTONS ─── */}
-                <View style={styles.socialRow}>
-
-                  {/* Button 1: Email ↔ Phone toggle */}
-                  <TouchableOpacity
-                    style={styles.socialButton}
-                    onPress={() => {
-                      if (mode === 'phone') {
-                        setMode('email_password');
-                      } else {
-                        setMode('phone');
-                      }
-                      resetState();
-                    }}
-                  >
-                    <FontAwesome
-                      name={mode === 'phone' ? 'envelope' : 'phone'}
-                      size={24}
-                      color="#fff"
-                    />
-                    <Text style={styles.socialLabel}>
-                      {mode === 'phone' ? 'Email' : 'Phone'}
+                  {/* Error */}
+                  {errorText ? (
+                    <Text style={{
+                      color: '#fca5a5',
+                      marginTop: 6,
+                      marginBottom: 4,
+                      fontSize: 13,
+                      textAlign: 'center',
+                    }}>
+                      {errorText}
                     </Text>
-                  </TouchableOpacity>
+                  ) : null}
 
-                  {/* Button 2: Google */}
-                  <TouchableOpacity style={styles.socialButton}>
-                    <Image
-                      source={require('../../assets/icons/google.png')}
-                      style={styles.socialIcon}
-                    />
-                    <Text style={styles.socialLabel}>Google</Text>
-                  </TouchableOpacity>
-
-                  {/* Button 3: Facebook */}
-                  <TouchableOpacity style={styles.socialButtonFacebook}>
-                    <FontAwesome name="facebook" size={24} color="#fff" />
-                    <Text style={styles.socialLabel}>Facebook</Text>
-                  </TouchableOpacity>
-
-                </View>
-              </>
-            ) : (
-              renderForgotMode()
-            )}
+                  {/* Social Buttons */}
+                  {renderSocialButtons()}
+                </>
+              ) : (
+                renderForgotMode()
+              )}
+            </Animated.View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
-
-// ─── STYLES ──────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  flex1: {
-    flex: 1,
-  },
-
-  // ─── TOP TAGLINES ─────────────────────────────────────
-  topCopy: {
-    paddingTop: 60,
-    paddingHorizontal: 16,
-  },
-  taglineSmall: {
-    color: '#fff',
-    fontSize: 22,
-    opacity: 0.7,
-  },
-  taglineBold: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  topSpacer: {
-    height: 280,
-  },
-
-  // ─── BOTTOM PANEL ─────────────────────────────────────
-  bottomPane: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-  },
-  brand: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '900',
-    fontStyle: 'italic',
-  },
-  subtitle: {
-    color: '#ccc',
-    marginBottom: 15,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-
-  // ─── PHONE INPUT ROW ─────────────────────────────────
-  inputRow: {
-    height: 55,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  flagEmoji: {
-    fontSize: 22,
-    marginRight: 8,
-  },
-  countryCode: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  inputDivider: {
-    width: 1,
-    height: 22,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    marginHorizontal: 12,
-  },
-  phoneTextInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-  },
-
-  // ─── GENERAL INPUT FIELD ──────────────────────────────
-  inputField: {
-    height: 55,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 15,
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 12,
-  },
-
-  // ─── OTP INPUT ────────────────────────────────────────
-  otpInput: {
-    height: 55,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 15,
-    color: '#fff',
-    fontSize: 22,
-    letterSpacing: 6,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-
-  // ─── PRIMARY BUTTON ──────────────────────────────────
-  primaryButton: {
-    height: 55,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  primaryButtonText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-
-  // ─── LINKS ────────────────────────────────────────────
-  linkButton: {
-    alignSelf: 'center',
-    marginTop: 2,
-    marginBottom: 8,
-    paddingVertical: 4,
-  },
-  linkText: {
-    color: '#c7d2fe',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  linkTextDisabled: {
-    opacity: 0.5,
-  },
-
-  // ─── DIVIDER ──────────────────────────────────────────
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-    marginTop: 4,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#444',
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: '#aaa',
-    fontSize: 12,
-  },
-
-  // ─── SOCIAL BUTTONS ──────────────────────────────────
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 14,
-  },
-  socialButton: {
-    width: 100,
-    height: 75,
-    backgroundColor: '#272828',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  socialButtonFacebook: {
-    width: 100,
-    height: 75,
-    backgroundColor: '#272828',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  socialIcon: {
-    width: 26,
-    height: 26,
-  },
-  socialLabel: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // ─── ERROR / FORGOT ──────────────────────────────────
-  errorText: {
-    color: '#fca5a5',
-    marginTop: 6,
-    marginBottom: 4,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  forgotTitle: {
-    color: '#f3f4f6',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 14,
-    textAlign: 'center',
-  },
-});
