@@ -3,15 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import GlassTabBar from '@/components/GlassTabBar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMe, setAuthToken, updateProfile } from '@/services/api';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
@@ -37,15 +33,19 @@ export default function TabLayout() {
     (async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        if (token) {
-          setAuthToken(token);
-          setChecking(false);
-        } else {
-          // not authenticated -> send to login
+        if (!token) {
           router.replace('/auth');
+          return;
         }
-      } catch (e) {
-        console.warn('auth check failed', e);
+        // Set header and verify token is still valid
+        setAuthToken(token);
+        await getMe();
+        setChecking(false);
+      } catch (e: any) {
+        console.warn('auth check failed', e?.response?.status || e);
+        // Token is invalid / expired → clear and redirect
+        await AsyncStorage.removeItem('token');
+        setAuthToken(null);
         router.replace('/auth');
       }
     })();
@@ -171,38 +171,36 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <GlassTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calories"
-        options={{
-          title: 'Calories',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="flame.fill" color={color} />,
-        }}
+        options={{ title: 'Home' }}
       />
       <Tabs.Screen
         name="workout"
-        options={{
-          title: 'Workout',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="figure.walk" color={color} />,
-        }}
+        options={{ title: 'Workout' }}
+      />
+      <Tabs.Screen
+        name="ai-trainer"
+        options={{ title: 'AI Trainer' }}
+      />
+      <Tabs.Screen
+        name="calories"
+        options={{ title: 'Calories' }}
       />
       <Tabs.Screen
         name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
-        }}
+        options={{ title: 'Profile' }}
       />
     </Tabs>
   );

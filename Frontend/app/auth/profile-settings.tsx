@@ -5,7 +5,6 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   TextInput,
@@ -28,6 +27,17 @@ import {
   deleteUserAccount,
   setAuthToken,
 } from '../../services/api';
+
+// ─── THEME ──────────────────────────────────────────────
+const THEME = {
+  bg: '#f1f0ec',
+  card: '#ffffff',
+  textPrimary: '#111111',
+  textSecondary: '#666666',
+  accent: '#22c55e',
+  accentLight: '#dcfce7',
+  border: 'rgba(0,0,0,0.05)',
+};
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
@@ -218,9 +228,9 @@ export default function ProfileSettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.page}>
-        <View style={styles.center}>
-          <ActivityIndicator color="#fff" size="large" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: THEME.bg }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={THEME.accent} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -229,164 +239,512 @@ export default function ProfileSettingsScreen() {
   // ─── Render ───────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: THEME.bg }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* ─── BACK HEADER ─── */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <FontAwesome name="chevron-left" size={16} color="#fff" />
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ─── HEADER ─── */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: 8,
+            paddingBottom: 8,
+          }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: THEME.card,
+                justifyContent: 'center',
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
+            >
+              <FontAwesome name="chevron-left" size={14} color={THEME.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Settings</Text>
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: THEME.textPrimary,
+            }}>
+              Settings
+            </Text>
             <View style={{ width: 40 }} />
           </View>
 
           {/* ─── AVATAR SECTION ─── */}
-          <View style={styles.avatarSection}>
-            {hasAvatar ? (
-              <Image source={{ uri: avatarUri }} style={styles.largeAvatar} />
-            ) : (
-              <View style={[styles.largeAvatar, styles.initialsAvatar]}>
-                <Text style={styles.initialsText}>{getInitials()}</Text>
-              </View>
-            )}
-            <TouchableOpacity style={styles.editPhotoButton} onPress={onPickPhoto}>
-              <FontAwesome name="camera" size={14} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.editPhotoText}>Edit Photo</Text>
+          <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 28 }}>
+            {/* Glow ring */}
+            <View style={{
+              width: 110,
+              height: 110,
+              borderRadius: 55,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: THEME.card,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 16,
+              elevation: 6,
+              borderWidth: 3,
+              borderColor: 'rgba(0,0,0,0.04)',
+            }}>
+              {hasAvatar ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={{ width: 98, height: 98, borderRadius: 49 }}
+                />
+              ) : (
+                <View style={{
+                  width: 98,
+                  height: 98,
+                  borderRadius: 49,
+                  backgroundColor: THEME.accentLight,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{
+                    fontSize: 42,
+                    fontWeight: '700',
+                    color: THEME.accent,
+                  }}>
+                    {getInitials()}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 12,
+                paddingVertical: 6,
+                paddingHorizontal: 14,
+                borderRadius: 16,
+                backgroundColor: THEME.card,
+                borderWidth: 1,
+                borderColor: THEME.border,
+              }}
+              onPress={onPickPhoto}
+            >
+              <FontAwesome name="camera" size={12} color={THEME.textSecondary} style={{ marginRight: 6 }} />
+              <Text style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: THEME.textPrimary,
+              }}>
+                Edit Photo
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* ─── USER INFO ─── */}
-          <Text style={styles.sectionLabel}>Personal Info</Text>
-          <View style={styles.infoCard}>
+          {/* ─── PERSONAL INFO ─── */}
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '700',
+            color: THEME.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            marginBottom: 10,
+          }}>
+            Personal Info
+          </Text>
+
+          <View style={{
+            backgroundColor: THEME.card,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: THEME.border,
+            overflow: 'hidden',
+            marginBottom: 24,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}>
             {/* Name */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <FontAwesome name="user" size={16} color="#fff" />
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+            }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#f3f4f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <FontAwesome name="user" size={16} color={THEME.textSecondary} />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Name</Text>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: THEME.textSecondary,
+                }}>
+                  Name
+                </Text>
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  style={styles.infoInput}
-                  placeholderTextColor="#6B7280"
+                  style={{
+                    color: THEME.textPrimary,
+                    fontSize: 16,
+                    fontWeight: '600',
+                    marginTop: 2,
+                    padding: 0,
+                  }}
+                  placeholderTextColor="#aaa"
                   placeholder="Your name"
                 />
               </View>
             </View>
 
-            <View style={styles.infoDivider} />
+            <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.04)', marginHorizontal: 16 }} />
 
             {/* Email */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <FontAwesome name="envelope" size={14} color="#fff" />
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+            }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#f3f4f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <FontAwesome name="envelope" size={14} color={THEME.textSecondary} />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{user?.email || 'Not set'}</Text>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: THEME.textSecondary,
+                }}>
+                  Email
+                </Text>
+                <Text style={{
+                  color: THEME.textPrimary,
+                  fontSize: 16,
+                  fontWeight: '600',
+                  marginTop: 2,
+                }}>
+                  {user?.email || 'Not set'}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.infoDivider} />
+            <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.04)', marginHorizontal: 16 }} />
 
-            {/* Phone */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <FontAwesome name="phone" size={16} color="#fff" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{user?.phone || 'Not set'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoDivider} />
-
-            {/* Password */}
+            {/* Phone + Password side by side */}
             <TouchableOpacity
-              style={styles.infoRow}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+              }}
               onPress={() => setPasswordModalVisible(true)}
+              activeOpacity={0.7}
             >
-              <View style={styles.infoIconBg}>
-                <FontAwesome name="lock" size={16} color="#fff" />
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#f3f4f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <FontAwesome name="phone" size={16} color={THEME.textSecondary} />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Password</Text>
-                <Text style={styles.infoValue}>••••••••</Text>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: THEME.textSecondary,
+                }}>
+                  Phone
+                </Text>
+                <Text style={{
+                  color: THEME.textPrimary,
+                  fontSize: 16,
+                  fontWeight: '600',
+                  marginTop: 2,
+                }}>
+                  {user?.phone || 'Not set'}
+                </Text>
               </View>
-              <FontAwesome name="chevron-right" size={14} color="#6B7280" />
+
+              {/* Password column */}
+              <View style={{ marginRight: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: THEME.textSecondary,
+                }}>
+                  Password
+                </Text>
+                <Text style={{
+                  color: THEME.textPrimary,
+                  fontSize: 16,
+                  fontWeight: '600',
+                  marginTop: 2,
+                }}>
+                  ••••••••
+                </Text>
+              </View>
+              <FontAwesome name="chevron-right" size={12} color="#ccc" />
             </TouchableOpacity>
           </View>
 
+          {/* ─── SECURITY INFO ─── */}
+          <View style={{
+            backgroundColor: THEME.card,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: THEME.border,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 24,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: '#dbeafe',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <FontAwesome name="shield" size={16} color="#3b82f6" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '700',
+                color: THEME.textPrimary,
+              }}>
+                Security
+              </Text>
+              <Text style={{
+                fontSize: 12,
+                color: THEME.textSecondary,
+                marginTop: 2,
+                lineHeight: 17,
+              }}>
+                Two-factor authentication (2FA) is authentically monitored.
+              </Text>
+            </View>
+          </View>
+
           {/* ─── SETTINGS ─── */}
-          <Text style={styles.sectionLabel}>Settings</Text>
-          <View style={styles.infoCard}>
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '700',
+            color: THEME.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            marginBottom: 10,
+          }}>
+            Settings
+          </Text>
+
+          <View style={{
+            backgroundColor: THEME.card,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: THEME.border,
+            overflow: 'hidden',
+            marginBottom: 24,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}>
             {/* Notifications */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconBg}>
-                <FontAwesome name="bell" size={16} color="#fff" />
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+            }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#f3f4f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <FontAwesome name="bell" size={16} color={THEME.textSecondary} />
               </View>
-              <View style={[styles.infoContent, { flexDirection: 'row', alignItems: 'center' }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoLabel}>Notifications</Text>
-                  <Text style={styles.infoSubtext}>
-                    {notificationsEnabled ? 'Enabled' : 'Disabled'}
-                  </Text>
-                </View>
+              <View style={{
+                flex: 1,
+                marginLeft: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+                <Text style={{
+                  flex: 1,
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: THEME.textPrimary,
+                }}>
+                  Notifications
+                </Text>
                 <Switch
                   value={notificationsEnabled}
                   onValueChange={setNotificationsEnabled}
-                  trackColor={{ false: '#3A3A3A', true: '#34D399' }}
+                  trackColor={{ false: '#e5e7eb', true: '#22c55e' }}
                   thumbColor="#fff"
                 />
               </View>
             </View>
 
-            <View style={styles.infoDivider} />
+            <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.04)', marginHorizontal: 16 }} />
 
             {/* Privacy Policy */}
             <TouchableOpacity
-              style={styles.infoRow}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+              }}
               onPress={() => Linking.openURL('https://getfit.app/privacy')}
+              activeOpacity={0.7}
             >
-              <View style={styles.infoIconBg}>
-                <FontAwesome name="shield" size={16} color="#fff" />
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#f3f4f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <FontAwesome name="shield" size={16} color={THEME.textSecondary} />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Privacy Policy</Text>
-              </View>
-              <FontAwesome name="external-link" size={14} color="#6B7280" />
+              <Text style={{
+                flex: 1,
+                marginLeft: 14,
+                fontSize: 15,
+                fontWeight: '600',
+                color: THEME.textPrimary,
+              }}>
+                Privacy Policy
+              </Text>
+              <FontAwesome name="external-link" size={14} color="#ccc" />
             </TouchableOpacity>
           </View>
 
-          {/* ─── SAVE BUTTON ─── */}
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={onSave}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
+          {/* ─── ACTION BUTTONS ─── */}
+          <View style={{
+            flexDirection: 'row',
+            gap: 12,
+            marginBottom: 12,
+          }}>
+            {/* Save Changes */}
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: THEME.card,
+                borderRadius: 14,
+                height: 50,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: THEME.border,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
+              onPress={onSave}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator color={THEME.textPrimary} />
+              ) : (
+                <Text style={{
+                  color: THEME.textPrimary,
+                  fontSize: 15,
+                  fontWeight: '700',
+                }}>
+                  Save Changes
+                </Text>
+              )}
+            </TouchableOpacity>
 
-          {/* ─── SIGN OUT ─── */}
-          <TouchableOpacity style={styles.signOutButton} onPress={onSignOut} activeOpacity={0.8}>
-            <FontAwesome name="sign-out" size={18} color="#F87171" style={{ marginRight: 10 }} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+            {/* Sign Out */}
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: THEME.card,
+                borderRadius: 14,
+                height: 50,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: THEME.border,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
+              onPress={onSignOut}
+              activeOpacity={0.8}
+            >
+              <FontAwesome name="sign-out" size={16} color={THEME.textPrimary} style={{ marginRight: 8 }} />
+              <Text style={{
+                color: THEME.textPrimary,
+                fontSize: 15,
+                fontWeight: '700',
+              }}>
+                Sign Out
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* ─── DELETE ACCOUNT ─── */}
+          {/* Delete Account */}
           <TouchableOpacity
-            style={styles.deleteButton}
+            style={{
+              backgroundColor: THEME.card,
+              borderRadius: 14,
+              height: 50,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(220,38,38,0.12)',
+              marginBottom: 20,
+            }}
             onPress={onDeleteAccount}
             disabled={deleting}
             activeOpacity={0.8}
@@ -395,13 +753,19 @@ export default function ProfileSettingsScreen() {
               <ActivityIndicator color="#DC2626" />
             ) : (
               <>
-                <FontAwesome name="trash" size={16} color="#DC2626" style={{ marginRight: 10 }} />
-                <Text style={styles.deleteButtonText}>Delete My Account</Text>
+                <FontAwesome name="trash" size={14} color="#DC2626" style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: '#DC2626',
+                  fontSize: 15,
+                  fontWeight: '700',
+                }}>
+                  Delete My Account
+                </Text>
               </>
             )}
           </TouchableOpacity>
 
-          <View style={{ height: 30 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -416,54 +780,140 @@ export default function ProfileSettingsScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Change Password</Text>
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            justifyContent: 'flex-end',
+          }}>
+            <View style={{
+              backgroundColor: THEME.card,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 16,
+              elevation: 10,
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 24,
+              }}>
+                <Text style={{
+                  color: THEME.textPrimary,
+                  fontSize: 22,
+                  fontWeight: '700',
+                }}>
+                  Change Password
+                </Text>
                 <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
-                  <FontAwesome name="times" size={20} color="#fff" />
+                  <FontAwesome name="times" size={20} color={THEME.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.modalLabel}>Current Password</Text>
+              <Text style={{
+                color: THEME.textSecondary,
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+              }}>
+                Current Password
+              </Text>
               <TextInput
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
                 secureTextEntry
                 placeholder="Enter current password"
-                placeholderTextColor="#6B7280"
-                style={styles.modalInput}
+                placeholderTextColor="#bbb"
+                style={{
+                  backgroundColor: '#f5f5f4',
+                  borderRadius: 12,
+                  padding: 14,
+                  color: THEME.textPrimary,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(0,0,0,0.06)',
+                }}
               />
 
-              <Text style={styles.modalLabel}>New Password</Text>
+              <Text style={{
+                color: THEME.textSecondary,
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+                marginTop: 14,
+              }}>
+                New Password
+              </Text>
               <TextInput
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry
                 placeholder="Enter new password"
-                placeholderTextColor="#6B7280"
-                style={styles.modalInput}
+                placeholderTextColor="#bbb"
+                style={{
+                  backgroundColor: '#f5f5f4',
+                  borderRadius: 12,
+                  padding: 14,
+                  color: THEME.textPrimary,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(0,0,0,0.06)',
+                }}
               />
 
-              <Text style={styles.modalLabel}>Confirm Password</Text>
+              <Text style={{
+                color: THEME.textSecondary,
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+                marginTop: 14,
+              }}>
+                Confirm Password
+              </Text>
               <TextInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 placeholder="Confirm new password"
-                placeholderTextColor="#6B7280"
-                style={styles.modalInput}
+                placeholderTextColor="#bbb"
+                style={{
+                  backgroundColor: '#f5f5f4',
+                  borderRadius: 12,
+                  padding: 14,
+                  color: THEME.textPrimary,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(0,0,0,0.06)',
+                }}
               />
 
               <TouchableOpacity
-                style={styles.modalSaveButton}
+                style={{
+                  backgroundColor: THEME.accent,
+                  borderRadius: 12,
+                  height: 50,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginTop: 24,
+                  marginBottom: 16,
+                }}
                 onPress={onChangePassword}
                 disabled={changingPassword}
               >
                 {changingPassword ? (
-                  <ActivityIndicator color="#000" />
+                  <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.modalSaveButtonText}>Change Password</Text>
+                  <Text style={{
+                    color: '#fff',
+                    fontSize: 16,
+                    fontWeight: '700',
+                  }}>
+                    Change Password
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -473,251 +923,3 @@ export default function ProfileSettingsScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── STYLES ─────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-
-  // Avatar Section
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  largeAvatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: '#2D2D2D',
-    borderWidth: 3,
-    borderColor: '#3A3A3A',
-    marginBottom: 14,
-  },
-  editPhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  editPhotoText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // Section
-  sectionLabel: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 10,
-  },
-
-  // Info Card
-  infoCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  infoIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#2D2D2D',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoContent: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  infoLabel: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  infoValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  infoInput: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 2,
-    padding: 0,
-  },
-  infoSubtext: {
-    color: '#6B7280',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  infoDivider: {
-    height: 1,
-    backgroundColor: '#2A2A2A',
-    marginHorizontal: 16,
-  },
-
-  // Save Button
-  saveButton: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  saveButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  // Sign Out
-  signOutButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(248,113,113,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.2)',
-  },
-  signOutText: {
-    color: '#F87171',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  // Delete Account
-  deleteButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(220,38,38,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(220,38,38,0.15)',
-    marginTop: 12,
-  },
-  deleteButtonText: {
-    color: '#DC2626',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  // Initials Avatar
-  initialsAvatar: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#2D2D2D',
-  },
-  initialsText: {
-    color: '#fff',
-    fontSize: 40,
-    fontWeight: '700',
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1A1A1A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  modalLabel: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  modalInput: {
-    backgroundColor: '#242424',
-    borderRadius: 12,
-    padding: 14,
-    color: '#fff',
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#3A3A3A',
-  },
-  modalSaveButton: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  modalSaveButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

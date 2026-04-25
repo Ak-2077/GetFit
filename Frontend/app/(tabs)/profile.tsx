@@ -5,58 +5,212 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { getUserProfile, setAuthToken } from '../../services/api';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Text as SvgText, Line } from 'react-native-svg';
+import { getUserProfile, getWeeklyCalories, setAuthToken } from '../../services/api';
+
+// ─── THEME ──────────────────────────────────────────────
+const THEME = {
+  bg: '#f1f0ec',
+  card: '#ffffff',
+  textPrimary: '#111111',
+  textSecondary: '#666666',
+  accent: '#22c55e',
+  accentLight: '#dcfce7',
+  border: 'rgba(0,0,0,0.05)',
+};
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 // ─── HELPERS ────────────────────────────────────────────
 
 function getBmiCategory(bmi: number) {
-  if (bmi < 18.5) return { label: 'Underweight', color: '#60A5FA' };
-  if (bmi <= 24.9) return { label: 'Normal', color: '#34D399' };
-  if (bmi <= 29.9) return { label: 'Overweight', color: '#FBBF24' };
-  return { label: 'Obese', color: '#F87171' };
-}
-
-function formatGoal(goal: string) {
-  if (goal === 'lose') return 'Lose Weight';
-  if (goal === 'gain') return 'Gain Weight';
-  if (goal === 'maintain') return 'Maintain';
-  if (goal === 'lose_fat') return 'Lose Fat';
-  if (goal === 'gain_muscle') return 'Gain Muscle';
-  return goal || '—';
-}
-
-function formatLevel(level: string) {
-  if (level === 'beginner') return 'Beginner';
-  if (level === 'intermediate') return 'Intermediate';
-  if (level === 'advanced') return 'Advanced';
-  return level || '—';
-}
-
-function formatDiet(diet: string) {
-  if (diet === 'veg') return 'Vegetarian';
-  if (diet === 'non_veg') return 'Non-Veg';
-  return diet || '—';
-}
-
-function formatBodyType(bodyType: string) {
-  if (bodyType === 'ectomorph') return 'Ectomorph';
-  if (bodyType === 'mesomorph') return 'Mesomorph';
-  if (bodyType === 'endomorph') return 'Endomorph';
-  return bodyType || '—';
+  if (bmi < 18.5) return { label: 'Underweight', range: '< 18.5', color: '#60A5FA' };
+  if (bmi < 25) return { label: 'Normal', range: '18.5 – 24.9', color: '#22c55e' };
+  if (bmi < 30) return { label: 'Overweight', range: '25 – 29.9', color: '#f59e0b' };
+  return { label: 'Obese', range: '≥ 30', color: '#ef4444' };
 }
 
 function formatSubscription(plan: string) {
-  if (plan === 'pro') return 'AI Trainer Pro';
-  if (plan === 'pro_plus') return 'AI Trainer Pro Plus';
-  return 'AI Trainer (Free)';
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'pro_plus') return 'Pro Plus';
+  return 'Free';
+}
+
+// ─── WEEKLY CHART COMPONENT (REAL DATA) ─────────────────
+
+interface WeeklyDataPoint {
+  day: string;
+  calories: number;
+}
+
+interface ChartProps {
+  weeklyData: WeeklyDataPoint[];
+  goalCalories: number;
+  bmi: number | null;
+  loading: boolean;
+}
+
+function WeeklyChart({ weeklyData, goalCalories, bmi, loading }: ChartProps) {
+  const chartWidth = SCREEN_WIDTH - 72;
+  const chartHeight = 140;
+
+  if (loading) {
+    return (
+      <View style={{
+        height: chartHeight + 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <ActivityIndicator color={THEME.accent} size="small" />
+        <Text style={{ fontSize: 12, color: THEME.textSecondary, marginTop: 8 }}>
+          Loading chart…
+        </Text>
+      </View>
+    );
+  }
+
+  const calorieValues = weeklyData.map(d => d.calories);
+  const hasData = calorieValues.some(v => v > 0);
+
+  if (!hasData) {
+    return (
+      <View style={{
+        height: chartHeight + 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <FontAwesome name="bar-chart" size={28} color="rgba(0,0,0,0.1)" />
+        <Text style={{ fontSize: 13, color: THEME.textSecondary, marginTop: 8 }}>
+          No calorie data this week
+        </Text>
+        <Text style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+          Log food to see your progress
+        </Text>
+      </View>
+    );
+  }
+
+  const maxVal = Math.max(...calorieValues) * 1.15 || 100;
+  const minVal = Math.min(...calorieValues.filter(v => v > 0)) * 0.7 || 0;
+  const range = maxVal - minVal || 1;
+
+  const points = calorieValues.map((val, i) => {
+    const x = (i / (calorieValues.length - 1)) * chartWidth;
+    const y = chartHeight - ((val - minVal) / range) * (chartHeight - 20) - 10;
+    return { x, y: Math.max(5, Math.min(chartHeight - 5, y)) };
+  });
+
+  // Build smooth bezier curve
+  let linePath = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const cp1x = points[i].x + (points[i + 1].x - points[i].x) / 3;
+    const cp1y = points[i].y;
+    const cp2x = points[i + 1].x - (points[i + 1].x - points[i].x) / 3;
+    const cp2y = points[i + 1].y;
+    linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${points[i + 1].x} ${points[i + 1].y}`;
+  }
+
+  const areaPath = linePath +
+    ` L ${points[points.length - 1].x} ${chartHeight} L ${points[0].x} ${chartHeight} Z`;
+
+  // Goal line position
+  const goalY = goalCalories > 0
+    ? chartHeight - ((goalCalories - minVal) / range) * (chartHeight - 20) - 10
+    : -1;
+
+  return (
+    <View>
+      <Svg width={chartWidth} height={chartHeight + 30}>
+        <Defs>
+          <SvgGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#22c55e" stopOpacity="0.35" />
+            <Stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+          </SvgGradient>
+        </Defs>
+
+        {/* Area fill */}
+        <Path d={areaPath} fill="url(#areaGrad)" />
+
+        {/* Line */}
+        <Path
+          d={linePath}
+          stroke="#22c55e"
+          strokeWidth={2.5}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Goal dashed line */}
+        {goalY >= 0 && goalY <= chartHeight && (
+          <Line
+            x1={0}
+            y1={goalY}
+            x2={chartWidth}
+            y2={goalY}
+            stroke="rgba(0,0,0,0.1)"
+            strokeWidth={1}
+            strokeDasharray="5,5"
+          />
+        )}
+
+        {/* Dots */}
+        {points.map((p, i) => (
+          <React.Fragment key={i}>
+            <Circle cx={p.x} cy={p.y} r={4} fill="#ffffff" stroke="#22c55e" strokeWidth={2} />
+          </React.Fragment>
+        ))}
+
+        {/* X-axis labels */}
+        {weeklyData.map((d, i) => {
+          const x = (i / (weeklyData.length - 1)) * chartWidth;
+          return (
+            <SvgText
+              key={d.day + i}
+              x={x}
+              y={chartHeight + 20}
+              fontSize={11}
+              fill="#999999"
+              textAnchor="middle"
+              fontWeight="500"
+            >
+              {d.day}
+            </SvgText>
+          );
+        })}
+      </Svg>
+
+      {/* Legend row */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+        paddingHorizontal: 4,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e' }} />
+          <Text style={{ fontSize: 12, color: THEME.textSecondary }}>
+            Surplus: {goalCalories ? `${goalCalories} kcal` : '—'}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#60A5FA' }} />
+          <Text style={{ fontSize: 12, color: THEME.textSecondary }}>
+            BMI: {bmi ? bmi.toFixed(1) : '—'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 // ─── MAIN COMPONENT ─────────────────────────────────────
@@ -65,34 +219,54 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [weeklyData, setWeeklyData] = useState<WeeklyDataPoint[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
 
   const loadProfile = useCallback(async () => {
     try {
-      // Ensure auth token is set
       const token = await AsyncStorage.getItem('token');
-      if (token) setAuthToken(token);
+      if (!token) {
+        router.replace('/auth' as any);
+        return;
+      }
+      setAuthToken(token);
 
-      const res = await getUserProfile();
-      setUser(res.data);
+      // Fetch profile and weekly calories in parallel
+      const [profileRes, weeklyRes] = await Promise.all([
+        getUserProfile(),
+        getWeeklyCalories().catch(() => ({ data: { data: [] } })),
+      ]);
+
+      setUser(profileRes.data);
+      setWeeklyData(weeklyRes.data?.data || []);
     } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        await AsyncStorage.removeItem('token');
+        setAuthToken(null);
+        router.replace('/auth' as any);
+        return;
+      }
       console.warn('Failed to load profile', err?.response?.data || err.message);
     } finally {
       setLoading(false);
+      setChartLoading(false);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
+      setChartLoading(true);
       loadProfile();
     }, [loadProfile])
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.page}>
-        <View style={styles.center}>
-          <ActivityIndicator color="#fff" size="large" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: THEME.bg }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={THEME.accent} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -100,440 +274,531 @@ export default function ProfileScreen() {
 
   const bmi = user?.bmi || null;
   const bmiInfo = bmi ? getBmiCategory(bmi) : null;
-  const isProfileComplete = user?.onboardingCompleted === true;
 
   return (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ─── HEADER ─── */}
-        <Text style={styles.headerTitle}>Profile</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: THEME.bg }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ═══════════════ HEADER ═══════════════ */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: 12,
+          paddingBottom: 8,
+        }}>
+          <Text style={{
+            fontSize: 28,
+            fontWeight: '800',
+            color: THEME.textPrimary,
+            letterSpacing: -0.5,
+          }}>
+            Profile
+          </Text>
 
-        {/* ─── USER CARD ─── */}
-        <View style={styles.userCard}>
-          <View style={styles.userInfo}>
-            <View>
-              <Text style={styles.userName}>{user?.name || '—'}</Text>
-              <Text style={styles.userSubtitle}>On a fitness journey 💪</Text>
-            </View>
-          </View>
           <TouchableOpacity
             onPress={() => router.push('/auth/profile-settings' as any)}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              backgroundColor: THEME.card,
+              justifyContent: 'center',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
           >
-            {user?.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.initialsAvatar]}>
-                <Text style={styles.initialsText}>
-                  {(user?.name || '?').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <View style={styles.avatarBadge}>
-              <FontAwesome name="cog" size={10} color="#000" />
-            </View>
+            <FontAwesome name="cog" size={18} color={THEME.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* ─── INCOMPLETE PROFILE BANNER ─── */}
-        {!isProfileComplete && (
-          <TouchableOpacity
-            style={styles.incompleteBanner}
-            onPress={() => router.push('/auth/onboarding' as any)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.incompleteBannerIcon}>
-              <FontAwesome name="exclamation-circle" size={20} color="#FBBF24" />
+        {/* ═══════════════ AVATAR SECTION ═══════════════ */}
+        <View style={{ alignItems: 'center', marginTop: 12, marginBottom: 24 }}>
+          <View style={{
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: THEME.accent,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.35,
+            shadowRadius: 20,
+            elevation: 10,
+          }}>
+            <View style={{
+              width: 96,
+              height: 96,
+              borderRadius: 48,
+              borderWidth: 3,
+              borderColor: THEME.accent,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: THEME.card,
+            }}>
+              {user?.avatar ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={{ width: 86, height: 86, borderRadius: 43 }}
+                />
+              ) : (
+                <View style={{
+                  width: 86,
+                  height: 86,
+                  borderRadius: 43,
+                  backgroundColor: THEME.accentLight,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{
+                    fontSize: 36,
+                    fontWeight: '700',
+                    color: THEME.accent,
+                  }}>
+                    {(user?.name || '?').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.incompleteBannerTitle}>Complete your profile</Text>
-              <Text style={styles.incompleteBannerSub}>Tap to set up your fitness data</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={14} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-
-        {/* ─── FITNESS DATA CARDS ─── */}
-        <Text style={styles.sectionLabel}>Fitness Overview</Text>
-        <View style={styles.cardsGrid}>
-          {/* Goal */}
-          <View style={styles.card}>
-            <View style={[styles.cardIconBg, { backgroundColor: 'rgba(251,191,36,0.15)' }]}>
-              <FontAwesome name="bullseye" size={18} color="#FBBF24" />
-            </View>
-            <Text style={styles.cardLabel}>Goal</Text>
-            <Text style={styles.cardValue}>{formatGoal(user?.goal)}</Text>
           </View>
 
-          {/* BMI */}
-          <View style={styles.card}>
-            <View style={[styles.cardIconBg, { backgroundColor: `${bmiInfo?.color || '#60A5FA'}20` }]}>
-              <FontAwesome name="heartbeat" size={18} color={bmiInfo?.color || '#60A5FA'} />
+          <Text style={{
+            fontSize: 22,
+            fontWeight: '700',
+            color: THEME.textPrimary,
+            marginTop: 14,
+          }}>
+            {user?.name || '—'}
+          </Text>
+          <Text style={{
+            fontSize: 14,
+            color: THEME.textSecondary,
+            marginTop: 4,
+          }}>
+            On a fitness journey 💪
+          </Text>
+        </View>
+
+        {/* ═══════════════ PROGRESS GRAPH CARD ═══════════════ */}
+        <View style={{
+          backgroundColor: THEME.card,
+          borderRadius: 20,
+          padding: 20,
+          marginBottom: 20,
+          borderWidth: 1,
+          borderColor: THEME.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.04,
+          shadowRadius: 12,
+          elevation: 3,
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '700',
+              color: THEME.textPrimary,
+            }}>
+              Weekly Calories
+            </Text>
+            <View style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: THEME.accentLight,
+            }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: THEME.accent,
+              }}>
+                This Week
+              </Text>
             </View>
-            <Text style={styles.cardLabel}>BMI</Text>
-            <Text style={styles.cardValue}>{bmi ? bmi.toFixed(1) : '—'}</Text>
-            {bmiInfo && (
-              <View style={[styles.badge, { backgroundColor: `${bmiInfo.color}20` }]}>
-                <Text style={[styles.badgeText, { color: bmiInfo.color }]}>{bmiInfo.label}</Text>
+          </View>
+
+          <WeeklyChart
+            weeklyData={weeklyData}
+            goalCalories={user?.goalCalories || 0}
+            bmi={bmi}
+            loading={chartLoading}
+          />
+        </View>
+
+        {/* ═══════════════ STATS CARDS (3 Grid) ═══════════════ */}
+        <View style={{
+          flexDirection: 'row',
+          gap: 10,
+          marginBottom: 20,
+        }}>
+          {/* Card 1 – Maintenance */}
+          <View style={{
+            flex: 1,
+            backgroundColor: THEME.card,
+            borderRadius: 16,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: THEME.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}>
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: '#dcfce7',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 10,
+            }}>
+              <FontAwesome name="leaf" size={16} color="#22c55e" />
+            </View>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: THEME.textSecondary,
+              marginBottom: 3,
+            }}>
+              Maintenance
+            </Text>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '800',
+              color: THEME.textPrimary,
+            }}>
+              {user?.maintenanceCalories || '—'}
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: THEME.textSecondary,
+              marginTop: 2,
+            }}>
+              kcal/day
+            </Text>
+          </View>
+
+          {/* Card 2 – Goal */}
+          <View style={{
+            flex: 1,
+            backgroundColor: THEME.card,
+            borderRadius: 16,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: THEME.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}>
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: '#dbeafe',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 10,
+            }}>
+              <FontAwesome name="line-chart" size={14} color="#3b82f6" />
+            </View>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: THEME.textSecondary,
+              marginBottom: 3,
+            }}>
+              Goal
+            </Text>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '800',
+              color: THEME.textPrimary,
+            }}>
+              {user?.goalCalories || '—'}
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: THEME.textSecondary,
+              marginTop: 2,
+            }}>
+              kcal/day
+            </Text>
+          </View>
+
+          {/* Card 3 – BMI Analysis */}
+          <View style={{
+            flex: 1,
+            backgroundColor: THEME.card,
+            borderRadius: 16,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: THEME.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 8,
+            elevation: 2,
+          }}>
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: bmiInfo ? `${bmiInfo.color}18` : '#f3e8ff',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 10,
+            }}>
+              <FontAwesome name="heartbeat" size={15} color={bmiInfo?.color || '#a855f7'} />
+            </View>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: THEME.textSecondary,
+              marginBottom: 3,
+            }}>
+              BMI Analysis
+            </Text>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '800',
+              color: bmiInfo?.color || THEME.textPrimary,
+            }}>
+              {bmiInfo?.label || '—'}
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: THEME.textSecondary,
+              marginTop: 2,
+            }}>
+              {bmiInfo?.range || '—'}
+            </Text>
+          </View>
+        </View>
+
+        {/* ═══════════════ SUBSCRIPTION SECTION ═══════════════ */}
+        <View style={{
+          backgroundColor: THEME.card,
+          borderRadius: 20,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: THEME.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.04,
+          shadowRadius: 12,
+          elevation: 3,
+          marginBottom: 20,
+        }}>
+          <View style={{ flexDirection: 'row' }}>
+            {/* Left side */}
+            <View style={{ flex: 1, paddingRight: 16 }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: THEME.textSecondary,
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+                marginBottom: 6,
+              }}>
+                Subscription
+              </Text>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: THEME.textPrimary,
+                marginBottom: 12,
+              }}>
+                {formatSubscription(user?.subscriptionPlan)} Plan
+              </Text>
+
+              <View style={{ gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: '#dcfce7',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <FontAwesome name="trophy" size={12} color="#22c55e" />
+                  </View>
+                  <Text style={{ fontSize: 12, color: THEME.textSecondary }}>
+                    Workout plans
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: '#dbeafe',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <FontAwesome name="calendar" size={11} color="#3b82f6" />
+                  </View>
+                  <Text style={{ fontSize: 12, color: THEME.textSecondary }}>
+                    Schedule plans
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: '#fef3c7',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <FontAwesome name="lock" size={12} color="#f59e0b" />
+                  </View>
+                  <Text style={{ fontSize: 12, color: THEME.textSecondary }}>
+                    Access limits
+                  </Text>
+                </View>
               </View>
-            )}
-          </View>
-
-          {/* Body Type */}
-          <View style={styles.card}>
-            <View style={[styles.cardIconBg, { backgroundColor: 'rgba(167,139,250,0.15)' }]}>
-              <FontAwesome name="male" size={18} color="#A78BFA" />
             </View>
-            <Text style={styles.cardLabel}>Body Type</Text>
-            <Text style={styles.cardValue}>{formatBodyType(user?.bodyType)}</Text>
-          </View>
 
-          {/* Level */}
-          <View style={styles.card}>
-            <View style={[styles.cardIconBg, { backgroundColor: 'rgba(96,165,250,0.15)' }]}>
-              <FontAwesome name="signal" size={18} color="#60A5FA" />
-            </View>
-            <Text style={styles.cardLabel}>Level</Text>
-            <Text style={styles.cardValue}>{formatLevel(user?.level)}</Text>
-          </View>
-
-          {/* Diet */}
-          <View style={styles.card}>
-            <View style={[styles.cardIconBg, { backgroundColor: 'rgba(52,211,153,0.15)' }]}>
-              <FontAwesome name="leaf" size={18} color="#34D399" />
-            </View>
-            <Text style={styles.cardLabel}>Diet</Text>
-            <Text style={styles.cardValue}>{formatDiet(user?.dietPreference)}</Text>
-          </View>
-
-          {/* Weight */}
-          <View style={styles.card}>
-            <View style={[styles.cardIconBg, { backgroundColor: 'rgba(248,113,113,0.15)' }]}>
-              <FontAwesome name="dashboard" size={18} color="#F87171" />
-            </View>
-            <Text style={styles.cardLabel}>Weight</Text>
-            <Text style={styles.cardValue}>{user?.weight ? `${user.weight} kg` : '—'}</Text>
-          </View>
-        </View>
-
-        {/* ─── CALORIES SECTION ─── */}
-        <Text style={styles.sectionLabel}>Daily Calories</Text>
-        <View style={styles.caloriesCard}>
-          <View style={styles.caloriesRow}>
-            <View style={styles.caloriesItem}>
-              <Text style={styles.caloriesNumber}>
-                {user?.maintenanceCalories || '—'}
+            {/* Right side */}
+            <View style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 120,
+            }}>
+              <View style={{
+                width: 52,
+                height: 52,
+                borderRadius: 16,
+                backgroundColor: THEME.accentLight,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 8,
+                shadowColor: THEME.accent,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+                elevation: 4,
+              }}>
+                <FontAwesome name="bolt" size={22} color={THEME.accent} />
+              </View>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '700',
+                color: THEME.textPrimary,
+                textAlign: 'center',
+              }}>
+                AI Trainer
               </Text>
-              <Text style={styles.caloriesLabel}>Maintenance</Text>
-            </View>
-            <View style={styles.caloriesDivider} />
-            <View style={styles.caloriesItem}>
-              <Text style={[styles.caloriesNumber, { color: '#34D399' }]}>
-                {user?.goalCalories || '—'}
-              </Text>
-              <Text style={styles.caloriesLabel}>Goal ({formatGoal(user?.goal)})</Text>
-            </View>
-          </View>
-
-          {user?.maintenanceCalories && user?.goalCalories && (
-            <View style={styles.caloriesDiffRow}>
-              <FontAwesome
-                name={user.goalCalories < user.maintenanceCalories ? 'arrow-down' : user.goalCalories > user.maintenanceCalories ? 'arrow-up' : 'minus'}
-                size={12}
-                color={user.goalCalories < user.maintenanceCalories ? '#60A5FA' : user.goalCalories > user.maintenanceCalories ? '#FBBF24' : '#9CA3AF'}
-              />
-              <Text style={styles.caloriesDiffText}>
-                {Math.abs(user.goalCalories - user.maintenanceCalories)} kcal
-                {user.goalCalories < user.maintenanceCalories ? ' deficit' : user.goalCalories > user.maintenanceCalories ? ' surplus' : ''}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* ─── SUBSCRIPTION SECTION ─── */}
-        <Text style={styles.sectionLabel}>Subscription</Text>
-        <View style={styles.subscriptionCard}>
-          <View style={styles.subscriptionTop}>
-            <View style={[styles.cardIconBg, { backgroundColor: 'rgba(251,191,36,0.15)' }]}>
-              <FontAwesome name="star" size={18} color="#FBBF24" />
-            </View>
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.subscriptionPlan}>
-                {formatSubscription(user?.subscriptionPlan)}
-              </Text>
-              <Text style={styles.subscriptionStatus}>
-                {user?.subscriptionPlan === 'free' ? 'Basic features included' : 'Premium features active'}
+              <Text style={{
+                fontSize: 10,
+                color: THEME.textSecondary,
+                textAlign: 'center',
+                marginTop: 2,
+              }}>
+                {user?.subscriptionPlan === 'free'
+                  ? 'Basic features included'
+                  : 'Premium active'}
               </Text>
             </View>
           </View>
 
           {user?.subscriptionPlan === 'free' && (
-            <TouchableOpacity style={styles.upgradeButton} activeOpacity={0.8}>
-              <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={{ marginTop: 18, borderRadius: 14, overflow: 'hidden' }}
+            >
+              <LinearGradient
+                colors={['#22c55e', '#16a34a']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  height: 48,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderRadius: 14,
+                }}
+              >
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 15,
+                  fontWeight: '700',
+                  letterSpacing: 0.3,
+                }}>
+                  Upgrade to Pro
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
           )}
         </View>
+
+        {/* ═══════════════ INCOMPLETE PROFILE BANNER ═══════════════ */}
+        {user?.onboardingCompleted === false && (
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#fffbeb',
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: '#fef3c7',
+            }}
+            onPress={() => router.push('/auth/onboarding' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              backgroundColor: '#fef3c7',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 14,
+            }}>
+              <FontAwesome name="exclamation-circle" size={18} color="#f59e0b" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '700',
+                color: '#92400e',
+              }}>
+                Complete your profile
+              </Text>
+              <Text style={{
+                fontSize: 12,
+                color: '#b45309',
+                marginTop: 2,
+              }}>
+                Tap to set up your fitness data
+              </Text>
+            </View>
+            <FontAwesome name="chevron-right" size={13} color="#d97706" />
+          </TouchableOpacity>
+        )}
 
         <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-// ─── STYLES ────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-
-  // Header
-  headerTitle: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '700',
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-
-  // User Card
-  userCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 20,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    marginBottom: 28,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  userSubtitle: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#2D2D2D',
-    borderWidth: 2,
-    borderColor: '#3A3A3A',
-  },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#1A1A1A',
-  },
-
-  // Initials Avatar
-  initialsAvatar: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initialsText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-
-  // Incomplete Banner
-  incompleteBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(251,191,36,0.08)',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.2)',
-  },
-  incompleteBannerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(251,191,36,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  incompleteBannerTitle: {
-    color: '#FBBF24',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  incompleteBannerSub: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginTop: 2,
-  },
-
-  // Section
-  sectionLabel: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-
-  // Fitness Cards Grid
-  cardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 28,
-  },
-  card: {
-    width: '47%',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-  },
-  cardIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardLabel: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  cardValue: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: 6,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // Calories
-  caloriesCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    marginBottom: 28,
-  },
-  caloriesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  caloriesItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  caloriesNumber: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  caloriesLabel: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  caloriesDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#2A2A2A',
-    marginHorizontal: 16,
-  },
-  caloriesDiffRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
-    gap: 6,
-  },
-  caloriesDiffText: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // Subscription
-  subscriptionCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-  },
-  subscriptionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  subscriptionPlan: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  subscriptionStatus: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  upgradeButton: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  upgradeButtonText: {
-    color: '#000',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

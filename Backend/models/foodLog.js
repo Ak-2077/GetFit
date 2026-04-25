@@ -41,4 +41,8 @@ const foodLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Compound index for efficient weekly calorie aggregation
+foodLogSchema.index({ userId: 1, date: 1 });
+
 export default mongoose.model('FoodLog', foodLogSchema);
+

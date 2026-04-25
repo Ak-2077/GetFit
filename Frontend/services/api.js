@@ -75,6 +75,7 @@ export const getUserProfile = () => API.get('/api/user/profile');
 export const updateUserProfile = (data) => API.put('/api/user/profile', data);
 export const changeUserPassword = (data) => API.post('/api/user/change-password', data);
 export const deleteUserAccount = () => API.delete('/api/user/delete-account');
+export const getWeeklyCalories = () => API.get('/api/user/weekly-calories');
 export const setAuthToken = (token) => {
   if (token) {
     API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
