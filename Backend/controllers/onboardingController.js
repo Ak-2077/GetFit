@@ -188,12 +188,51 @@ export async function updateUserProfile(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { name, avatar, notificationsEnabled } = req.body;
+    const { name, avatar, notificationsEnabled, level, dietPreference } = req.body;
 
     const update = {};
     if (name !== undefined) update.name = typeof name === 'string' ? name.trim() : name;
     if (avatar !== undefined) update.avatar = avatar;
     if (notificationsEnabled !== undefined) update.notificationsEnabled = !!notificationsEnabled;
+
+    // Validate and set level
+    const validLevels = ['beginner', 'intermediate', 'advanced'];
+    if (level !== undefined) {
+      if (!validLevels.includes(level)) {
+        return res.status(400).json({ message: 'Level must be one of: beginner, intermediate, advanced' });
+      }
+      update.level = level;
+    }
+
+    // Validate and set dietPreference
+    const validDiets = ['veg', 'non_veg'];
+    if (dietPreference !== undefined) {
+      if (!validDiets.includes(dietPreference)) {
+        return res.status(400).json({ message: 'Diet must be one of: veg, non_veg' });
+      }
+      update.dietPreference = dietPreference;
+    }
+
+    // If level changed, recompute calories (level affects activity multiplier)
+    if (level !== undefined) {
+      const currentUser = await User.findById(userId);
+      if (currentUser && currentUser.weight && currentUser.height && currentUser.age && currentUser.gender) {
+        const weightNum = Number(currentUser.weight);
+        const heightNum = Number(currentUser.height);
+        const ageNum = currentUser.age;
+        const gender = currentUser.gender;
+        const goal = currentUser.goal;
+        const newLevel = level;
+
+        const maintenanceCalories = calculateMaintenanceCalories(weightNum, heightNum, ageNum, gender, newLevel);
+        const goalCalories = calculateGoalCalories(maintenanceCalories, goal);
+        const dailyProteinTarget = calculateDailyProteinTarget(weightNum, goal);
+
+        update.maintenanceCalories = maintenanceCalories;
+        update.goalCalories = goalCalories;
+        update.dailyProteinTarget = dailyProteinTarget;
+      }
+    }
 
     const user = await User.findByIdAndUpdate(userId, update, { new: true }).select('-password');
     if (!user) {

@@ -54,7 +54,6 @@ export default function TabLayout() {
   useEffect(() => {
     let mounted = true;
     let starting = false;
-    let checkIntervalId: ReturnType<typeof setInterval> | null = null;
 
     const stopTracking = () => {
       if (watchSubRef.current) {
@@ -64,32 +63,11 @@ export default function TabLayout() {
       }
     };
 
-    const ensureTracking = async () => {
-      if (!mounted || starting) return;
+    const startWatcher = async () => {
+      if (!mounted || starting || watchSubRef.current) return;
+      starting = true;
 
       try {
-        // Check if user has enabled tracking
-        const trackingEnabled = await AsyncStorage.getItem('locationTrackingEnabled');
-        if (trackingEnabled !== 'true') {
-          stopTracking();
-          starting = false;
-          return;
-        }
-
-        // Already tracking, no need to start again
-        if (watchSubRef.current) return;
-
-        starting = true;
-
-        let permission = await Location.getForegroundPermissionsAsync();
-        if (permission.status !== 'granted') {
-          permission = await Location.requestForegroundPermissionsAsync();
-        }
-        if (permission.status !== 'granted') {
-          starting = false;
-          return;
-        }
-
         if (totalDistanceMetersRef.current === 0) {
           try {
             const profileRes = await getMe();
@@ -145,13 +123,50 @@ export default function TabLayout() {
       }
     };
 
+    const ensureTracking = async () => {
+      if (!mounted) return;
+
+      try {
+        // Check if user has toggled tracking off in Settings
+        const trackingEnabled = await AsyncStorage.getItem('locationTrackingEnabled');
+        if (trackingEnabled === 'false') {
+          stopTracking();
+          return;
+        }
+
+        // Check current permission status (don't prompt here — prompt happens in Calories tab / Settings)
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          // First-time: request permission once automatically
+          const requested = await AsyncStorage.getItem('locationPermissionRequested');
+          if (!requested) {
+            await AsyncStorage.setItem('locationPermissionRequested', 'true');
+            const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+            if (newStatus === 'granted') {
+              await AsyncStorage.setItem('locationTrackingEnabled', 'true');
+              await startWatcher();
+            }
+          }
+          return;
+        }
+
+        // Permission granted — auto-enable tracking if never set
+        const currentSetting = await AsyncStorage.getItem('locationTrackingEnabled');
+        if (currentSetting === null) {
+          await AsyncStorage.setItem('locationTrackingEnabled', 'true');
+        }
+
+        if (currentSetting !== 'false') {
+          await startWatcher();
+        }
+      } catch (err) {
+        console.warn('ensureTracking error', err);
+      }
+    };
+
     ensureTracking();
 
-    // Check tracking preference every 3 seconds
-    checkIntervalId = setInterval(() => {
-      ensureTracking();
-    }, 3000);
-
+    // Re-check only when app returns to foreground (no polling)
     const appStateSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         ensureTracking();
@@ -160,7 +175,6 @@ export default function TabLayout() {
 
     return () => {
       mounted = false;
-      if (checkIntervalId) clearInterval(checkIntervalId);
       appStateSub.remove();
       stopTracking();
     };

@@ -9,6 +9,24 @@ const normalizeBarcode = (value) => {
 };
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const toSafeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeMealType = (mealType) => {
+  const normalized = String(mealType || '').trim().toLowerCase();
+  if (normalized === 'breakfast' || normalized === 'lunch' || normalized === 'dinner') return normalized;
+  if (normalized === 'snacks') return 'snack';
+  return 'snack';
+};
+
+const extractSearchKeywords = ({ name, brand, category, type }) => {
+  const raw = `${name || ''} ${brand || ''} ${category || ''} ${type || ''}`.toLowerCase();
+  return Array.from(new Set(raw.split(/[^a-z0-9]+/).filter((token) => token.length >= 2))).slice(0, 50);
+};
 
 const GS1_ORIGIN_RANGES = [
   { min: 0, max: 139, origin: 'USA/Canada' },
@@ -70,6 +88,7 @@ const toFoodResponse = (food) => {
   const plain = typeof food.toObject === 'function' ? food.toObject() : food;
   return {
     ...plain,
+    servingUnit: plain.servingUnit || plain.unit || 'g',
     origin: resolveOrigin({ existingOrigin: plain.origin, barcode: plain.barcode }),
   };
 };
@@ -109,30 +128,57 @@ const inferServingUnit = ({ explicitUnit, servingText, servingSize, name, fallba
 // Add brand food item (user adds custom food)
 export const addBrandFood = async (req, res) => {
   try {
-    const { name, brand, calories, protein, carbs, fat, servingSize, barcode, origin } = req.body;
-    const userId = req.userId;
-    const normalizedBarcode = normalizeBarcode(barcode);
-
-    if (!name || !calories) {
-      return res.status(400).json({ message: 'Name and calories are required' });
-    }
-
-    const unit = inferServingUnit({
-      servingSize,
-      name,
-    });
-
-    const food = new Food({
+    const {
       name,
       brand,
       calories,
       protein,
       carbs,
       fat,
+      fiber,
+      sugar,
       servingSize,
+      servingUnit,
+      barcode,
+      origin,
+      category,
+      type,
+    } = req.body;
+    const userId = req.userId;
+    const normalizedBarcode = normalizeBarcode(barcode);
+
+    if (!name || calories === undefined || calories === null) {
+      return res.status(400).json({ message: 'Name and calories are required' });
+    }
+
+    const unit = inferServingUnit({
+      explicitUnit: servingUnit,
+      servingSize,
+      name,
+    });
+
+    const safeName = String(name).trim();
+    const safeBrand = String(brand || '').trim();
+    const safeCategory = String(category || 'general').trim().toLowerCase();
+    const safeType = String(type || '').trim().toLowerCase() === 'supplement' ? 'supplement' : 'food';
+
+    const food = new Food({
+      name: safeName,
+      brand: safeBrand,
+      category: safeCategory,
+      type: safeType,
+      calories: clamp(toSafeNumber(calories, 0), 0, 5000),
+      protein: clamp(toSafeNumber(protein, 0), 0, 1000),
+      carbs: clamp(toSafeNumber(carbs, 0), 0, 1000),
+      fat: clamp(toSafeNumber(fat, 0), 0, 1000),
+      fiber: clamp(toSafeNumber(fiber, 0), 0, 1000),
+      sugar: clamp(toSafeNumber(sugar, 0), 0, 1000),
+      servingSize: String(servingSize || '').trim(),
+      servingUnit: unit,
       unit,
       barcode: normalizedBarcode || undefined,
       origin: resolveOrigin({ existingOrigin: origin, barcode: normalizedBarcode }),
+      searchKeywords: extractSearchKeywords({ name: safeName, brand: safeBrand, category: safeCategory, type: safeType }),
       source: 'user',
       userId,
     });
@@ -149,8 +195,11 @@ export const getBrandFoods = async (req, res) => {
   try {
     const userId = req.userId;
     const foods = await Food.find({
-      $or: [{ source: 'openfoodfacts' }, { userId }],
-    }).select('name brand calories protein carbs fat servingSize barcode source origin');
+      $or: [{ source: { $in: ['openfoodfacts', 'custom'] } }, { userId }],
+    })
+      .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
+      .limit(100)
+      .lean();
     
     res.status(200).json(foods.map(toFoodResponse));
   } catch (err) {
@@ -185,7 +234,7 @@ export const getFoodByBarcode = async (req, res) => {
 // Add food to log (record what user ate)
 export const addFoodToLog = async (req, res) => {
   try {
-    const { foodId, quantity, meal, servingText, servingUnit } = req.body;
+    const { foodId, quantity, servings, meal, mealType, servingText, servingUnit, date } = req.body;
     const userId = req.userId;
 
     if (!userId) {
@@ -197,7 +246,7 @@ export const addFoodToLog = async (req, res) => {
       return res.status(404).json({ message: 'Food not found' });
     }
 
-    const quantityValue = Number(quantity);
+    const quantityValue = Number.isFinite(Number(servings)) ? Number(servings) : Number(quantity);
     if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
       return res.status(400).json({ message: 'Quantity must be a valid number greater than 0' });
     }
@@ -208,18 +257,33 @@ export const addFoodToLog = async (req, res) => {
       servingText: safeServingText,
       servingSize: food.servingSize,
       name: food.name,
-      fallbackUnit: food.unit,
+      fallbackUnit: food.servingUnit || food.unit,
     });
+
+    const normalizedMealType = normalizeMealType(mealType || meal);
+    const logDate = date ? new Date(date) : new Date();
+    logDate.setHours(0, 0, 0, 0);
+
+    const caloriesValue = clamp(toSafeNumber(food.calories, 0) * quantityValue, 0, 50000);
+    const proteinValue = clamp(toSafeNumber(food.protein, 0) * quantityValue, 0, 10000);
+    const carbsValue = clamp(toSafeNumber(food.carbs, 0) * quantityValue, 0, 10000);
+    const fatValue = clamp(toSafeNumber(food.fat, 0) * quantityValue, 0, 10000);
 
     const foodLog = new FoodLog({
       userId,
       foodId,
       quantity: quantityValue,
-      meal,
+      servings: quantityValue,
+      meal: normalizedMealType,
+      mealType: normalizedMealType,
       servingText: safeServingText,
       servingUnit: safeServingUnit,
-      caloriesConsumed: food.calories * quantityValue,
-      date: new Date().setHours(0, 0, 0, 0),
+      caloriesConsumed: caloriesValue,
+      calories: caloriesValue,
+      protein: proteinValue,
+      carbs: carbsValue,
+      fat: fatValue,
+      date: logDate,
     });
 
     await foodLog.save();
@@ -246,10 +310,36 @@ export const getTodaysFoodLog = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const totalCalories = logs.reduce((sum, log) => sum + (log.caloriesConsumed || 0), 0);
+    const totals = logs.reduce(
+      (acc, log) => {
+        acc.protein += toSafeNumber(log.protein, 0);
+        acc.carbs += toSafeNumber(log.carbs, 0);
+        acc.fat += toSafeNumber(log.fat, 0);
+        return acc;
+      },
+      { protein: 0, carbs: 0, fat: 0 }
+    );
+
+    const mealBuckets = {
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+      snacks: [],
+    };
+
+    for (const log of logs) {
+      const normalizedMeal = normalizeMealType(log.mealType || log.meal);
+      const key = normalizedMeal === 'snack' ? 'snacks' : normalizedMeal;
+      mealBuckets[key].push(log);
+    }
 
     res.status(200).json({
       logs,
       totalCalories,
+      totalProtein: Number(totals.protein.toFixed(1)),
+      totalCarbs: Number(totals.carbs.toFixed(1)),
+      totalFat: Number(totals.fat.toFixed(1)),
+      meals: mealBuckets,
       count: logs.length,
     });
   } catch (err) {
@@ -261,7 +351,7 @@ export const getTodaysFoodLog = async (req, res) => {
 export const removeFoodFromLog = async (req, res) => {
   try {
     const { logId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.userId;
 
     const log = await FoodLog.findById(logId);
     if (!log) {
@@ -282,9 +372,13 @@ export const removeFoodFromLog = async (req, res) => {
 // Search foods by name or barcode
 export const searchFoods = async (req, res) => {
   try {
-    const rawQuery = typeof req.query?.query === 'string' ? req.query.query.trim() : '';
+    const queryFromQ = typeof req.query?.q === 'string' ? req.query.q.trim() : '';
+    const queryFromQuery = typeof req.query?.query === 'string' ? req.query.query.trim() : '';
+    const rawQuery = queryFromQ || queryFromQuery;
     const query = rawQuery;
     const userId = req.userId;
+    const limitRaw = Number(req.query?.limit);
+    const limit = Number.isFinite(limitRaw) ? clamp(Math.round(limitRaw), 1, 30) : 15;
 
     if (!query || query.length < 2) {
       return res.status(400).json({ message: 'Query must be at least 2 characters' });
@@ -302,20 +396,43 @@ export const searchFoods = async (req, res) => {
     }
 
     // First, search in our database
-    let foods = await Food.find({
-      $and: [
-        {
-          $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { barcode: { $regex: query, $options: 'i' } },
-            { brand: { $regex: query, $options: 'i' } },
-          ],
-        },
-        {
-          $or: [{ source: 'openfoodfacts' }, { userId }],
-        },
-      ],
-    }).limit(20);
+    const visibilityFilter = {
+      $or: [{ source: { $in: ['openfoodfacts', 'custom'] } }, { userId }],
+    };
+
+    let foods = [];
+
+    try {
+      foods = await Food.find({
+        $and: [{ $text: { $search: query } }, visibilityFilter],
+      })
+        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
+        .sort({ score: { $meta: 'textScore' }, updatedAt: -1 })
+        .limit(limit)
+        .lean();
+    } catch (textSearchError) {
+      foods = [];
+    }
+
+    if (foods.length === 0) {
+      foods = await Food.find({
+        $and: [
+          {
+            $or: [
+              { searchKeywords: { $in: [query.toLowerCase()] } },
+              { name: { $regex: query, $options: 'i' } },
+              { barcode: { $regex: query, $options: 'i' } },
+              { brand: { $regex: query, $options: 'i' } },
+            ],
+          },
+          visibilityFilter,
+        ],
+      })
+        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
+        .sort({ updatedAt: -1 })
+        .limit(limit)
+        .lean();
+    }
 
     // If no results and query looks like a barcode, try OpenFoodFacts API
     if (foods.length === 0 && /^\d{8,14}$/.test(normalizedBarcodeQuery)) {
@@ -342,17 +459,32 @@ export const searchFoods = async (req, res) => {
             servingSize,
             name: product.product_name,
           });
+          const productName = product.product_name || 'Unknown Product';
+          const productBrand = product.brands || 'Unknown Brand';
+          const category = product.categories_tags?.[0]
+            ? String(product.categories_tags[0]).replace(/^\w+:/, '').replace(/-/g, ' ')
+            : 'general';
+          const type = /(whey|protein|mass gainer|creatine|bcaa|multivitamin|supplement)/i.test(`${productName} ${productBrand}`)
+            ? 'supplement'
+            : 'food';
+
           const newFood = new Food({
-            name: product.product_name || 'Unknown Product',
-            brand: product.brands || 'Unknown Brand',
+            name: productName,
+            brand: productBrand,
+            category,
+            type,
             barcode: normalizedBarcodeQuery,
             origin: resolveOrigin({ product, barcode: normalizedBarcodeQuery }),
             calories: product.nutriments?.['energy-kcal'] || 0,
             protein: product.nutriments?.proteins || 0,
             carbs: product.nutriments?.carbohydrates || 0,
             fat: product.nutriments?.fat || 0,
+            fiber: product.nutriments?.fiber || 0,
+            sugar: product.nutriments?.sugars || 0,
             servingSize,
+            servingUnit: unit,
             unit,
+            searchKeywords: extractSearchKeywords({ name: productName, brand: productBrand, category, type }),
             source: 'openfoodfacts',
           });
 
@@ -368,5 +500,25 @@ export const searchFoods = async (req, res) => {
     res.status(200).json(foods.map(toFoodResponse));
   } catch (err) {
     res.status(500).json({ message: 'Error searching foods', error: err.message });
+  }
+};
+
+export const getFoodById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const food = await Food.findOne({
+      _id: id,
+      $or: [{ source: { $in: ['openfoodfacts', 'custom'] } }, { userId }],
+    }).lean();
+
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    return res.status(200).json(toFoodResponse(food));
+  } catch (err) {
+    return res.status(500).json({ message: 'Error fetching food details', error: err.message });
   }
 };

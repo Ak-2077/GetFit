@@ -22,10 +22,15 @@ import burnRoute from './routes/burnRoute.js';
 import aiRoute from './routes/aiRoute.js';
 import workoutRoute from './routes/workoutRoute.js';
 import userRoute from './routes/userRoute.js';
+import caloriesRoute from './routes/caloriesRoute.js';
+import stepsRoute from './routes/stepsRoute.js';
 
 app.use('/api/auth', authRoute);
 app.use('/api/food', foodRoute);
+app.use('/api/foods', foodRoute);
 app.use('/api/burn', burnRoute);
+app.use('/api/calories', caloriesRoute);
+app.use('/api/steps', stepsRoute);
 app.use('/api/ai', aiRoute);
 app.use('/api/workout', workoutRoute);
 app.use('/api/user', userRoute);

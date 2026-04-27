@@ -3,6 +3,7 @@ import {
   addBrandFood, 
   getBrandFoods, 
   getFoodByBarcode, 
+  getFoodById,
   addFoodToLog, 
   getTodaysFoodLog, 
   removeFoodFromLog,
@@ -17,6 +18,7 @@ router.post('/add-food', auth, addBrandFood);
 router.get('/brand-foods', auth, getBrandFoods);
 router.get('/search', auth, searchFoods);
 router.get('/barcode/:barcode', auth, getFoodByBarcode);
+router.get('/:id', auth, getFoodById);
 
 // Food logging
 router.post('/log', auth, addFoodToLog);

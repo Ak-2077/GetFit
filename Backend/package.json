@@ -9,7 +9,8 @@
     "dev": "nodemon index.js",
     "seed": "node scripts/seedFoods.js",
     "seed:ij": "node scripts/seedIndianJapaneseFoods.js --count=1000",
-    "import:off": "node scripts/importOpenFoodFacts.js"
+    "import:off": "node scripts/importOpenFoodFactsIndianJapan.js",
+    "import:supplements": "node scripts/importSupplementsDataset.js"
   },
   "keywords": [],
   "author": "",

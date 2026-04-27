@@ -76,6 +76,8 @@ export const updateUserProfile = (data) => API.put('/api/user/profile', data);
 export const changeUserPassword = (data) => API.post('/api/user/change-password', data);
 export const deleteUserAccount = () => API.delete('/api/user/delete-account');
 export const getWeeklyCalories = () => API.get('/api/user/weekly-calories');
+export const sendProfileEmailOtp = (data) => API.post('/api/user/send-email-otp', data);
+export const verifyProfileEmailOtp = (data) => API.post('/api/user/verify-email-otp', data);
 export const setAuthToken = (token) => {
   if (token) {
     API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -89,9 +91,19 @@ export const addBrandFood = (data) => API.post('/api/food/add-food', data);
 export const getBrandFoods = () => API.get('/api/food/brand-foods');
 export const searchFoods = (query) => API.get('/api/food/search', { params: { query } });
 export const getFoodByBarcode = (barcode) => API.get(`/api/food/barcode/${barcode}`);
+export const getFoodById = (id) => API.get(`/api/food/${id}`);
 export const addFoodToLog = (data) => API.post('/api/food/log', data);
 export const getTodaysFoodLog = () => API.get('/api/food/log/today');
 export const removeFoodFromLog = (logId) => API.delete(`/api/food/log/${logId}`);
+
+// Calories tab endpoints
+export const searchFoodsAutocomplete = (q, limit = 12) => API.get('/api/foods/search', { params: { q, limit } });
+export const getCaloriesToday = () => API.get('/api/calories/today');
+export const getCaloriesWeekly = () => API.get('/api/calories/weekly');
+export const getCaloriesMacros = () => API.get('/api/calories/macros');
+export const logCaloriesMeal = (data) => API.post('/api/calories/log', data);
+export const getStepsToday = () => API.get('/api/steps/today');
+export const getCaloriesBurn = () => API.get('/api/calories/burn');
 
 // Burn log endpoints
 export const addBurnLog = (data) => API.post('/api/burn/log', data);

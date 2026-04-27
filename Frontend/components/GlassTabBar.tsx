@@ -7,11 +7,18 @@ import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 // ─── CONSTANTS ──────────────────────────────────────────
-const SCREEN_BG = '#f1f0ec';
 const NOTCH_SIZE = 80;
 const CENTER_BTN_SIZE = 68;
 const BAR_RADIUS = 35;
-const CENTER_LIFT = 32; // how far above bar the button sits
+const CENTER_LIFT = 32;
+
+const TC = {
+  barBg: 'rgba(22,33,25,0.78)',
+  active: '#1FA463',
+  activeGlow: '#A6F7C2',
+  inactive: 'rgba(255,255,255,0.30)',
+  screenBg: '#050505',
+};
 
 // ─── TAB CONFIG ─────────────────────────────────────────
 const TAB_CONFIG: Record<string, { label: string; icon: string }> = {
@@ -26,7 +33,6 @@ const TAB_CONFIG: Record<string, { label: string; icon: string }> = {
 export default function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const centerIndex = Math.floor(state.routes.length / 2);
 
-  // Build press handlers
   const getHandlers = (route: any, isFocused: boolean) => ({
     onPress: () => {
       if (Platform.OS === 'ios') {
@@ -46,7 +52,6 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
     },
   });
 
-  // Split routes into left / center / right
   const leftRoutes = state.routes.slice(0, centerIndex);
   const centerRoute = state.routes[centerIndex];
   const rightRoutes = state.routes.slice(centerIndex + 1);
@@ -54,7 +59,6 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
   const isCenterFocused = state.index === centerIndex;
   const centerHandlers = centerRoute ? getHandlers(centerRoute, isCenterFocused) : { onPress: () => {}, onLongPress: () => {} };
 
-  // Render a regular tab item
   const renderTab = (route: any, index: number) => {
     const actualIndex = state.routes.indexOf(route);
     const isFocused = state.index === actualIndex;
@@ -75,29 +79,37 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
           justifyContent: 'center',
           paddingVertical: 8,
           paddingHorizontal: 4,
-          borderRadius: 22,
-          backgroundColor: isFocused ? 'rgba(255,255,255,0.92)' : 'transparent',
-          shadowColor: isFocused ? '#000' : 'transparent',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: isFocused ? 0.08 : 0,
-          shadowRadius: 8,
-          elevation: isFocused ? 4 : 0,
           marginHorizontal: 2,
         }}
       >
-        <FontAwesome
-          name={config.icon as any}
-          size={21}
-          color={isFocused ? '#111111' : '#aaaaaa'}
-        />
+        <View style={{
+          shadowColor: isFocused ? TC.activeGlow : 'transparent',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isFocused ? 0.5 : 0,
+          shadowRadius: 8,
+          elevation: isFocused ? 4 : 0,
+        }}>
+          <FontAwesome
+            name={config.icon as any}
+            size={21}
+            color={isFocused ? TC.active : TC.inactive}
+          />
+        </View>
         <Text style={{
           fontSize: 10,
           fontWeight: isFocused ? '700' : '500',
-          color: isFocused ? '#111111' : '#aaaaaa',
+          color: isFocused ? TC.active : TC.inactive,
           marginTop: 3,
         }}>
           {config.label}
         </Text>
+        {/* Active dot */}
+        {isFocused && (
+          <View style={{
+            width: 4, height: 4, borderRadius: 2,
+            backgroundColor: TC.active, marginTop: 3,
+          }} />
+        )}
       </TouchableOpacity>
     );
   };
@@ -112,16 +124,13 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
         right: 15,
       }}
     >
-
       {/* ═══ NOTCH CUTOUT ═══ */}
-      {/* Circle matching screen background to carve out the notch illusion */}
       <View
         pointerEvents="none"
         style={{
           position: 'absolute',
           top: -CENTER_LIFT,
-          left: 0,
-          right: 0,
+          left: 0, right: 0,
           alignItems: 'center',
           zIndex: 2,
         }}
@@ -130,8 +139,7 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
           width: NOTCH_SIZE,
           height: NOTCH_SIZE,
           borderRadius: NOTCH_SIZE / 2,
-          backgroundColor: SCREEN_BG,
-          // Subtle inner shadow for depth
+          backgroundColor: TC.screenBg,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.04,
@@ -140,26 +148,23 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
         }} />
       </View>
 
-      {/* ═══ CENTER FLOATING BUTTON ═══ */}
+      {/* ═══ CENTER FLOATING ORB ═══ */}
       <View
         pointerEvents="box-none"
         style={{
           position: 'absolute',
           top: -(CENTER_LIFT + (CENTER_BTN_SIZE - NOTCH_SIZE) / 2),
-          left: 0,
-          right: 0,
+          left: 0, right: 0,
           alignItems: 'center',
           zIndex: 3,
         }}
       >
-        {/* Green glow behind button */}
+        {/* Glow behind */}
         <View style={{
           position: 'absolute',
           top: CENTER_BTN_SIZE / 2 + 4,
-          width: 50,
-          height: 24,
-          borderRadius: 12,
-          backgroundColor: 'rgba(34,197,94,0.2)',
+          width: 50, height: 24, borderRadius: 12,
+          backgroundColor: 'rgba(31,164,99,0.15)',
         }} />
 
         <TouchableOpacity
@@ -172,18 +177,18 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
             width: CENTER_BTN_SIZE,
             height: CENTER_BTN_SIZE,
             borderRadius: CENTER_BTN_SIZE / 2,
-            shadowColor: isCenterFocused ? '#22c55e' : '#000',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: isCenterFocused ? 0.3 : 0.15,
-            shadowRadius: 14,
+            shadowColor: isCenterFocused ? TC.activeGlow : TC.active,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: isCenterFocused ? 0.45 : 0.15,
+            shadowRadius: 16,
             elevation: 10,
           }}
         >
           <LinearGradient
             colors={
               isCenterFocused
-                ? ['rgba(255,255,255,0.98)', 'rgba(220,252,231,0.95)']
-                : ['rgba(255,255,255,0.92)', 'rgba(245,245,245,0.88)']
+                ? ['rgba(31,164,99,0.9)', 'rgba(15,40,25,0.95)']
+                : ['rgba(30,50,38,0.9)', 'rgba(22,33,25,0.95)']
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -193,16 +198,16 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
               borderRadius: CENTER_BTN_SIZE / 2,
               justifyContent: 'center',
               alignItems: 'center',
-              borderWidth: 1.5,
+              borderWidth: 1,
               borderColor: isCenterFocused
-                ? 'rgba(34,197,94,0.25)'
-                : 'rgba(255,255,255,0.6)',
+                ? 'rgba(166,247,194,0.25)'
+                : 'rgba(70,130,90,0.2)',
             }}
           >
             <FontAwesome
               name={centerConfig.icon as any}
               size={25}
-              color={isCenterFocused ? '#111111' : '#888888'}
+              color={isCenterFocused ? TC.activeGlow : TC.inactive}
             />
           </LinearGradient>
         </TouchableOpacity>
@@ -210,7 +215,7 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
         <Text style={{
           fontSize: 10,
           fontWeight: isCenterFocused ? '700' : '500',
-          color: isCenterFocused ? '#111111' : '#999999',
+          color: isCenterFocused ? TC.active : TC.inactive,
           marginTop: 5,
         }}>
           {centerConfig.label}
@@ -222,17 +227,14 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
         borderRadius: BAR_RADIUS,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.25,
         shadowRadius: 20,
         elevation: 10,
       }}>
-        <View style={{
-          borderRadius: BAR_RADIUS,
-          overflow: 'hidden',
-        }}>
+        <View style={{ borderRadius: BAR_RADIUS, overflow: 'hidden' }}>
           <BlurView
-            intensity={60}
-            tint="light"
+            intensity={50}
+            tint="dark"
             style={{ borderRadius: BAR_RADIUS }}
           >
             <View style={{
@@ -240,15 +242,13 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
               alignItems: 'center',
               paddingVertical: 10,
               paddingHorizontal: 8,
-              backgroundColor: 'rgba(255,255,255,0.55)',
+              backgroundColor: TC.barBg,
+              borderWidth: 1,
+              borderColor: 'rgba(70,130,90,0.12)',
+              borderRadius: BAR_RADIUS,
             }}>
-              {/* Left tabs */}
               {leftRoutes.map(renderTab)}
-
-              {/* Center spacer — reserves room for the floating button */}
               <View style={{ width: NOTCH_SIZE + 8 }} />
-
-              {/* Right tabs */}
               {rightRoutes.map(renderTab)}
             </View>
           </BlurView>

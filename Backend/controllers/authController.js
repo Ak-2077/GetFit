@@ -447,3 +447,111 @@ export async function forgotPassword(req, res) {
     return res.status(500).json({ message: error.message || 'Password reset failed' });
   }
 }
+
+// =============================
+// SEND PROFILE EMAIL OTP (auth required)
+// =============================
+export async function sendProfileEmailOtp(req, res) {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { transporter: emailTransporter, smtpFrom } = getEmailConfig();
+    const email = normalizeEmail(req.body?.email);
+
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    // Check if email is already taken by another user
+    const existing = await User.findOne({ email, _id: { $ne: userId } });
+    if (existing) {
+      return res.status(409).json({ message: 'This email is already linked to another account' });
+    }
+
+    const rateKey = `profile-email:${userId}:${req.ip || 'unknown'}`;
+    if (isRateLimited(sendEmailOtpRateMap, rateKey, SEND_LIMIT_MAX, SEND_LIMIT_WINDOW_MS)) {
+      return res.status(429).json({ message: 'Too many OTP requests. Please wait and try again.' });
+    }
+
+    if (!emailTransporter || !smtpFrom) {
+      return res.status(500).json({ message: 'Email provider is not configured' });
+    }
+
+    const otp = createOtp();
+    const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+
+    await Otp.deleteMany({ target: email, channel: 'email' });
+    await Otp.create({ target: email, channel: 'email', otp, expiresAt });
+
+    await emailTransporter.sendMail({
+      from: smtpFrom,
+      to: email,
+      subject: 'Verify your GetFit email',
+      text: `Your GetFit verification code is ${otp}. It expires in 5 minutes.`,
+      html: `<p>Your GetFit verification code is <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
+    });
+
+    return res.json({ message: 'Verification code sent successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || 'Failed to send verification code' });
+  }
+}
+
+// =============================
+// VERIFY PROFILE EMAIL OTP (auth required)
+// =============================
+export async function verifyProfileEmailOtp(req, res) {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const email = normalizeEmail(req.body?.email);
+    const otpRaw = typeof req.body?.otp === 'string' ? req.body.otp.trim() : '';
+
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    if (!/^\d{6}$/.test(otpRaw)) {
+      return res.status(400).json({ message: 'OTP must be 6 digits' });
+    }
+
+    const rateKey = `profile-verify-email:${userId}:${req.ip || 'unknown'}`;
+    if (isRateLimited(verifyEmailOtpRateMap, rateKey, VERIFY_LIMIT_MAX, VERIFY_LIMIT_WINDOW_MS)) {
+      return res.status(429).json({ message: 'Too many verification attempts. Please wait and try again.' });
+    }
+
+    const otpDoc = await Otp.findOne({ target: email, channel: 'email' }).sort({ createdAt: -1 });
+    if (!otpDoc) {
+      return res.status(400).json({ message: 'OTP not found. Please request a new code.' });
+    }
+
+    if (otpDoc.expiresAt.getTime() < Date.now()) {
+      await Otp.deleteMany({ target: email, channel: 'email' });
+      return res.status(400).json({ message: 'OTP expired. Please request a new code.' });
+    }
+
+    if (otpDoc.otp !== otpRaw) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    await Otp.deleteMany({ target: email, channel: 'email' });
+
+    // Save verified email to user
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { email, emailVerified: true },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({ message: 'Email verified successfully', user });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || 'Failed to verify email' });
+  }
+}
+
