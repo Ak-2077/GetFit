@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { Text, TextInput } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_500Medium } from '@expo-google-fonts/poppins';
+import * as SplashScreen from 'expo-splash-screen';
 
 import "../global.css";
 
@@ -11,6 +12,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthToken } from '@/services/api';
+
+// Keep the native splash visible until we're ready
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -74,6 +78,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (!fontsLoaded) return;
 
+    // Hide the native system splash screen once fonts are ready
+    SplashScreen.hideAsync().catch(() => {});
+
     (Text as any).defaultProps = (Text as any).defaultProps || {};
     (Text as any).defaultProps.style = [{ fontFamily: 'Poppins_400Regular', fontWeight: '400' }, (Text as any).defaultProps.style];
 
@@ -81,6 +88,7 @@ export default function RootLayout() {
     (TextInput as any).defaultProps.style = [{ fontFamily: 'Poppins_400Regular', fontWeight: '400' }, (TextInput as any).defaultProps.style];
   }, [fontsLoaded]);
 
+  // Don't render the nav tree until fonts are ready
   if (!fontsLoaded) return null;
 
   return (
@@ -94,7 +102,7 @@ export default function RootLayout() {
         <Stack.Screen name="home-workout" options={{ headerShown: false }} />
         <Stack.Screen name="home-workout-player" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </ThemeProvider>
   );
 }

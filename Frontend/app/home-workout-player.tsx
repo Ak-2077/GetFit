@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { Asset } from 'expo-asset';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getWorkoutModel } from '../services/api';
+import GFLoader from '../components/GFLoader';
 
 type WorkoutModelResponse = {
 	mode: string;
@@ -137,8 +138,7 @@ export default function HomeWorkoutPlayerScreen() {
 
 			{loading ? (
 				<View className="flex-1 items-center justify-center">
-					<ActivityIndicator color="#fff" />
-					<Text className="mt-2 text-gray-300">Loading animation...</Text>
+					<GFLoader fullScreen={false} size={44} message="Loading animation..." />
 				</View>
 			) : error ? (
 				<View className="flex-1 items-center justify-center px-6">

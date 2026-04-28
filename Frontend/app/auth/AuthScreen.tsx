@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -14,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import GFLoader from '../../components/GFLoader';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -378,7 +378,7 @@ export default function AuthScreen() {
             }}
           >
             {loading ? (
-              <ActivityIndicator color="#000" />
+              <GFLoader fullScreen={false} size={20} />
             ) : (
               <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Send OTP</Text>
             )}
@@ -429,7 +429,7 @@ export default function AuthScreen() {
           }}
         >
           {loading ? (
-            <ActivityIndicator color="#000" />
+            <GFLoader fullScreen={false} size={20} />
           ) : (
             <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Verify OTP</Text>
           )}
@@ -516,7 +516,7 @@ export default function AuthScreen() {
         }}
       >
         {loading ? (
-          <ActivityIndicator color="#000" />
+          <GFLoader fullScreen={false} size={20} />
         ) : (
           <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Continue</Text>
         )}
@@ -626,7 +626,7 @@ export default function AuthScreen() {
         }}
       >
         {loading ? (
-          <ActivityIndicator color="#000" />
+          <GFLoader fullScreen={false} size={20} />
         ) : (
           <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Reset Password</Text>
         )}

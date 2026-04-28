@@ -54,6 +54,7 @@ export default function TabLayout() {
   useEffect(() => {
     let mounted = true;
     let starting = false;
+    const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
     const stopTracking = () => {
       if (watchSubRef.current) {
@@ -68,6 +69,21 @@ export default function TabLayout() {
       starting = true;
 
       try {
+        const todayKey = getTodayKey();
+        const trackedDay = await AsyncStorage.getItem('activityTrackedDay');
+
+        // Reset counters once per day so steps/distance represent "today".
+        if (trackedDay !== todayKey) {
+          totalDistanceMetersRef.current = 0;
+          lastCoordsRef.current = null;
+          await AsyncStorage.setItem('activityTrackedDay', todayKey);
+          try {
+            await updateProfile({ steps: 0, stepDistanceKm: 0 });
+          } catch (err) {
+            console.warn('Daily reset sync failed', err);
+          }
+        }
+
         if (totalDistanceMetersRef.current === 0) {
           try {
             const profileRes = await getMe();

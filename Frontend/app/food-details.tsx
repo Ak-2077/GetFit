@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { addBrandFood, addFoodToLog, searchFoods } from '../services/api';
+import { addBrandFood, addFoodToLog, searchFoods, getFoodById, getFoodByBarcode } from '../services/api';
+import GFLoader from '../components/GFLoader';
 
 type FoodItem = {
   _id: string;
@@ -16,12 +17,17 @@ type FoodItem = {
   protein?: number;
   carbs?: number;
   fat?: number;
+  fiber?: number;
+  sugar?: number;
+  ingredients?: string;
+  supplementFacts?: any;
 };
 
 export default function FoodDetailsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ barcode?: string }>();
+  const params = useLocalSearchParams<{ barcode?: string; id?: string }>();
   const barcode = typeof params.barcode === 'string' ? params.barcode : '';
+  const idParam = typeof params.id === 'string' ? params.id : '';
 
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -51,9 +57,24 @@ export default function FoodDetailsScreen() {
         setLoading(true);
         setLoadError(false);
 
+        if (idParam) {
+          const res = await getFoodById(idParam);
+          setFood(res?.data?.food || res?.data || null);
+          return;
+        }
+
         if (!barcode) {
           setFood(null);
           return;
+        }
+
+        // Try barcode endpoint first
+        try {
+          const byCode = await getFoodByBarcode(barcode);
+          const found = byCode?.data?.food || byCode?.data || null;
+          if (found) { setFood(found); return; }
+        } catch (err) {
+          // fallback to search
         }
 
         const res = await searchFoods(barcode);
@@ -71,7 +92,7 @@ export default function FoodDetailsScreen() {
     };
 
     loadFood();
-  }, [barcode]);
+  }, [barcode, idParam]);
 
   const parseServing = (servingSize?: string, fallbackName?: string) => {
     const source = `${servingSize || ''}`.trim();
@@ -153,6 +174,20 @@ export default function FoodDetailsScreen() {
         unit: 'g',
         cardClass: 'bg-sky-950 border border-sky-800',
         valueClass: 'text-sky-300',
+      },
+      {
+        label: 'Fiber',
+        value: Math.round((food?.fiber ?? 0) * servingMultiplier),
+        unit: 'g',
+        cardClass: 'bg-green-950 border border-green-800',
+        valueClass: 'text-green-300',
+      },
+      {
+        label: 'Sugar',
+        value: Math.round((food?.sugar ?? 0) * servingMultiplier),
+        unit: 'g',
+        cardClass: 'bg-pink-950 border border-pink-800',
+        valueClass: 'text-pink-300',
       },
     ];
   }, [food, servingMultiplier]);
@@ -265,8 +300,7 @@ export default function FoodDetailsScreen() {
         <View className="px-5 pb-8">
         {loading ? (
           <View className="min-h-[320px] items-center justify-center">
-            <ActivityIndicator color="#fff" />
-            <Text className="mt-3 text-gray-300">Loading food details...</Text>
+            <GFLoader fullScreen={false} size={44} message="Loading food details..." />
           </View>
         ) : !food ? (
           <View className="min-h-[320px] items-center justify-center">
@@ -348,7 +382,6 @@ export default function FoodDetailsScreen() {
                 </TouchableOpacity>
               </View>
             ) : null}
-
             <TouchableOpacity className="mt-3 rounded-xl bg-gray-700 px-5 py-3" onPress={goBackSafe}>
               <Text className="font-bold text-white">Scan Another</Text>
             </TouchableOpacity>
@@ -393,6 +426,8 @@ export default function FoodDetailsScreen() {
               </View>
             </View>
 
+            
+
             <View className="mt-4 rounded-2xl border border-gray-700 bg-gray-900 p-4">
               <Text className="mb-3 text-lg font-bold text-white">Nutrition for {servingAmount || 0}{servingUnit}</Text>
               <View className="flex-row flex-wrap justify-between">
@@ -405,6 +440,35 @@ export default function FoodDetailsScreen() {
                 ))}
               </View>
             </View>
+
+            {(food?.ingredients || food?.supplementFacts) && (
+              <View className="mt-4 rounded-2xl border border-gray-700 bg-gray-900 p-4">
+                {food?.ingredients ? (
+                  <View className="mb-3">
+                    <Text className="text-sm font-semibold text-white">Ingredients</Text>
+                    <Text className="mt-2 text-sm text-gray-300">{food.ingredients}</Text>
+                  </View>
+                ) : null}
+
+                {food?.supplementFacts ? (
+                  <View>
+                    <Text className="text-sm font-semibold text-white">Supplement Facts</Text>
+                    {Array.isArray(food.supplementFacts) ? (
+                      <View className="mt-2">
+                        {food.supplementFacts.map((sf: any, idx: number) => (
+                          <View key={idx} className="flex-row justify-between mt-2">
+                            <Text className="text-sm text-gray-300">{sf.name}</Text>
+                            <Text className="text-sm text-gray-300">{sf.amount || ''}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text className="mt-2 text-sm text-gray-300">{typeof food.supplementFacts === 'string' ? food.supplementFacts : JSON.stringify(food.supplementFacts)}</Text>
+                    )}
+                  </View>
+                ) : null}
+              </View>
+            )}
 
             <TouchableOpacity
               className="mt-5 items-center rounded-2xl bg-green-600 py-4"

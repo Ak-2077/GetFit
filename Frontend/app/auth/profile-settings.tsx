@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, Image, TouchableOpacity, ScrollView,
   Alert, TextInput, Switch, Modal, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import * as Location from 'expo-location';
@@ -14,6 +14,7 @@ import {
   getUserProfile, updateUserProfile, changeUserPassword,
   deleteUserAccount, setAuthToken, sendProfileEmailOtp, verifyProfileEmailOtp,
 } from '../../services/api';
+import GFLoader from '../../components/GFLoader';
 
 const C = {
   bg: '#050505', card: 'rgba(25,25,25,1)', border: 'rgba(70,130,90,0.18)',
@@ -102,6 +103,43 @@ export default function ProfileSettingsScreen() {
       } catch { /* ignore */ }
     })();
   }, [loadProfile]));
+
+  const enableLocationTracking = useCallback(async () => {
+    const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+
+    if (status === 'granted') {
+      setLocationEnabled(true);
+      setLocationPermStatus('granted');
+      await AsyncStorage.setItem('locationTrackingEnabled', 'true');
+      await AsyncStorage.setItem('locationPermissionRequested', 'true');
+      return;
+    }
+
+    if (!canAskAgain) {
+      setLocationPermStatus('denied');
+      Alert.alert(
+        'Permission Required',
+        'Location permission was denied. Open Settings to enable it.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+      return;
+    }
+
+    const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+    if (newStatus === 'granted') {
+      setLocationEnabled(true);
+      setLocationPermStatus('granted');
+      await AsyncStorage.setItem('locationTrackingEnabled', 'true');
+      await AsyncStorage.setItem('locationPermissionRequested', 'true');
+      return;
+    }
+
+    setLocationPermStatus('denied');
+    Alert.alert('Permission Required', 'Location permission is needed for step tracking.');
+  }, []);
 
   const onSave = async () => {
     setSaving(true);
@@ -204,11 +242,7 @@ export default function ProfileSettingsScreen() {
   const hasAvatar = !!(avatarUri && avatarUri.length > 0);
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color={C.accent} size="large" />
-      </View>
-    );
+    return <GFLoader message="Loading settings..." />;
   }
 
   const levelLabel = (l: string) => l === 'beginner' ? 'Beginner' : l === 'intermediate' ? 'Intermediate' : l === 'advanced' ? 'Advanced' : '—';
@@ -318,34 +352,18 @@ export default function ProfileSettingsScreen() {
                   value={locationEnabled}
                   onValueChange={async (val) => {
                     if (val) {
-                      const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
-                      if (status === 'granted') {
-                        setLocationEnabled(true);
-                        setLocationPermStatus('granted');
-                        await AsyncStorage.setItem('locationTrackingEnabled', 'true');
-                      } else if (canAskAgain) {
-                        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-                        if (newStatus === 'granted') {
-                          setLocationEnabled(true);
-                          setLocationPermStatus('granted');
-                          await AsyncStorage.setItem('locationTrackingEnabled', 'true');
-                        } else {
-                          setLocationPermStatus('denied');
-                          Alert.alert('Permission Required', 'Location permission is needed for step tracking.');
-                        }
-                      } else {
-                        Alert.alert(
-                          'Permission Required',
-                          'Location permission was denied. Open Settings to enable it.',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-                          ]
-                        );
-                      }
+                      Alert.alert(
+                        'Enable Location Tracking',
+                        'GetFit will request location access so it can track steps and calorie burn.',
+                        [
+                          { text: 'Cancel', style: 'cancel', onPress: () => setLocationEnabled(false) },
+                          { text: 'Enable', onPress: () => { void enableLocationTracking(); } },
+                        ]
+                      );
                     } else {
                       setLocationEnabled(false);
                       await AsyncStorage.setItem('locationTrackingEnabled', 'false');
+                      await AsyncStorage.removeItem('locationPermissionRequested');
                     }
                   }}
                   trackColor={{ false: '#333', true: C.accent }}
@@ -359,13 +377,13 @@ export default function ProfileSettingsScreen() {
             <DarkCard style={{ marginBottom: 20 }}>
               <SettingsRow icon="shield" label="Privacy Policy" onPress={() => Linking.openURL('https://getfit.app/privacy')} />
               <SettingsRow icon="trash" label="Delete My Account" onPress={onDeleteAccount}
-                right={deleting ? <ActivityIndicator color="#DC2626" size="small" /> : <FontAwesome name="chevron-right" size={12} color="#DC2626" />} />
+                right={deleting ? <GFLoader fullScreen={false} size={16} /> : <FontAwesome name="chevron-right" size={12} color="#DC2626" />} />
               <SettingsRow icon="sign-out" label="Sign Out" onPress={onSignOut} last />
             </DarkCard>
 
             {/* SAVE */}
             <TouchableOpacity onPress={onSave} disabled={saving} activeOpacity={0.85} style={{ backgroundColor: C.accent, borderRadius: 14, height: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Save Changes</Text>}
+              {saving ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Save Changes</Text>}
             </TouchableOpacity>
 
           </ScrollView>
@@ -392,7 +410,7 @@ export default function ProfileSettingsScreen() {
                   </View>
                 ))}
                 <TouchableOpacity onPress={onChangePassword} disabled={changingPassword} style={{ backgroundColor: C.accent, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
-                  {changingPassword ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Change Password</Text>}
+                  {changingPassword ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Change Password</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -414,7 +432,7 @@ export default function ProfileSettingsScreen() {
                     <TextInput value={emailInput} onChangeText={setEmailInput} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" placeholderTextColor={C.muted}
                       style={{ backgroundColor: C.input, borderRadius: 12, padding: 14, color: C.white, fontSize: 15, borderWidth: 1, borderColor: C.border }} />
                     <TouchableOpacity onPress={onSendEmailOtp} disabled={emailSending} style={{ backgroundColor: C.accent, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 16 }}>
-                      {emailSending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Send Verification Code</Text>}
+                      {emailSending ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Send Verification Code</Text>}
                     </TouchableOpacity>
                   </>
                 ) : (
@@ -423,7 +441,7 @@ export default function ProfileSettingsScreen() {
                     <TextInput value={emailOtp} onChangeText={setEmailOtp} keyboardType="number-pad" maxLength={6} placeholder="000000" placeholderTextColor={C.muted}
                       style={{ backgroundColor: C.input, borderRadius: 12, padding: 14, color: C.white, fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center', borderWidth: 1, borderColor: C.border }} />
                     <TouchableOpacity onPress={onVerifyEmailOtp} disabled={emailVerifying} style={{ backgroundColor: C.accent, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 16 }}>
-                      {emailVerifying ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Verify</Text>}
+                      {emailVerifying ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Verify</Text>}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => { setEmailStep('enter'); setEmailOtp(''); }} style={{ marginTop: 12, alignItems: 'center' }}>
                       <Text style={{ color: C.accent, fontSize: 13 }}>Resend code</Text>
@@ -444,7 +462,7 @@ export default function ProfileSettingsScreen() {
                 <TouchableOpacity onPress={() => setPickerModal(null)}><FontAwesome name="times" size={20} color={C.label} /></TouchableOpacity>
               </View>
               {pickerSaving ? (
-                <ActivityIndicator color={C.accent} style={{ marginVertical: 20 }} />
+                <GFLoader fullScreen={false} size={36} />
               ) : (
                 (pickerModal?.type === 'level'
                   ? [{ key: 'beginner', label: 'Beginner' }, { key: 'intermediate', label: 'Intermediate' }, { key: 'advanced', label: 'Advanced' }]

@@ -5,7 +5,6 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Dimensions,
   Modal,
   Alert,
@@ -19,6 +18,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Text as SvgText, Line } from 'react-native-svg';
 import { getUserProfile, getWeeklyCalories, setAuthToken, updateUserProfile } from '../../services/api';
+import GFLoader from '../../components/GFLoader';
 
 // ─── THEME ──────────────────────────────────────────────
 const C = {
@@ -73,12 +73,12 @@ function UniformCard({ icon, iconSource, label, value, badge, badgeColor, onPres
   const content = (
     <DarkCard style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
       <View style={{
-        width: 42, height: 42, borderRadius: 12,
-        backgroundColor: 'rgba(31,164,99,0.10)',
+        width: 50, height: 50, borderRadius: 14,
+        backgroundColor: 'transparent',
         justifyContent: 'center', alignItems: 'center',
       }}>
         {iconSource ? (
-          <Image source={iconSource} style={{ width: 22, height: 22 }} resizeMode="contain" />
+          <Image source={iconSource} style={{ width: 32, height: 32 }} resizeMode="contain" />
         ) : (
           <FontAwesome name={icon as any} size={18} color={C.accent} />
         )}
@@ -136,7 +136,7 @@ function WeeklyChart({ weeklyData, goalCalories, bmi, loading }: ChartProps) {
   if (loading) {
     return (
       <View style={{ height: chartHeight + 50, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color={C.accent} size="small" />
+        <GFLoader fullScreen={false} size={32} />
         <Text style={{ fontSize: 12, color: C.label, marginTop: 8 }}>Loading chart…</Text>
       </View>
     );
@@ -287,11 +287,7 @@ export default function ProfileScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color={C.accent} size="large" />
-      </View>
-    );
+    return <GFLoader message="Loading profile..." />;
   }
 
   const bmi = user?.bmi || null;
@@ -392,19 +388,19 @@ export default function ProfileScreen() {
           {/* ROW 2: Body Type + Weight */}
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
             <UniformCard iconSource={require('../../assets/icons/profile/bodytype.png')} label="Body Type" value={bodyTypeLabel(user?.bodyType || '')} />
-            <UniformCard icon="dashboard" label="Weight" value={user?.weight ? `${user.weight} kg` : '—'} />
+            <UniformCard iconSource={require('../../assets/icons/profile/weight.png')} label="Weight" value={user?.weight ? `${user.weight} kg` : '—'} />
           </View>
 
           {/* ROW 3: Level + Diet */}
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
             <UniformCard
-              icon="signal"
+              iconSource={require('../../assets/icons/profile/level.png')}
               label="Level"
               value={levelLabel(user?.level || '')}
               onPress={() => setPickerModal({ type: 'level', current: user?.level || '' })}
             />
             <UniformCard
-              icon="leaf"
+              iconSource={require('../../assets/icons/profile/diet.png')}
               label="Diet"
               value={dietLabel(user?.dietPreference || '')}
               onPress={() => setPickerModal({ type: 'diet', current: user?.dietPreference || '' })}
@@ -547,7 +543,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity onPress={() => setPickerModal(null)}><FontAwesome name="times" size={20} color={C.label} /></TouchableOpacity>
               </View>
               {pickerSaving ? (
-                <ActivityIndicator color={C.accent} style={{ marginVertical: 20 }} />
+                <GFLoader fullScreen={false} size={36} />
               ) : (
                 (pickerModal?.type === 'level'
                   ? [{ key: 'beginner', label: 'Beginner' }, { key: 'intermediate', label: 'Intermediate' }, { key: 'advanced', label: 'Advanced' }]

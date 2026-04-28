@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMe, setAuthToken, updateProfile } from '../../services/api';
 import * as ImagePicker from 'expo-image-picker';
+import GFLoader from '../../components/GFLoader';
 
 export default function EditProfile() {
   const router = useRouter();
@@ -87,7 +88,7 @@ export default function EditProfile() {
     }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color="#fff" /></View>;
+  if (loading) return <GFLoader message="Loading profile..." />;
 
   return (
     <View style={styles.page}>

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   Text,
@@ -20,6 +19,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Location from 'expo-location';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getCaloriesToday,
   getCaloriesWeekly,
@@ -28,7 +28,9 @@ import {
   logCaloriesMeal,
   searchFoodsAutocomplete,
   setAuthToken,
+  getFoodByBarcode,
 } from '../../services/api';
+import GFLoader from '../../components/GFLoader';
 
 const C = {
   bg: '#050505',
@@ -195,8 +197,11 @@ function LockedCard({ title, subtitle }: { title: string; subtitle: string }) {
 
 export default function CaloriesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const liveSyncRef = useRef(false);
+  const liveSyncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [daily, setDaily] = useState<any>(null);
   const [weekly, setWeekly] = useState<{ intakeTrend: DayPoint[]; burnedTrend: DayPoint[] }>({
@@ -204,13 +209,16 @@ export default function CaloriesScreen() {
     burnedTrend: [],
   });
   const [steps, setSteps] = useState<{ steps: number; distanceKm: number }>({ steps: 0, distanceKm: 0 });
-  const [burn, setBurn] = useState<{ totalCaloriesBurned: number }>({ totalCaloriesBurned: 0 });
+  const [burn, setBurn] = useState<{ totalCaloriesBurned: number; walkingCaloriesBurned?: number; manualCaloriesBurned?: number }>({ totalCaloriesBurned: 0, walkingCaloriesBurned: 0, manualCaloriesBurned: 0 });
 
   // Location permission state
   const [locationGranted, setLocationGranted] = useState(true);
 
   // Search overlay state
   const [searchVisible, setSearchVisible] = useState(false);
+  const [actionPickerVisible, setActionPickerVisible] = useState(false);
+  const [manualPickerVisible, setManualPickerVisible] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
   const [searchText, setSearchText] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -259,6 +267,8 @@ export default function CaloriesScreen() {
 
   const loadData = useCallback(async (silent = false) => {
     try {
+      if (silent && liveSyncRef.current) return;
+      liveSyncRef.current = true;
       if (!silent) setLoading(true);
       else setRefreshing(true);
 
@@ -283,19 +293,29 @@ export default function CaloriesScreen() {
       });
       setBurn({
         totalCaloriesBurned: Number(burnRes.data?.totalCaloriesBurned || 0),
+        walkingCaloriesBurned: Number(burnRes.data?.walkingCaloriesBurned || 0),
+        manualCaloriesBurned: Number(burnRes.data?.manualCaloriesBurned || 0),
       });
     } catch (error) {
       console.warn('Calories screen load error', error);
       Alert.alert('Sync Error', 'Could not fetch calories data from backend.');
     } finally {
+      liveSyncRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
+  const refreshCaloriesSilently = useCallback(() => loadData(true), [loadData]);
+
   // Check location permission on focus
   useFocusEffect(
     useCallback(() => {
+      if (liveSyncTimerRef.current) {
+        clearInterval(liveSyncTimerRef.current);
+        liveSyncTimerRef.current = null;
+      }
+
       loadData(false);
       (async () => {
         try {
@@ -306,6 +326,17 @@ export default function CaloriesScreen() {
           if (stored) setRecentSearches(JSON.parse(stored).slice(0, 8));
         } catch { /* ignore */ }
       })();
+
+      liveSyncTimerRef.current = setInterval(() => {
+        void refreshCaloriesSilently();
+      }, 20000);
+
+      return () => {
+        if (liveSyncTimerRef.current) {
+          clearInterval(liveSyncTimerRef.current);
+          liveSyncTimerRef.current = null;
+        }
+      };
     }, [loadData])
   );
 
@@ -379,6 +410,25 @@ export default function CaloriesScreen() {
     setSearchVisible(true);
   };
 
+  const openActionPicker = () => {
+    Keyboard.dismiss();
+    setActionPickerVisible(true);
+  };
+
+  const closeActionPicker = () => {
+    setActionPickerVisible(false);
+  };
+
+  const openManualSearch = () => {
+    closeActionPicker();
+    openSearch();
+  };
+
+  const openBarcodeScan = () => {
+    closeActionPicker();
+    router.push('/scan');
+  };
+
   const closeSearch = () => {
     Keyboard.dismiss();
     setSearchVisible(false);
@@ -394,12 +444,7 @@ export default function CaloriesScreen() {
   const suggestionExamples = ['Optimum Nutrition', 'MuscleBlaze Whey', 'Creatine', 'Oats', 'Greek Yogurt'];
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={C.accent} />
-        <Text style={{ color: C.subtext, marginTop: 10 }}>Loading calories dashboard...</Text>
-      </View>
-    );
+    return <GFLoader message="Loading calories dashboard..." />;
   }
 
   return (
@@ -516,6 +561,7 @@ export default function CaloriesScreen() {
               </View>
               <Text style={{ color: C.text, fontSize: 26, fontWeight: '800' }}>{Math.round(burn.totalCaloriesBurned)}</Text>
               <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>kcal today</Text>
+              <Text style={{ color: C.accent, fontSize: 10, marginTop: 3 }}>Auto walk {Math.round(Number(burn.walkingCaloriesBurned || 0))} kcal</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -538,7 +584,7 @@ export default function CaloriesScreen() {
 
           {/* ═══ QUICK ACTIONS ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Quick Actions</Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/scan')}
+          <TouchableOpacity activeOpacity={0.8} onPress={openActionPicker}
             style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16, flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center' }}>
               <FontAwesome name="cutlery" size={16} color={C.accent} />
@@ -588,12 +634,121 @@ export default function CaloriesScreen() {
         </ScrollView>
       </SafeAreaView>
 
+      <Modal visible={actionPickerVisible} transparent animationType="fade" onRequestClose={closeActionPicker}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 22 }}>
+          <View style={{ backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 18 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <FontAwesome name="cutlery" size={16} color={C.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontSize: 17, fontWeight: '800' }}>Get Food Calories</Text>
+                <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Choose how you want to add food</Text>
+              </View>
+              <TouchableOpacity onPress={closeActionPicker} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.glass, justifyContent: 'center', alignItems: 'center' }}>
+                <FontAwesome name="times" size={14} color={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => { closeActionPicker(); setManualPickerVisible(true); }}
+              style={{ backgroundColor: C.glass, borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                <FontAwesome name="search" size={15} color={C.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Manual</Text>
+                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Search food or supplement name</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={12} color={C.muted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={openBarcodeScan}
+              style={{ backgroundColor: C.glass, borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center' }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                <FontAwesome name="barcode" size={15} color={C.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Scan Barcode</Text>
+                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Open camera scanner instantly</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={12} color={C.muted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={closeActionPicker} activeOpacity={0.8} style={{ marginTop: 12, alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Manual bottom sheet: choose Search or Enter Barcode */}
+      <Modal visible={manualPickerVisible} transparent animationType="slide" onRequestClose={() => setManualPickerVisible(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16, borderWidth: 1, borderColor: C.cardBorder }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: C.text, fontSize: 16, fontWeight: '800' }}>Manual Entry</Text>
+              <TouchableOpacity onPress={() => setManualPickerVisible(false)}>
+                <FontAwesome name="times" size={18} color={C.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={() => { setManualPickerVisible(false); openSearch(); }} activeOpacity={0.85}
+              style={{ backgroundColor: C.glass, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesome name="search" size={16} color={C.text} style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontWeight: '700' }}>Search Food</Text>
+                <Text style={{ color: C.muted, fontSize: 12 }}>Search by product or supplement name</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={12} color={C.muted} />
+            </TouchableOpacity>
+
+            <View style={{ height: 12 }} />
+
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, paddingHorizontal: 12, height: 46, justifyContent: 'center' }}>
+                <TextInput value={manualBarcode} onChangeText={setManualBarcode} placeholder="Enter barcode number" placeholderTextColor={C.muted} style={{ color: C.text }} keyboardType="numeric" />
+              </View>
+              <TouchableOpacity onPress={async () => {
+                try {
+                  if (!manualBarcode.trim()) { Alert.alert('Enter barcode', 'Please enter a barcode number'); return; }
+                  const res = await getFoodByBarcode(manualBarcode.trim());
+                  const found = res?.data?.food || res?.data || null;
+                  if (found && (found._id || (Array.isArray(found) && found.length > 0))) {
+                    const fid = found._id || (Array.isArray(found) ? found[0]._id : null);
+                    if (fid) router.push(`/food-details?id=${fid}`);
+                    else router.push(`/food-details?barcode=${manualBarcode.trim()}`);
+                    setManualPickerVisible(false);
+                  } else {
+                    Alert.alert('Not found', 'Product not found for this barcode. You can add it manually in details.');
+                  }
+                } catch (err) {
+                  Alert.alert('Lookup failed', 'Could not lookup barcode.');
+                }
+              }} style={{ backgroundColor: C.accent, borderRadius: 12, paddingHorizontal: 14, height: 46, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: '#050505', fontWeight: '700' }}>Lookup</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ height: 10 }} />
+            <TouchableOpacity onPress={() => setManualPickerVisible(false)} style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ color: C.muted }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ═══ SEARCH OVERLAY MODAL ═══ */}
       <Modal visible={searchVisible} animationType="slide" transparent={false} onRequestClose={closeSearch}>
         <View style={{ flex: 1, backgroundColor: C.bg }}>
           <SafeAreaView style={{ flex: 1 }}>
             {/* Search Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: Math.max(insets.top, 8), paddingBottom: 12, gap: 10 }}>
               <TouchableOpacity onPress={closeSearch} style={{
                 width: 40, height: 40, borderRadius: 20,
                 backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder,
@@ -617,7 +772,7 @@ export default function CaloriesScreen() {
                   style={{ color: C.text, flex: 1, marginLeft: 10, fontSize: 14 }}
                 />
                 {searchLoading ? (
-                  <ActivityIndicator color={C.accent} size="small" />
+                  <GFLoader fullScreen={false} size={20} />
                 ) : searchText.length > 0 ? (
                   <TouchableOpacity onPress={() => { setSearchText(''); setResults([]); }}>
                     <FontAwesome name="times-circle" size={16} color={C.muted} />
@@ -675,10 +830,18 @@ export default function CaloriesScreen() {
                 <View style={{ marginTop: 4 }}>
                   <Text style={{ color: C.subtext, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Results</Text>
                   {results.map((food) => (
-                    <View key={food._id} style={{
-                      backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder,
-                      padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center',
-                    }}>
+                    <TouchableOpacity
+                      key={food._id}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        closeSearch();
+                        router.push(`/food-details?id=${food._id}`);
+                      }}
+                      style={{
+                        backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder,
+                        padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center',
+                      }}
+                    >
                       <View style={{
                         width: 38, height: 38, borderRadius: 10,
                         backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12,
@@ -688,14 +851,20 @@ export default function CaloriesScreen() {
                       <View style={{ flex: 1, paddingRight: 10 }}>
                         <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{food.name || 'Food'}</Text>
                         <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-                          {food.brand || 'Unknown brand'} • {Math.round(Number(food.calories || 0))} kcal
+                          {food.brand || 'Unknown brand'} • {Math.round(Number(food.calories || 0))} kcal • {food.servingSize || 'Serving not set'}
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={() => addQuickFood(food._id, 'snack')} disabled={addingFoodId === food._id}
-                        style={{ backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          addQuickFood(food._id, 'snack');
+                        }}
+                        disabled={addingFoodId === food._id}
+                        style={{ backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}
+                      >
                         <Text style={{ color: C.accent, fontSize: 12, fontWeight: '700' }}>{addingFoodId === food._id ? 'Adding...' : '+ Add'}</Text>
                       </TouchableOpacity>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}

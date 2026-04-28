@@ -42,6 +42,14 @@ const normalizeMealType = (mealType) => {
   return 'snacks';
 };
 
+const estimateWalkingBurn = ({ weightKg, distanceKm, steps }) => {
+  const safeWeight = Math.max(35, Math.min(220, toSafeNumber(weightKg, 70)));
+  const distanceFromStepsKm = toSafeNumber(steps) > 0 ? (toSafeNumber(steps) * 0.78) / 1000 : 0;
+  const safeDistanceKm = Math.max(0, toSafeNumber(distanceKm) || distanceFromStepsKm);
+  // Walking cost approximation: ~0.75 kcal per kg per km.
+  return safeWeight * safeDistanceKm * 0.75;
+};
+
 export const getCaloriesToday = async (req, res) => {
   try {
     const userId = req.userId;
@@ -189,11 +197,23 @@ export const getCaloriesBurn = async (req, res) => {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const logs = await BurnLog.find({ userId, date: { $gte: startOfDay() } }).sort({ createdAt: -1 }).lean();
-    const total = logs.reduce((sum, log) => sum + toSafeNumber(log.caloriesBurned), 0);
+    const [logs, user] = await Promise.all([
+      BurnLog.find({ userId, date: { $gte: startOfDay() } }).sort({ createdAt: -1 }).lean(),
+      User.findById(userId).select('weight steps stepDistanceKm').lean(),
+    ]);
+    const manualBurn = logs.reduce((sum, log) => sum + toSafeNumber(log.caloriesBurned), 0);
+    const autoWalkingBurn = estimateWalkingBurn({
+      weightKg: user?.weight,
+      distanceKm: user?.stepDistanceKm,
+      steps: user?.steps,
+    });
+    const total = manualBurn + autoWalkingBurn;
 
     return res.status(200).json({
       totalCaloriesBurned: Math.round(total),
+      manualCaloriesBurned: Math.round(manualBurn),
+      walkingCaloriesBurned: Math.round(autoWalkingBurn),
+      source: 'manual-plus-auto-walking',
       logs,
       count: logs.length,
     });
