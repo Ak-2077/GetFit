@@ -9,6 +9,7 @@ import {
   Modal,
   Alert,
   ImageSourcePropType,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -233,6 +234,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [weeklyData, setWeeklyData] = useState<WeeklyDataPoint[]>([]);
   const [chartLoading, setChartLoading] = useState(true);
   const [pickerModal, setPickerModal] = useState<{type:'level'|'diet',current:string}|null>(null);
@@ -252,8 +254,10 @@ export default function ProfileScreen() {
     finally { setPickerSaving(false); }
   };
 
-  const loadProfile = useCallback(async () => {
+  const loadProfile = useCallback(async (silent = false) => {
     try {
+      if (!silent) setLoading(true);
+      else setRefreshing(true);
       const token = await AsyncStorage.getItem('token');
       if (!token) { router.replace('/auth' as any); return; }
       setAuthToken(token);
@@ -274,6 +278,7 @@ export default function ProfileScreen() {
       console.warn('Failed to load profile', err?.response?.data || err.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
       setChartLoading(false);
     }
   }, []);
@@ -282,7 +287,7 @@ export default function ProfileScreen() {
     useCallback(() => {
       setLoading(true);
       setChartLoading(true);
-      loadProfile();
+      loadProfile(false);
     }, [loadProfile])
   );
 
@@ -316,7 +321,19 @@ export default function ProfileScreen() {
       }} />
 
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadProfile(true)}
+              tintColor={C.accent}
+              colors={[C.accent]}
+              progressBackgroundColor={C.card}
+            />
+          }
+        >
 
           {/* ═══ HEADER ═══ */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, paddingBottom: 16 }}>
@@ -434,11 +451,11 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              {/* Progress bar */}
+              {/* Progress bar
               <View style={{ height: 5, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, marginBottom: 12 }}>
                 <LinearGradient colors={['#1FA463', '#A6F7C2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={{ height: 5, borderRadius: 3, width: `${Math.max(calProgress * 100, 5)}%` as any }} />
-              </View>
+              </View> */}
 
               {/* Surplus / deficit */}
               <View style={{ alignItems: 'center' }}>

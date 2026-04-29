@@ -6,18 +6,21 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
   Dimensions,
   Modal,
   Linking,
   Platform,
   Keyboard,
+  RefreshControl,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Location from 'expo-location';
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop, Text as SvgText, Rect, Line } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -29,7 +32,17 @@ import {
   searchFoodsAutocomplete,
   setAuthToken,
   getFoodByBarcode,
+  removeFoodFromLog,
+  getUserProfile,
 } from '../../services/api';
+
+// Meal category icons from assets
+const mealImages: Record<string, any> = {
+  breakfast: require('../../assets/icons/calories/breakfast.png'),
+  lunch: require('../../assets/icons/calories/Lunch.png'),
+  dinner: require('../../assets/icons/calories/dinner.png'),
+  snacks: require('../../assets/icons/calories/snack.png'),
+};
 import GFLoader from '../../components/GFLoader';
 
 const C = {
@@ -85,14 +98,23 @@ const buildLinePath = (points: { x: number; y: number }[]) => {
   return path;
 };
 
+const CHART_PADDING_LEFT = 36;
+const CHART_PADDING_RIGHT = 8;
+const CHART_DRAW_WIDTH = CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
+
 function DualTrendChart({ intakeData, burnData }: { intakeData: DayPoint[]; burnData: DayPoint[] }) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; value: number; type: string } | null>(null);
+
   const allValues = [...intakeData.map(d => d.calories), ...burnData.map(d => d.calories)];
   const maxValue = Math.max(100, ...allValues);
-  const minValue = Math.min(0, ...allValues);
+  const minValue = 0;
   const range = maxValue - minValue || 1;
 
+  // Y-axis ticks
+  const yTicks = [0, Math.round(maxValue * 0.33), Math.round(maxValue * 0.66), Math.round(maxValue)];
+
   const mapPoints = (data: DayPoint[]) => data.map((item, index) => {
-    const x = data.length === 1 ? CHART_WIDTH / 2 : (index / (data.length - 1)) * CHART_WIDTH;
+    const x = CHART_PADDING_LEFT + (data.length === 1 ? CHART_DRAW_WIDTH / 2 : (index / (data.length - 1)) * CHART_DRAW_WIDTH);
     const y = CHART_HEIGHT - ((item.calories - minValue) / range) * (CHART_HEIGHT - 18) - 9;
     return { x, y: Math.max(6, Math.min(CHART_HEIGHT - 6, y)) };
   });
@@ -104,6 +126,14 @@ function DualTrendChart({ intakeData, burnData }: { intakeData: DayPoint[]; burn
   const intakeArea = intakePoints.length > 0 ? `${intakeLine} L ${intakePoints[intakePoints.length - 1].x} ${CHART_HEIGHT} L ${intakePoints[0].x} ${CHART_HEIGHT} Z` : '';
   const burnArea = burnPoints.length > 0 ? `${burnLine} L ${burnPoints[burnPoints.length - 1].x} ${CHART_HEIGHT} L ${burnPoints[0].x} ${CHART_HEIGHT} Z` : '';
   const days = intakeData.length > 0 ? intakeData : burnData;
+
+  const handlePointPress = (type: string, index: number, data: DayPoint[], points: { x: number; y: number }[]) => {
+    const item = data[index];
+    const point = points[index];
+    if (!item || !point) return;
+    setTooltip({ x: point.x, y: point.y, label: item.day, value: item.calories, type });
+    setTimeout(() => setTooltip(null), 2500);
+  };
 
   return (
     <View style={{ backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 16, marginTop: 10 }}>
@@ -120,51 +150,81 @@ function DualTrendChart({ intakeData, burnData }: { intakeData: DayPoint[]; burn
           </View>
         </View>
       </View>
-      <Svg width={CHART_WIDTH} height={CHART_HEIGHT + 24}>
-        <Defs>
-          <SvgGradient id="intake-area" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={C.accent} stopOpacity="0.22" />
-            <Stop offset="100%" stopColor={C.accent} stopOpacity="0.02" />
-          </SvgGradient>
-          <SvgGradient id="burn-area" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={C.burnColor} stopOpacity="0.18" />
-            <Stop offset="100%" stopColor={C.burnColor} stopOpacity="0.02" />
-          </SvgGradient>
-          <SvgGradient id="intake-line" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor="#00E676" />
-            <Stop offset="100%" stopColor="#6CFFB0" />
-          </SvgGradient>
-          <SvgGradient id="burn-line" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor="#FF6B6B" />
-            <Stop offset="100%" stopColor="#FFB088" />
-          </SvgGradient>
-        </Defs>
-        {intakeArea ? <Path d={intakeArea} fill="url(#intake-area)" /> : null}
-        {burnArea ? <Path d={burnArea} fill="url(#burn-area)" /> : null}
-        {intakeLine ? <Path d={intakeLine} stroke="url(#intake-line)" strokeWidth={2.5} fill="none" strokeLinecap="round" /> : null}
-        {burnLine ? <Path d={burnLine} stroke="url(#burn-line)" strokeWidth={2.5} fill="none" strokeLinecap="round" /> : null}
-        {intakePoints.map((p, i) => (
-          <React.Fragment key={`ip-${i}`}>
-            <Circle cx={p.x} cy={p.y} r={4.5} fill="rgba(0,230,118,0.2)" />
-            <Circle cx={p.x} cy={p.y} r={3} fill={C.card} stroke={C.accent} strokeWidth={1.8} />
-          </React.Fragment>
-        ))}
-        {burnPoints.map((p, i) => (
-          <React.Fragment key={`bp-${i}`}>
-            <Circle cx={p.x} cy={p.y} r={4.5} fill="rgba(255,107,107,0.2)" />
-            <Circle cx={p.x} cy={p.y} r={3} fill={C.card} stroke={C.burnColor} strokeWidth={1.8} />
-          </React.Fragment>
-        ))}
-        {days.map((entry, idx) => {
-          const x = days.length === 1 ? CHART_WIDTH / 2 : (idx / (days.length - 1)) * CHART_WIDTH;
-          return (
-            <SvgText key={`dl-${idx}`} x={x} y={CHART_HEIGHT + 16} fill={C.muted} fontSize="10" textAnchor="middle" fontWeight="500">{entry.day}</SvgText>
-          );
-        })}
-      </Svg>
+      <View>
+        <Svg width={CHART_WIDTH} height={CHART_HEIGHT + 28}>
+          <Defs>
+            <SvgGradient id="intake-area" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={C.accent} stopOpacity="0.22" />
+              <Stop offset="100%" stopColor={C.accent} stopOpacity="0.02" />
+            </SvgGradient>
+            <SvgGradient id="burn-area" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={C.burnColor} stopOpacity="0.18" />
+              <Stop offset="100%" stopColor={C.burnColor} stopOpacity="0.02" />
+            </SvgGradient>
+            <SvgGradient id="intake-line" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0%" stopColor="#00E676" />
+              <Stop offset="100%" stopColor="#6CFFB0" />
+            </SvgGradient>
+            <SvgGradient id="burn-line" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0%" stopColor="#FF6B6B" />
+              <Stop offset="100%" stopColor="#FFB088" />
+            </SvgGradient>
+          </Defs>
+          {/* Y-axis grid lines */}
+          {yTicks.map((tick, i) => {
+            const y = CHART_HEIGHT - ((tick - minValue) / range) * (CHART_HEIGHT - 18) - 9;
+            const clampedY = Math.max(6, Math.min(CHART_HEIGHT - 6, y));
+            return (
+              <React.Fragment key={`yt-${i}`}>
+                <Line x1={CHART_PADDING_LEFT} y1={clampedY} x2={CHART_WIDTH - CHART_PADDING_RIGHT} y2={clampedY} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+                <SvgText x={CHART_PADDING_LEFT - 6} y={clampedY + 3} fill={C.muted} fontSize="8" textAnchor="end" fontWeight="500">{tick}</SvgText>
+              </React.Fragment>
+            );
+          })}
+          {/* Y-axis line */}
+          <Line x1={CHART_PADDING_LEFT} y1={6} x2={CHART_PADDING_LEFT} y2={CHART_HEIGHT} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+          {intakeArea ? <Path d={intakeArea} fill="url(#intake-area)" /> : null}
+          {burnArea ? <Path d={burnArea} fill="url(#burn-area)" /> : null}
+          {intakeLine ? <Path d={intakeLine} stroke="url(#intake-line)" strokeWidth={2.5} fill="none" strokeLinecap="round" /> : null}
+          {burnLine ? <Path d={burnLine} stroke="url(#burn-line)" strokeWidth={2.5} fill="none" strokeLinecap="round" /> : null}
+          {intakePoints.map((p, i) => (
+            <React.Fragment key={`ip-${i}`}>
+              <Circle cx={p.x} cy={p.y} r={4.5} fill="rgba(0,230,118,0.2)" />
+              <Circle cx={p.x} cy={p.y} r={3} fill={C.card} stroke={C.accent} strokeWidth={1.8} />
+              <Rect x={p.x - 12} y={p.y - 12} width={24} height={24} fill="transparent" onPress={() => handlePointPress('Intake', i, intakeData, intakePoints)} />
+            </React.Fragment>
+          ))}
+          {burnPoints.map((p, i) => (
+            <React.Fragment key={`bp-${i}`}>
+              <Circle cx={p.x} cy={p.y} r={4.5} fill="rgba(255,107,107,0.2)" />
+              <Circle cx={p.x} cy={p.y} r={3} fill={C.card} stroke={C.burnColor} strokeWidth={1.8} />
+              <Rect x={p.x - 12} y={p.y - 12} width={24} height={24} fill="transparent" onPress={() => handlePointPress('Burn', i, burnData, burnPoints)} />
+            </React.Fragment>
+          ))}
+          {/* X-axis labels */}
+          {days.map((entry, idx) => {
+            const x = CHART_PADDING_LEFT + (days.length === 1 ? CHART_DRAW_WIDTH / 2 : (idx / (days.length - 1)) * CHART_DRAW_WIDTH);
+            return (
+              <SvgText key={`dl-${idx}`} x={x} y={CHART_HEIGHT + 18} fill={C.muted} fontSize="10" textAnchor="middle" fontWeight="500">{entry.day}</SvgText>
+            );
+          })}
+        </Svg>
+        {/* Tooltip overlay */}
+        {tooltip && (
+          <View style={{
+            position: 'absolute', left: Math.min(Math.max(tooltip.x - 45, 4), CHART_WIDTH - 94), top: Math.max(tooltip.y - 46, 0),
+            backgroundColor: 'rgba(0,0,0,0.88)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1,
+            borderColor: tooltip.type === 'Intake' ? C.accent : C.burnColor,
+          }}>
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{tooltip.value} kcal</Text>
+            <Text style={{ color: C.muted, fontSize: 9 }}>{tooltip.label} · {tooltip.type}</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
+
 
 function LockedCard({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -204,6 +264,7 @@ export default function CaloriesScreen() {
   const liveSyncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [daily, setDaily] = useState<any>(null);
+  const [profileGoal, setProfileGoal] = useState<number>(0);
   const [weekly, setWeekly] = useState<{ intakeTrend: DayPoint[]; burnedTrend: DayPoint[] }>({
     intakeTrend: [],
     burnedTrend: [],
@@ -224,6 +285,15 @@ export default function CaloriesScreen() {
   const [results, setResults] = useState<any[]>([]);
   const [addingFoodId, setAddingFoodId] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  // Meal type picker state
+  const [mealPickerVisible, setMealPickerVisible] = useState(false);
+  const [pendingFoodId, setPendingFoodId] = useState('');
+
+  // Meal detail sheet state (opened when tapping a meal summary card)
+  const [mealDetailVisible, setMealDetailVisible] = useState(false);
+  const [activeMeal, setActiveMeal] = useState<string>('');
+  const [deletingFoodId, setDeletingFoodId] = useState('');
   const searchInputRef = useRef<TextInput>(null);
 
   const progressSize = 188;
@@ -232,16 +302,35 @@ export default function CaloriesScreen() {
   const circumference = 2 * Math.PI * radius;
 
   const consumedCalories = Number(daily?.consumedCalories || 0);
-  const targetCalories = Number(daily?.targetCalories || 2000);
-  const remainingCalories = Number(daily?.remainingCalories ?? targetCalories - consumedCalories);
+  // Use profile goalCalories as primary target, fallback to API targetCalories, then 2000
+  const targetCalories = profileGoal > 0 ? profileGoal : Number(daily?.targetCalories || 2000);
+  const remainingCalories = Math.max(0, targetCalories - consumedCalories);
   const progress = Math.max(0, Math.min(consumedCalories / Math.max(targetCalories, 1), 1));
   const progressOffset = circumference * (1 - progress);
+
+  // Dynamic ring color based on consumption percentage
+  const consumptionPercent = (consumedCalories / Math.max(targetCalories, 1)) * 100;
+  const ringColor = consumptionPercent > 75 ? '#00E676' : consumptionPercent >= 50 ? '#FFA500' : '#FF4D4D';
+  const ringColorSecondary = consumptionPercent > 75 ? '#6CFFB0' : consumptionPercent >= 50 ? '#FFD180' : '#FF8A80';
+  const ringGlowBg = consumptionPercent > 75 ? 'rgba(0,230,118,0.04)' : consumptionPercent >= 50 ? 'rgba(255,165,0,0.04)' : 'rgba(255,77,77,0.04)';
 
   const protein = Number(daily?.macros?.protein || 0);
   const carbs = Number(daily?.macros?.carbs || 0);
   const fat = Number(daily?.macros?.fat || 0);
 
   const recentFoods = useMemo(() => (daily?.logs || []).slice(0, 5), [daily?.logs]);
+
+  // Flat food list for grid
+  const allFoodEntries: FoodEntry[] = useMemo(() => {
+    const entries: FoodEntry[] = [];
+    for (const key of mealOrder) {
+      const list: FoodEntry[] = Array.isArray(daily?.meals?.[key]) ? daily.meals[key] : [];
+      for (const item of list) {
+        entries.push({ ...item, mealType: key, meal: key });
+      }
+    }
+    return entries;
+  }, [daily?.meals]);
 
   const mealTotals = useMemo(() => {
     const mealMap: Record<string, { calories: number; protein: number; carbs: number; fat: number; count: number }> = {
@@ -275,14 +364,20 @@ export default function CaloriesScreen() {
       const token = await AsyncStorage.getItem('token');
       setAuthToken(token || null);
 
-      const [todayRes, weeklyRes, stepsRes, burnRes] = await Promise.all([
+      const [todayRes, weeklyRes, stepsRes, burnRes, profileRes] = await Promise.all([
         getCaloriesToday(),
         getCaloriesWeekly(),
         getStepsToday(),
         getCaloriesBurn(),
+        getUserProfile().catch(() => ({ data: null })),
       ]);
 
       setDaily(todayRes.data || null);
+
+      // Sync goalCalories from user profile
+      const goal = Number(profileRes.data?.goalCalories || profileRes.data?.maintenanceCalories || 0);
+      if (goal > 0) setProfileGoal(goal);
+
       setWeekly({
         intakeTrend: Array.isArray(weeklyRes.data?.intakeTrend) ? weeklyRes.data.intakeTrend : [],
         burnedTrend: Array.isArray(weeklyRes.data?.burnedTrend) ? weeklyRes.data.burnedTrend : [],
@@ -368,7 +463,16 @@ export default function CaloriesScreen() {
     return () => clearTimeout(timeout);
   }, [searchText]);
 
-  const addQuickFood = async (foodId: string, mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack') => {
+  const showMealPicker = (foodId: string) => {
+    setPendingFoodId(foodId);
+    setMealPickerVisible(true);
+  };
+
+  const handleMealTypeSelected = async (mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack') => {
+    const foodId = pendingFoodId;
+    setMealPickerVisible(false);
+    setPendingFoodId('');
+    if (!foodId) return;
     try {
       setAddingFoodId(foodId);
       await logCaloriesMeal({ foodId, servings: 1, mealType });
@@ -381,6 +485,23 @@ export default function CaloriesScreen() {
     } finally {
       setAddingFoodId('');
     }
+  };
+
+  const handleDeleteFood = async (logId: string) => {
+    try {
+      setDeletingFoodId(logId);
+      await removeFoodFromLog(logId);
+      await loadData(true);
+    } catch (error) {
+      Alert.alert('Delete Failed', 'Unable to remove this food from your log.');
+    } finally {
+      setDeletingFoodId('');
+    }
+  };
+
+  const openMealDetail = (meal: string) => {
+    setActiveMeal(meal);
+    setMealDetailVisible(true);
   };
 
   const handleRequestLocation = async () => {
@@ -453,8 +574,27 @@ export default function CaloriesScreen() {
       <View style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(0,230,118,0.06)' }} />
       <View style={{ position: 'absolute', top: -20, right: -20, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(0,230,118,0.04)' }} />
 
+      {/* Custom GFLoader refresh indicator */}
+      {refreshing && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 99, alignItems: 'center', paddingTop: 60 }}>
+          <GFLoader fullScreen={false} size={32} message="Refreshing..." />
+        </View>
+      )}
+
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadData(true)}
+              tintColor="transparent"
+              colors={['transparent']}
+              progressBackgroundColor="transparent"
+            />
+          }
+        >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingTop: 8, paddingBottom: 10 }}>
             <View>
               <Text style={{ color: C.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.6 }}>Calories</Text>
@@ -479,15 +619,15 @@ export default function CaloriesScreen() {
               {/* Outer glow */}
               <View style={{
                 width: progressSize + 16, height: progressSize + 16, borderRadius: (progressSize + 16) / 2,
-                backgroundColor: 'rgba(0,230,118,0.04)',
+                backgroundColor: ringGlowBg,
                 justifyContent: 'center', alignItems: 'center',
               }}>
                 <Svg width={progressSize} height={progressSize}>
                   <Defs>
                     <SvgGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
-                      <Stop offset="0%" stopColor="#00E676" />
-                      <Stop offset="50%" stopColor="#6CFFB0" />
-                      <Stop offset="100%" stopColor="#00E676" />
+                      <Stop offset="0%" stopColor={ringColor} />
+                      <Stop offset="50%" stopColor={ringColorSecondary} />
+                      <Stop offset="100%" stopColor={ringColor} />
                     </SvgGradient>
                   </Defs>
                   <Circle cx={progressSize / 2} cy={progressSize / 2} r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} fill="transparent" />
@@ -498,7 +638,7 @@ export default function CaloriesScreen() {
                 <View style={{ position: 'absolute', alignItems: 'center' }}>
                   <Text style={{ color: C.text, fontSize: 32, fontWeight: '800' }}>{Math.round(consumedCalories)}</Text>
                   <Text style={{ color: C.subtext, fontSize: 12, marginTop: 2 }}>consumed kcal</Text>
-                  <Text style={{ color: C.accent, fontSize: 13, marginTop: 4, fontWeight: '700' }}>{Math.round(remainingCalories)} remaining</Text>
+                  <Text style={{ color: ringColor, fontSize: 13, marginTop: 4, fontWeight: '700' }}>{Math.round(remainingCalories)} remaining</Text>
                   <Text style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Target {Math.round(targetCalories)} kcal</Text>
                 </View>
               </View>
@@ -599,29 +739,59 @@ export default function CaloriesScreen() {
           </TouchableOpacity>
 
 
-          {/* ═══ FOOD LOG TODAY ═══ */}
+
+          {/* ═══ FOOD LOG TODAY — Clean Summary Grid ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Food Log Today</Text>
-          <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 14 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {mealOrder.map((meal) => {
-              const totals = mealTotals[meal];
               const mealLabel = meal.charAt(0).toUpperCase() + meal.slice(1);
-              const mealIcons: Record<string, string> = { breakfast: 'coffee', lunch: 'sun-o', dinner: 'moon-o', snacks: 'apple' };
+              const totals = mealTotals[meal];
+              const itemCount = totals.count;
               return (
-                <View key={meal} style={{ backgroundColor: C.glass, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder, padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center' }}>
-                    <FontAwesome name={mealIcons[meal] as any} size={13} color={C.accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>{mealLabel}</Text>
-                      <Text style={{ color: C.accent, fontSize: 12, fontWeight: '700' }}>{Math.round(totals.calories)} kcal</Text>
-                    </View>
-                    <Text style={{ color: C.muted, fontSize: 10, marginTop: 3 }}>P {totals.protein.toFixed(1)}g | C {totals.carbs.toFixed(1)}g | F {totals.fat.toFixed(1)}g</Text>
-                  </View>
-                </View>
+                <TouchableOpacity
+                  key={meal}
+                  activeOpacity={0.85}
+                  onPress={() => openMealDetail(meal)}
+                  style={{
+                    width: (SCREEN_WIDTH - 50) / 2,
+                    backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder,
+                    paddingVertical: 20, paddingHorizontal: 14, alignItems: 'center',
+                  }}
+                >
+                  <Image source={mealImages[meal]} style={{ width: 50, height: 50, borderRadius: 10, marginBottom: 10 }} resizeMode="cover" />
+                  <Text style={{ color: C.text, fontSize: 14, fontWeight: '800' }}>{mealLabel}</Text>
+                  <Text style={{ color: C.accent, fontSize: 16, fontWeight: '800', marginTop: 4 }}>{Math.round(totals.calories)}<Text style={{ fontSize: 11, fontWeight: '600' }}> kcal</Text></Text>
+                  <Text style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>{itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
+                </TouchableOpacity>
               );
             })}
           </View>
+
+          {/* ═══ NUTRITION DETAILS — Grid ═══ */}
+          {/* <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Nutrition Details</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {[
+              { label: 'Protein', value: protein, unit: 'g', icon: 'bolt', color: '#00E676', bg: 'rgba(0,230,118,0.12)' },
+              { label: 'Carbs', value: carbs, unit: 'g', icon: 'leaf', color: '#6CFFB0', bg: 'rgba(108,255,176,0.12)' },
+              { label: 'Fats', value: fat, unit: 'g', icon: 'tint', color: '#FFB088', bg: 'rgba(255,176,136,0.12)' },
+              { label: 'Fiber', value: Number(daily?.macros?.fiber || 0), unit: 'g', icon: 'pagelines', color: '#80CBC4', bg: 'rgba(128,203,196,0.12)' },
+            ].map((item) => (
+              <View
+                key={item.label}
+                style={{
+                  width: (SCREEN_WIDTH - 50) / 2,
+                  backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder,
+                  padding: 14,
+                }}
+              >
+                <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: item.bg, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
+                  <FontAwesome name={item.icon as any} size={14} color={item.color} />
+                </View>
+                <Text style={{ color: C.muted, fontSize: 10, marginBottom: 2 }}>{item.label}</Text>
+                <Text style={{ color: C.text, fontSize: 20, fontWeight: '800' }}>{item.value.toFixed(1)}<Text style={{ fontSize: 12, color: C.muted }}>{item.unit}</Text></Text>
+              </View>
+            ))}
+          </View> */}
 
           {/* ═══ PREMIUM INSIGHTS ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Premium Insights</Text>
@@ -689,7 +859,11 @@ export default function CaloriesScreen() {
 
       {/* Manual bottom sheet: choose Search or Enter Barcode */}
       <Modal visible={manualPickerVisible} transparent animationType="slide" onRequestClose={() => setManualPickerVisible(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <KeyboardAvoidingView
+          style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
           <View style={{ backgroundColor: C.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16, borderWidth: 1, borderColor: C.cardBorder }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={{ color: C.text, fontSize: 16, fontWeight: '800' }}>Manual Entry</Text>
@@ -740,7 +914,7 @@ export default function CaloriesScreen() {
               <Text style={{ color: C.muted }}>Close</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ═══ SEARCH OVERLAY MODAL ═══ */}
@@ -857,7 +1031,7 @@ export default function CaloriesScreen() {
                       <TouchableOpacity
                         onPress={(e) => {
                           e?.stopPropagation?.();
-                          addQuickFood(food._id, 'snack');
+                          showMealPicker(food._id);
                         }}
                         disabled={addingFoodId === food._id}
                         style={{ backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}
@@ -879,6 +1053,131 @@ export default function CaloriesScreen() {
               )}
             </ScrollView>
           </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* ═══ MEAL TYPE PICKER MODAL ═══ */}
+      <Modal visible={mealPickerVisible} transparent animationType="fade" onRequestClose={() => { setMealPickerVisible(false); setPendingFoodId(''); }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 22 }}>
+          <View style={{ backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <FontAwesome name="cutlery" size={16} color={C.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontSize: 17, fontWeight: '800' }}>Choose Meal Type</Text>
+                <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Where should this food be logged?</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setMealPickerVisible(false); setPendingFoodId(''); }} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.glass, justifyContent: 'center', alignItems: 'center' }}>
+                <FontAwesome name="times" size={14} color={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            {([
+              { key: 'breakfast' as const, label: 'Breakfast', icon: 'coffee', desc: 'Morning meal' },
+              { key: 'lunch' as const, label: 'Lunch', icon: 'sun-o', desc: 'Afternoon meal' },
+              { key: 'dinner' as const, label: 'Dinner', icon: 'moon-o', desc: 'Evening meal' },
+              { key: 'snack' as const, label: 'Snacks', icon: 'apple', desc: 'Between meals' },
+            ]).map((item) => (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.8}
+                onPress={() => handleMealTypeSelected(item.key)}
+                style={{
+                  backgroundColor: C.glass, borderWidth: 1, borderColor: C.border, borderRadius: 14,
+                  padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center',
+                }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                  <FontAwesome name={item.icon as any} size={15} color={C.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>{item.label}</Text>
+                  <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{item.desc}</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={12} color={C.muted} />
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity onPress={() => { setMealPickerVisible(false); setPendingFoodId(''); }} activeOpacity={0.8} style={{ marginTop: 4, alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══ MEAL DETAIL BOTTOM SHEET ═══ */}
+      <Modal visible={mealDetailVisible} transparent animationType="slide" onRequestClose={() => setMealDetailVisible(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: C.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: C.cardBorder, padding: 20, paddingBottom: 36, maxHeight: '70%' }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              {activeMeal ? <Image source={mealImages[activeMeal]} style={{ width: 36, height: 36, borderRadius: 10, marginRight: 12 }} resizeMode="cover" /> : null}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontSize: 18, fontWeight: '800' }}>{activeMeal ? activeMeal.charAt(0).toUpperCase() + activeMeal.slice(1) : ''} Details</Text>
+                <Text style={{ color: C.accent, fontSize: 12, fontWeight: '600', marginTop: 2 }}>{Math.round(mealTotals[activeMeal]?.calories || 0)} kcal total</Text>
+              </View>
+              <TouchableOpacity onPress={() => setMealDetailVisible(false)} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.glass, justifyContent: 'center', alignItems: 'center' }}>
+                <FontAwesome name="times" size={14} color={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Food items list */}
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {(() => {
+                const foods: FoodEntry[] = Array.isArray(daily?.meals?.[activeMeal]) ? daily.meals[activeMeal] : [];
+                if (foods.length === 0) {
+                  return (
+                    <View style={{ alignItems: 'center', paddingVertical: 30 }}>
+                      <FontAwesome name="cutlery" size={24} color="rgba(255,255,255,0.08)" />
+                      <Text style={{ color: C.muted, fontSize: 13, marginTop: 10 }}>No food logged</Text>
+                      <Text style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Add food via search or barcode scan</Text>
+                    </View>
+                  );
+                }
+                return foods.map((food, idx) => {
+                  const foodName = food.foodId?.name || 'Food';
+                  const cal = Math.round(Number(food.caloriesConsumed || food.calories || 0));
+                  const isDeleting = deletingFoodId === food._id;
+                  return (
+                    <View
+                      key={food._id || `md-${idx}`}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', backgroundColor: C.glass,
+                        borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder,
+                        padding: 14, marginBottom: 8,
+                      }}
+                    >
+                      <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                        <FontAwesome name="cutlery" size={12} color={C.accent} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{foodName}</Text>
+                        <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{cal} kcal</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (!food._id) return;
+                          Alert.alert('Remove Food', `Remove ${foodName}?`, [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Remove', style: 'destructive', onPress: () => handleDeleteFood(food._id) },
+                          ]);
+                        }}
+                        disabled={isDeleting}
+                        style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: C.burnSoft, justifyContent: 'center', alignItems: 'center' }}
+                      >
+                        <FontAwesome name="trash-o" size={12} color={C.burnColor} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                });
+              })()}
+            </ScrollView>
+
+            <TouchableOpacity onPress={() => setMealDetailVisible(false)} activeOpacity={0.8} style={{ marginTop: 10, alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
