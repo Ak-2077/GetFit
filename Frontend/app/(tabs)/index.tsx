@@ -1,17 +1,38 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Home screen currently has static content — simulate refresh
+    // Replace with real data fetch when home screen gets dynamic content
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
+
   return (
     <SafeAreaView className="flex-1 bg-black">
-      <ScrollView className="px-4 py-4">
+      <ScrollView
+        className="px-4 py-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#00E676"
+            colors={['#00E676']}
+            progressBackgroundColor="rgba(25,25,25,1)"
+          />
+        }
+      >
 
         {/* ================= TOP BAR ================= */}
         <View className="flex-row justify-between items-center mb-6">
@@ -128,3 +149,4 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+

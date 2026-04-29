@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -42,6 +42,9 @@ export default function FoodDetailsScreen() {
   const [customFat, setCustomFat] = useState('');
   const [servingAmountText, setServingAmountText] = useState('100');
   const [servingUnit, setServingUnit] = useState<'g' | 'ml'>('g');
+
+  // Meal type picker state
+  const [mealPickerVisible, setMealPickerVisible] = useState(false);
 
   const goBackSafe = () => {
     if (router.canGoBack()) {
@@ -192,19 +195,25 @@ export default function FoodDetailsScreen() {
     ];
   }, [food, servingMultiplier]);
 
-  const handleAddFood = async () => {
+  const handleAddFood = () => {
     if (!food?._id) return;
     if (!servingAmount || servingAmount <= 0) {
       Alert.alert('Invalid Serving', 'Please enter a valid serving amount.');
       return;
     }
+    setMealPickerVisible(true);
+  };
 
+  const handleMealTypeSelected = async (mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack') => {
+    setMealPickerVisible(false);
+    if (!food?._id) return;
     try {
       setAdding(true);
       await addFoodToLog({
         foodId: food._id,
         quantity: servingMultiplier,
-        meal: 'snack',
+        meal: mealType,
+        mealType,
         servingText: `${servingAmount}${servingUnit}`,
         servingUnit,
       });
@@ -286,6 +295,20 @@ export default function FoodDetailsScreen() {
     }
   };
 
+  // Theme constants for meal picker (matching calories tab theme)
+  const C = {
+    bg: '#050505',
+    card: 'rgba(25,25,25,1)',
+    cardBorder: 'rgba(29,36,31,0.18)',
+    glass: 'rgba(22,33,25,0.78)',
+    accent: '#00E676',
+    accentSoft: 'rgba(0,230,118,0.16)',
+    text: '#F4F6F5',
+    subtext: 'rgba(255,255,255,0.62)',
+    muted: 'rgba(255,255,255,0.4)',
+    border: 'rgba(0,230,118,0.18)',
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-[#0A0A0A]">
       <View className="flex-row items-center justify-between px-4 py-3">
@@ -296,6 +319,11 @@ export default function FoodDetailsScreen() {
         <View className="w-10" />
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-5 pb-8">
         {loading ? (
@@ -481,6 +509,57 @@ export default function FoodDetailsScreen() {
         )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* ═══ MEAL TYPE PICKER MODAL ═══ */}
+      <Modal visible={mealPickerVisible} transparent animationType="fade" onRequestClose={() => setMealPickerVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 22 }}>
+          <View style={{ backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <FontAwesome name="cutlery" size={16} color={C.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.text, fontSize: 17, fontWeight: '800' }}>Choose Meal Type</Text>
+                <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Where should this food be logged?</Text>
+              </View>
+              <TouchableOpacity onPress={() => setMealPickerVisible(false)} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.glass, justifyContent: 'center', alignItems: 'center' }}>
+                <FontAwesome name="times" size={14} color={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            {([
+              { key: 'breakfast' as const, label: 'Breakfast', icon: 'coffee', desc: 'Morning meal' },
+              { key: 'lunch' as const, label: 'Lunch', icon: 'sun-o', desc: 'Afternoon meal' },
+              { key: 'dinner' as const, label: 'Dinner', icon: 'moon-o', desc: 'Evening meal' },
+              { key: 'snack' as const, label: 'Snacks', icon: 'apple', desc: 'Between meals' },
+            ]).map((item) => (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.8}
+                onPress={() => handleMealTypeSelected(item.key)}
+                style={{
+                  backgroundColor: C.glass, borderWidth: 1, borderColor: C.border, borderRadius: 14,
+                  padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center',
+                }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                  <FontAwesome name={item.icon as any} size={15} color={C.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>{item.label}</Text>
+                  <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{item.desc}</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={12} color={C.muted} />
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity onPress={() => setMealPickerVisible(false)} activeOpacity={0.8} style={{ marginTop: 4, alignItems: 'center', paddingVertical: 10 }}>
+              <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
