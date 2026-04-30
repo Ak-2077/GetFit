@@ -434,7 +434,7 @@ export default function ProfileScreen() {
 
           <DarkCard style={{ marginBottom: 24, overflow: 'hidden' }}>
             <LinearGradient
-              colors={['rgba(18,59,36,0.35)', 'rgba(25,25,25,1)']}
+              colors={['rgba(57, 61, 59, 0.35)', 'rgba(25,25,25,1)']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ padding: 20, borderRadius: 18 }}
             >
@@ -467,7 +467,7 @@ export default function ProfileScreen() {
           </DarkCard>
 
           {/* ═══ WEEKLY ANALYSIS (PRESERVED) ═══ */}
-          <Text style={{ fontSize: 13, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
+          {/* <Text style={{ fontSize: 13, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
             Weekly Analysis
           </Text>
 
@@ -479,7 +479,7 @@ export default function ProfileScreen() {
               </View>
             </View>
             <WeeklyChart weeklyData={weeklyData} goalCalories={user?.goalCalories || 0} bmi={bmi} loading={chartLoading} />
-          </DarkCard>
+          </DarkCard> */}
 
           {/* ═══ SUBSCRIPTION ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
