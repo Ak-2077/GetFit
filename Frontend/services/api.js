@@ -114,5 +114,33 @@ export const removeBurnLog = (logId) => API.delete(`/api/burn/log/${logId}`);
 export const getWorkoutModel = (mode, bodyPart) =>
   API.get('/api/workout/model', { params: { mode, bodyPart } });
 
+// Feature access endpoints
+export const getFeatures = () => API.get('/api/features');
+
+// Search endpoints
+export const globalSearch = (q) => API.get('/api/search', { params: { q } });
+
+// BMI endpoints
+export const calculateBMI = (data) => API.post('/api/bmi/calculate', data);
+
+// Notification endpoints
+export const getNotifications = () => API.get('/api/notifications');
+export const getUnreadNotificationCount = () => API.get('/api/notifications/unread-count');
+export const markNotificationRead = (id) => API.patch(`/api/notifications/${id}/read`);
+export const markAllNotificationsRead = () => API.patch('/api/notifications/read-all');
+
+// BMB (Balance Meal Meter) endpoints
+export const calculateBMB = (data) => API.post('/api/bmb/calculate', data);
+
+// Diet Plan endpoints
+export const getDietPlan = () => API.get('/api/diet/plan');
+
+// Workout Plan endpoints
+export const getWorkoutPlan = () => API.get('/api/workout-plan/plan');
+
+// Subscription endpoints
+export const getSubscriptionPlans = () => API.get('/api/subscription/plans');
+export const upgradeSubscription = (plan) => API.post('/api/subscription/upgrade', { plan });
+
 export default API;
 

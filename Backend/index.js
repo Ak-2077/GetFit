@@ -24,6 +24,14 @@ import workoutRoute from './routes/workoutRoute.js';
 import userRoute from './routes/userRoute.js';
 import caloriesRoute from './routes/caloriesRoute.js';
 import stepsRoute from './routes/stepsRoute.js';
+import featureRoute from './routes/featureRoute.js';
+import searchRoute from './routes/searchRoute.js';
+import bmiRoute from './routes/bmiRoute.js';
+import notificationRoute from './routes/notificationRoute.js';
+import bmbRoute from './routes/bmbRoute.js';
+import dietRoute from './routes/dietRoute.js';
+import workoutPlanRoute from './routes/workoutPlanRoute.js';
+import subscriptionRoute from './routes/subscriptionRoute.js';
 
 app.use('/api/auth', authRoute);
 app.use('/api/food', foodRoute);
@@ -34,9 +42,17 @@ app.use('/api/steps', stepsRoute);
 app.use('/api/ai', aiRoute);
 app.use('/api/workout', workoutRoute);
 app.use('/api/user', userRoute);
+app.use('/api/features', featureRoute);
+app.use('/api/search', searchRoute);
+app.use('/api/bmi', bmiRoute);
+app.use('/api/notifications', notificationRoute);
+app.use('/api/bmb', bmbRoute);
+app.use('/api/diet', dietRoute);
+app.use('/api/workout-plan', workoutPlanRoute);
+app.use('/api/subscription', subscriptionRoute);
 
 app.get("/", (req, res) => {
-    res.send("Welcome to AiFit!");
+    res.send("Welcome to GetFit!");
 });
 const port = process.env.PORT || 5000;
 
