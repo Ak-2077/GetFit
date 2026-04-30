@@ -1,152 +1,233 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-} from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getUserProfile, getCaloriesToday, getCaloriesBurn, getStepsToday, getFeatures, setAuthToken, getUnreadNotificationCount } from '../../services/api';
+import GFLoader from '../../components/GFLoader';
+
+const C = {
+  bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463',
+  accentGlow: 'rgba(31,164,99,0.06)', gold: '#C8A84E', purple: '#6A0DAD',
+  white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)', burn: '#FF6B6B',
+};
+
+const TOOLS = [
+  { key: 'BMI', label: 'BMI Calc', icon: 'calculator-outline' as const, color: '#f20622ff', route: '/bmi-calculator' },
+  { key: 'BMB', label: 'BMB', icon: 'restaurant-outline' as const, color: '#60A5FA', route: '/bmb-calculator' },
+  { key: 'AI_DIET', label: 'AI Diet', icon: 'nutrition-outline' as const, color: '#180decff', route: '/ai-diet' },
+  { key: 'WWP', label: 'Workout', icon: 'barbell-outline' as const, color: '#e80cbfff', route: '/workout-plan' },
+];
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [daily, setDaily] = useState<any>(null);
+  const [steps, setSteps] = useState({ steps: 0, distanceKm: 0 });
+  const [burn, setBurn] = useState({ totalCaloriesBurned: 0 });
+  const [allowed, setAllowed] = useState<string[]>([]);
+  const [subPlan, setSubPlan] = useState('free');
+  const [unread, setUnread] = useState(0);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    // Home screen currently has static content — simulate refresh
-    // Replace with real data fetch when home screen gets dynamic content
-    setTimeout(() => setRefreshing(false), 1000);
+  const load = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true); else setRefreshing(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) { router.replace('/auth' as any); return; }
+      setAuthToken(token);
+      const [p, t, s, b, f, n] = await Promise.all([
+        getUserProfile().catch(() => ({ data: null })),
+        getCaloriesToday().catch(() => ({ data: null })),
+        getStepsToday().catch(() => ({ data: { steps: 0, distanceKm: 0 } })),
+        getCaloriesBurn().catch(() => ({ data: { totalCaloriesBurned: 0 } })),
+        getFeatures().catch(() => ({ data: { subscriptionPlan: 'free', allowedFeatures: ['BMI', 'WWP'] } })),
+        getUnreadNotificationCount().catch(() => ({ data: { count: 0 } })),
+      ]);
+      setUser(p.data);
+      setDaily(t.data);
+      setSteps({ steps: Number(s.data?.steps || 0), distanceKm: Number(s.data?.distanceKm || 0) });
+      setBurn({ totalCaloriesBurned: Number(b.data?.totalCaloriesBurned || 0) });
+      setAllowed(f.data?.allowedFeatures || ['BMI', 'WWP']);
+      setSubPlan(f.data?.subscriptionPlan || 'free');
+      setUnread(Number(n.data?.count || 0));
+    } catch (e) { console.warn('Home error', e); }
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
+  useFocusEffect(useCallback(() => { load(false); }, [load]));
+
+  // Notification polling
+  useEffect(() => {
+    const i = setInterval(async () => {
+      try { const r = await getUnreadNotificationCount(); setUnread(Number(r.data?.count || 0)); } catch {}
+    }, 30000);
+    return () => clearInterval(i);
+  }, []);
+
+  if (loading) return <GFLoader message="Loading home..." />;
+
+  const consumed = Number(daily?.consumedCalories || 0);
+  const target = Number(user?.goalCalories || user?.maintenanceCalories || daily?.targetCalories || 2000);
+  const userName = user?.name || 'User';
+  const fl = userName.charAt(0).toUpperCase();
+  const isFree = subPlan === 'free';
+
+  const handleTool = (t: typeof TOOLS[0]) => {
+    if (!allowed.includes(t.key)) {
+      Alert.alert('Upgrade Required', `"${t.label}" requires Pro. Upgrade to unlock!`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Upgrade', onPress: () => router.push('/upgrade' as any) },
+      ]);
+      return;
+    }
+    router.push(t.route as any);
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      <ScrollView
-        className="px-4 py-4"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#00E676"
-            colors={['#00E676']}
-            progressBackgroundColor="rgba(25,25,25,1)"
-          />
-        }
-      >
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <View style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.card} />}>
 
-        {/* ================= TOP BAR ================= */}
-        <View className="flex-row justify-between items-center mb-6">
-
-          {/* Coins */}
-          <View className="flex-row items-center space-x-2">
-            <View className="w-10 h-10 rounded-full bg-yellow-700 items-center justify-center">
-              <Text className="text-white font-bold">F</Text>
-            </View>
-
-            <View className="border border-gray-600 px-3 py-1 rounded-full">
-              <Text className="text-white">0</Text>
-            </View>
-          </View>
-
-          {/* Icons */}
-          <View className="flex-row space-x-3">
-              {(() => {
-                const icons: React.ComponentProps<typeof Ionicons>['name'][] = [
-                  'search',
-                  'notifications-outline',
-                  'chatbubble-outline',
-                ];
-                return icons.map((icon, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    className="w-10 h-10 rounded-full bg-gray-800 items-center justify-center"
-                  >
-                    <Ionicons name={icon} size={18} color="white" />
-                  </TouchableOpacity>
-                ));
-              })()}
-            </View>
-        </View>
-
-        {/* ================= QUICK FEATURES ================= */}
-        <View className="flex-row justify-between mb-6">
-          {[
-            'Get A Coach',
-            'Lab Test',
-            'Challenges',
-            'My Plan'
-          ].map((item, i) => (
-            <View key={i} className="items-center">
-              <View className="w-16 h-16 rounded-full bg-gray-800 mb-2" />
-              <Text className="text-gray-300 text-xs text-center w-20">
-                {item}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* ================= LOCK CARD ================= */}
-        <View className="bg-slate-900 rounded-3xl p-6 items-center mb-8 border border-gray-800">
-
-          <View className="w-14 h-14 rounded-full bg-gray-700 items-center justify-center mb-4">
-            <Ionicons name="lock-closed" size={20} color="white" />
-          </View>
-
-          <Text className="text-white text-lg font-bold">
-            Unlock health trackers
-          </Text>
-
-          <Text className="text-gray-400 text-center mt-2 mb-5">
-            Calculate your ideal daily calories and get started!
-          </Text>
-
-          <TouchableOpacity className="bg-white px-10 py-3 rounded-xl">
-            <Text className="text-black font-bold text-lg">Unlock now</Text>
-            <Text className="text-green-500 text-center font-semibold">
-              It's FREE!
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ================= COMMUNITY ================= */}
-        <Text className="text-white text-xl font-bold mb-1">Community</Text>
-        <Text className="text-gray-400 mb-4">
-          Learn. Get fit. Share and inspire!
-        </Text>
-
-        <View className="flex-row space-x-3 mb-6">
-          <TouchableOpacity className="border border-white px-4 py-2 rounded-xl">
-            <Text className="text-white">Highlights</Text>
-          </TouchableOpacity>
-
-          {['All', 'Discussions', 'Transformations'].map((tab, i) => (
-            <TouchableOpacity
-              key={i}
-              className="bg-gray-800 px-4 py-2 rounded-xl"
-            >
-              <Text className="text-gray-300">{tab}</Text>
+          {/* ═══ HEADER ═══ */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingBottom: 16 }}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)} activeOpacity={0.7}
+              style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: 'rgba(31,164,99,0.35)', justifyContent: 'center', alignItems: 'center' }}>
+              {user?.avatar ? <Image source={{ uri: user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                : <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
             </TouchableOpacity>
-          ))}
-        </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={{ fontSize: 12, color: C.label }}>Welcome back</Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: -0.3 }}>{userName}</Text>
+            </View>
+            {/* Search icon → navigates to SearchScreen */}
+            <TouchableOpacity onPress={() => router.push('/search' as any)} activeOpacity={0.7}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
+              <Ionicons name="search-outline" size={18} color={C.white} />
+            </TouchableOpacity>
+            {/* Notification icon */}
+            <TouchableOpacity activeOpacity={0.7}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="notifications-outline" size={18} color={C.white} />
+              {unread > 0 && (
+                <View style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#FF4D4D', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{unread > 9 ? '9+' : unread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
 
-        {/* Post */}
-        <View className="bg-slate-900 p-4 rounded-2xl mb-20">
-          <Text className="text-white font-semibold">Nivin Suresh</Text>
-          <Text className="text-gray-400 text-xs mb-2">
-            Transformations • 163 Views
-          </Text>
+          {/* ═══ UPGRADE BANNER — only for FREE ═══ */}
+          {isFree && (
+            <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/upgrade' as any)} style={{ borderRadius: 18, overflow: 'hidden', marginBottom: 20 }}>
+              <LinearGradient colors={['rgba(106,13,173,0.18)', 'rgba(200,168,78,0.12)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={{ padding: 18, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(106,13,173,0.2)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(106,13,173,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
+                    <Ionicons name="sparkles" size={20} color={C.purple} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: C.white }}>Unlock AI Power</Text>
+                    <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>Get personalized diet & workout plans</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.muted} />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
-          <Text className="text-gray-200">
-            14 Weeks. 16.9 Kg Down. Life Changed 💪🔥
-          </Text>
-        </View>
-      </ScrollView>
+          {/* ═══ TOOLS ═══ */}
+          <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Tools</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 22 }}>
+            {TOOLS.map((tool) => {
+              const locked = !allowed.includes(tool.key);
+              return (
+                <TouchableOpacity key={tool.key} activeOpacity={0.7} onPress={() => handleTool(tool)}
+                  style={{ alignItems: 'center', opacity: locked ? 0.4 : 1, width: 72 }}>
+                  <View style={{ width: 60, height: 60, borderRadius: 999, backgroundColor: C.card, borderWidth: 1.5, borderColor: locked ? C.cardBorder : `${tool.color}40`, justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name={tool.icon} size={24} color={locked ? C.muted : tool.color} />
+                    {locked && <View style={{ position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="lock-closed" size={10} color={C.muted} /></View>}
+                  </View>
+                  <Text style={{ color: locked ? C.muted : C.white, fontSize: 11, fontWeight: '600', marginTop: 8, textAlign: 'center' }}>{tool.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-      {/* ================= FLOATING BUTTON ================= */}
-      <TouchableOpacity className="absolute bottom-6 right-6 w-16 h-16 bg-white rounded-full items-center justify-center shadow-lg">
-        <Ionicons name="add" size={28} color="black" />
-      </TouchableOpacity>
-    </SafeAreaView>
+          {/* ═══ TODAY'S SUMMARY ═══ */}
+          <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Summary</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', icon: 'flame-outline' as const, color: C.accent },
+              { label: 'Burned', value: `${Math.round(burn.totalCaloriesBurned)}`, sub: 'kcal', icon: 'flash-outline' as const, color: C.burn },
+              { label: 'Steps', value: `${Math.round(steps.steps).toLocaleString()}`, sub: `${steps.distanceKm.toFixed(1)} km`, icon: 'footsteps-outline' as const, color: '#60A5FA' },
+            ].map((item) => (
+              <View key={item.label} style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 14, alignItems: 'center' }}>
+                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: `${item.color}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
+                  <Ionicons name={item.icon} size={18} color={item.color} /></View>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: C.white }}>{item.value}</Text>
+                <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{item.sub}</Text>
+                <Text style={{ fontSize: 9, color: C.label, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Calorie progress */}
+          <View style={{ backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={{ color: C.white, fontSize: 14, fontWeight: '700' }}>Calorie Goal</Text>
+              <Text style={{ color: C.accent, fontSize: 13, fontWeight: '700' }}>{Math.round(consumed)} / {Math.round(target)}</Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
+              <LinearGradient colors={[C.accent, '#A6F7C2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={{ height: 6, borderRadius: 3, width: `${Math.min((consumed / Math.max(target, 1)) * 100, 100)}%` as any }} />
+            </View>
+            <Text style={{ color: C.muted, fontSize: 10, marginTop: 6 }}>{Math.max(0, Math.round(target - consumed))} kcal remaining</Text>
+          </View>
+
+          {/* ═══ TODAY'S WORKOUT ═══ */}
+          <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Workout</Text>
+          <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 18, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,107,107,0.12)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
+                <Ionicons name="barbell-outline" size={22} color={C.burn} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.white, fontSize: 15, fontWeight: '700' }}>Full Body Workout</Text>
+                <Text style={{ color: C.label, fontSize: 12, marginTop: 2 }}>45 min • {user?.level || 'Intermediate'}</Text>
+              </View>
+            </View>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/home-workout' as any)} style={{ borderRadius: 14, overflow: 'hidden' }}>
+              <LinearGradient colors={[C.accent, '#178A52']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={{ height: 46, justifyContent: 'center', alignItems: 'center', borderRadius: 14 }}>
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Start Workout</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* ═══ QUICK ACTIONS ═══ */}
+          <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Quick Actions</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+            {[{ label: 'Add Food', icon: 'add-circle-outline' as const, color: C.accent, onPress: () => router.push('/(tabs)/calories' as any) },
+              { label: 'Scan', icon: 'scan-outline' as const, color: '#60A5FA', onPress: () => router.push('/scan' as any) },
+              { label: 'Log Workout', icon: 'fitness-outline' as const, color: C.burn, onPress: () => router.push('/home-workout' as any) },
+            ].map((a) => (
+              <TouchableOpacity key={a.label} activeOpacity={0.7} onPress={a.onPress}
+                style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, paddingVertical: 18, alignItems: 'center' }}>
+                <View style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: `${a.color}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
+                  <Ionicons name={a.icon} size={22} color={a.color} /></View>
+                <Text style={{ color: C.white, fontSize: 11, fontWeight: '600' }}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
-
