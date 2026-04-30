@@ -23,7 +23,7 @@ export default function HomeScreen() {
     <SafeAreaView className="flex-1 bg-black">
       <ScrollView
         className="px-4 py-4"
-        refreshControl={
+        refreshControl={        
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
