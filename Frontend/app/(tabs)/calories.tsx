@@ -19,15 +19,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import * as Location from 'expo-location';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop, Text as SvgText, Rect, Line } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getCaloriesToday,
   getCaloriesWeekly,
-  getCaloriesBurn,
-  getStepsToday,
   logCaloriesMeal,
   searchFoodsAutocomplete,
   setAuthToken,
@@ -35,8 +32,10 @@ import {
   removeFoodFromLog,
   getUserProfile,
 } from '../../services/api';
+import { useFitness } from '../../hooks/useFitness';
+import { FitnessService } from '../../services/fitness';
 
-const BaecodeIcon:Record<string, any> = {
+const BarcodeIcon:Record<string, any> = {
   barcode: require('../../assets/icons/calories/barcode.png'),
   food: require('../../assets/icons/calories/food.png'),
   burn: require('../../assets/icons/calories/burn.png'),
@@ -51,7 +50,6 @@ const mealImages: Record<string, any> = {
   snacks: require('../../assets/icons/calories/snack.png'),
 };
 import GFLoader from '../../components/GFLoader';
-import { steps } from 'react-native-reanimated';
 
 const C = {
   bg: '#050505',
@@ -277,11 +275,9 @@ export default function CaloriesScreen() {
     intakeTrend: [],
     burnedTrend: [],
   });
-  const [steps, setSteps] = useState<{ steps: number; distanceKm: number }>({ steps: 0, distanceKm: 0 });
-  const [burn, setBurn] = useState<{ totalCaloriesBurned: number; walkingCaloriesBurned?: number; manualCaloriesBurned?: number }>({ totalCaloriesBurned: 0, walkingCaloriesBurned: 0, manualCaloriesBurned: 0 });
 
-  // Location permission state
-  const [locationGranted, setLocationGranted] = useState(true);
+  // ── HealthKit-backed fitness data (steps + burn) ──
+  const fitness = useFitness();
 
   // Search overlay state
   const [searchVisible, setSearchVisible] = useState(false);
@@ -372,11 +368,9 @@ export default function CaloriesScreen() {
       const token = await AsyncStorage.getItem('token');
       setAuthToken(token || null);
 
-      const [todayRes, weeklyRes, stepsRes, burnRes, profileRes] = await Promise.all([
+      const [todayRes, weeklyRes, profileRes] = await Promise.all([
         getCaloriesToday(),
         getCaloriesWeekly(),
-        getStepsToday(),
-        getCaloriesBurn(),
         getUserProfile().catch(() => ({ data: null })),
       ]);
 
@@ -386,19 +380,19 @@ export default function CaloriesScreen() {
       const goal = Number(profileRes.data?.goalCalories || profileRes.data?.maintenanceCalories || 0);
       if (goal > 0) setProfileGoal(goal);
 
+      // Update user weight in FitnessService for calorie estimation
+      const userWeight = Number(profileRes.data?.weight || 0);
+      if (userWeight > 0) {
+        FitnessService.setUserWeight(userWeight);
+      }
+
       setWeekly({
         intakeTrend: Array.isArray(weeklyRes.data?.intakeTrend) ? weeklyRes.data.intakeTrend : [],
         burnedTrend: Array.isArray(weeklyRes.data?.burnedTrend) ? weeklyRes.data.burnedTrend : [],
       });
-      setSteps({
-        steps: Number(stepsRes.data?.steps || 0),
-        distanceKm: Number(stepsRes.data?.distanceKm || 0),
-      });
-      setBurn({
-        totalCaloriesBurned: Number(burnRes.data?.totalCaloriesBurned || 0),
-        walkingCaloriesBurned: Number(burnRes.data?.walkingCaloriesBurned || 0),
-        manualCaloriesBurned: Number(burnRes.data?.manualCaloriesBurned || 0),
-      });
+
+      // Trigger fitness refresh for steps + burn (via HealthKit/backend)
+      fitness.refresh();
     } catch (error) {
       console.warn('Calories screen load error', error);
       Alert.alert('Sync Error', 'Could not fetch calories data from backend.');
@@ -422,8 +416,6 @@ export default function CaloriesScreen() {
       loadData(false);
       (async () => {
         try {
-          const { status } = await Location.getForegroundPermissionsAsync();
-          setLocationGranted(status === 'granted');
           // Load recent searches
           const stored = await AsyncStorage.getItem('recentFoodSearches');
           if (stored) setRecentSearches(JSON.parse(stored).slice(0, 8));
@@ -512,24 +504,10 @@ export default function CaloriesScreen() {
     setMealDetailVisible(true);
   };
 
-  const handleRequestLocation = async () => {
+  const handleRequestHealthKit = async () => {
     try {
-      const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
-      if (status === 'granted') {
-        setLocationGranted(true);
-        await AsyncStorage.setItem('locationTrackingEnabled', 'true');
-        return;
-      }
-      if (canAskAgain) {
-        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-        if (newStatus === 'granted') {
-          setLocationGranted(true);
-          await AsyncStorage.setItem('locationTrackingEnabled', 'true');
-        }
-      } else {
-        // Can't ask again — deep-link to Settings
-        Linking.openSettings();
-      }
+      await FitnessService.initialize();
+      fitness.refresh();
     } catch { /* ignore */ }
   };
 
@@ -670,8 +648,8 @@ export default function CaloriesScreen() {
             </View>
           </View>
 
-          {/* ═══ LOCATION PERMISSION CARD ═══ */}
-          {!locationGranted && (
+          {/* ═══ HEALTHKIT PERMISSION CARD ═══ */}
+          {(fitness.isHealthKitAvailable && !fitness.isHealthKitAuthorized) && (
             <View style={{
               backgroundColor: C.card, borderRadius: 18, borderWidth: 1,
               borderColor: 'rgba(255,170,50,0.2)', padding: 16, marginTop: 12,
@@ -679,18 +657,18 @@ export default function CaloriesScreen() {
             }}>
               <View style={{
                 width: 42, height: 42, borderRadius: 12,
-                backgroundColor: 'rgba(255,170,50,0.12)',
+                backgroundColor: 'rgba(0,230,118,0.12)',
                 justifyContent: 'center', alignItems: 'center', marginRight: 14,
               }}>
-                <FontAwesome name="map-marker" size={18} color="#FFAA32" />
+                <FontAwesome name="heartbeat" size={18} color={C.accent} />
               </View>
               <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Location Required</Text>
-                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2, lineHeight: 15 }}>Enable location to track steps, distance and calorie burn</Text>
+                <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Apple Health</Text>
+                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2, lineHeight: 15 }}>Enable HealthKit for accurate steps and calorie burn data</Text>
               </View>
-              <TouchableOpacity onPress={handleRequestLocation} activeOpacity={0.8}
+              <TouchableOpacity onPress={handleRequestHealthKit} activeOpacity={0.8}
                 style={{
-                  backgroundColor: '#FFAA32', borderRadius: 10,
+                  backgroundColor: C.accent, borderRadius: 10,
                   paddingHorizontal: 14, paddingVertical: 8,
                 }}>
                 <Text style={{ color: '#050505', fontSize: 12, fontWeight: '700' }}>Enable</Text>
@@ -703,26 +681,38 @@ export default function CaloriesScreen() {
             <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10,  justifyContent: 'center', alignItems: 'center' }}>
-                   <Image source={BaecodeIcon.burn} style={{ width: 50, height: 50 }} resizeMode="contain" />
+                   <Image source={BarcodeIcon.burn} style={{ width: 50, height: 50 }} resizeMode="contain" />
                   
                 </View>
                 <Text style={{ color: C.subtext, fontSize: 12 }}>Calories Burn</Text>
               </View>
-              <Text style={{ color: C.text, fontSize: 26, fontWeight: '800' }}>{Math.round(burn.totalCaloriesBurned)}</Text>
+              <Text style={{ color: C.text, fontSize: 26, fontWeight: '800' }}>{Math.round(fitness.caloriesBurned)}</Text>
               <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>kcal today</Text>
-              <Text style={{ color: C.accent, fontSize: 10, marginTop: 3 }}>Auto walk {Math.round(Number(burn.walkingCaloriesBurned || 0))} kcal</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                <Text style={{ color: C.accent, fontSize: 10 }}>Active {Math.round(fitness.walkingCalories)} kcal</Text>
+                {fitness.source === 'healthkit' && (
+                  <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>❤️ HK</Text>
+                  </View>
+                )}
+                {fitness.source === 'estimated' && (
+                  <View style={{ backgroundColor: 'rgba(255,170,50,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ color: '#FFAA32', fontSize: 8, fontWeight: '700' }}>EST</Text>
+                  </View>
+                )}
+              </View>
             </View>
             <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10,  justifyContent: 'center', alignItems: 'center' }}>
-                  <Image source={BaecodeIcon.steps} style={{ width: 50, height: 50 }} resizeMode="contain" />
+                  <Image source={BarcodeIcon.steps} style={{ width: 50, height: 50 }} resizeMode="contain" />
                 </View>
                 <Text style={{ color: C.subtext, fontSize: 12 }}>Daily Steps</Text>
               </View>
-              <Text style={{ color: C.text, fontSize: 26, fontWeight: '800' }}>{Math.round(steps.steps).toLocaleString()}</Text>
+              <Text style={{ color: C.text, fontSize: 26, fontWeight: '800' }}>{Math.round(fitness.steps).toLocaleString()}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                 <FontAwesome name="map-marker" size={10} color={C.accent} />
-                <Text style={{ color: C.accent, fontSize: 11, fontWeight: '600' }}>{steps.distanceKm.toFixed(2)} km</Text>
+                <Text style={{ color: C.accent, fontSize: 11, fontWeight: '600' }}>{fitness.distanceKm.toFixed(2)} km</Text>
               </View>
             </View>
           </View>
@@ -736,14 +726,14 @@ export default function CaloriesScreen() {
           <TouchableOpacity activeOpacity={0.8} onPress={openActionPicker}
             style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16, flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ width: 42, height: 42, borderRadius: 12,  justifyContent: 'center', alignItems: 'center' }}>
-              {/* <Image source={BaecodeIcon.food} style={{ width: 50, height: 50 }} resizeMode="contain" /> */}
+              {/* <Image source={BarcodeIcon.food} style={{ width: 50, height: 50 }} resizeMode="contain" /> */}
             </View>
             <View style={{ flex: 1, marginLeft: -32 }}>
               <Text style={{ color: C.text, fontSize: 15, fontWeight: '700' }}>Get Food Calories</Text>
               <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Scan or search food calories</Text>
             </View>
             <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
-              <Image source={BaecodeIcon.barcode} style={{ width: 50, height: 50 }} resizeMode="contain" />
+              <Image source={BarcodeIcon.barcode} style={{ width: 50, height: 50 }} resizeMode="contain" />
             </View>
           </TouchableOpacity>
 
@@ -847,7 +837,7 @@ export default function CaloriesScreen() {
               style={{  borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center' }}
             >
               <View style={{ width: 36, height: 36, borderRadius: 10,  justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                <Image source={BaecodeIcon.barcode} style={{ width: 45, height: 45 }} resizeMode="contain" />
+                <Image source={BarcodeIcon.barcode} style={{ width: 45, height: 45 }} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Scan Barcode</Text>
