@@ -5,9 +5,9 @@ import User from '../models/user.js';
  * Keeping this server-side ensures the frontend never hardcodes access.
  */
 const FEATURE_MAP = {
-  free: ['BMI', 'WWP'],
-  pro: ['BMI', 'BMB', 'AI_DIET', 'WWP'],
-  pro_plus: ['BMI', 'BMB', 'AI_DIET', 'WWP'],
+  free: ['BMI', 'CALORIES', 'WWP'],
+  pro: ['BMI', 'CALORIES', 'BMB', 'AI_DIET', 'WWP'],
+  pro_plus: ['BMI', 'CALORIES', 'BMB', 'AI_DIET', 'WWP'],
 };
 
 export const getFeatures = async (req, res) => {

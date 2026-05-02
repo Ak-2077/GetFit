@@ -10,15 +10,16 @@ import { getUserProfile, getCaloriesToday, getCaloriesBurn, getStepsToday, getFe
 import GFLoader from '../../components/GFLoader';
 
 const C = {
-  bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463',
+  bg: '#060D09', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(29,36,31,0.18)', accent: '#1FA463',
   accentGlow: 'rgba(31,164,99,0.06)', gold: '#C8A84E', purple: '#6A0DAD',
   white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)', burn: '#FF6B6B',
 };
 
 const TOOLS = [
-  { key: 'BMI', label: 'BMI Calc', icon: 'calculator-outline' as const, color: '#f20622ff', route: '/bmi-calculator' },
-  { key: 'BMB', label: 'BMB', icon: 'restaurant-outline' as const, color: '#60A5FA', route: '/bmb-calculator' },
-  { key: 'AI_DIET', label: 'AI Diet', icon: 'nutrition-outline' as const, color: '#180decff', route: '/ai-diet' },
+  { key: 'BMI', label: 'BMI Calc', image: require('../../assets/icons/profile/bmi.png'), color: '#f20622ff', route: '/bmi-calculator' },
+  { key: 'CALORIES', label: 'Calories Calc', image: require('../../assets/icons/calories/food.png'), color: '#00E676', route: '/calories-calculator' },
+  { key: 'BMB', label: 'BMB', image: require('../../assets/icons/calories/foodcircle.png'), color: '#60A5FA', route: '/bmb-calculator' },
+  { key: 'AI_DIET', label: 'AI Diet', image: require('../../assets/icons/profile/AiDiet.png'), color: 'rgb(56, 61, 63)', route: '/ai-diet' },
   { key: 'WWP', label: 'Workout', icon: 'barbell-outline' as const, color: '#e80cbfff', route: '/workout-plan' },
 ];
 
@@ -45,14 +46,14 @@ export default function HomeScreen() {
         getCaloriesToday().catch(() => ({ data: null })),
         getStepsToday().catch(() => ({ data: { steps: 0, distanceKm: 0 } })),
         getCaloriesBurn().catch(() => ({ data: { totalCaloriesBurned: 0 } })),
-        getFeatures().catch(() => ({ data: { subscriptionPlan: 'free', allowedFeatures: ['BMI', 'WWP'] } })),
+        getFeatures().catch(() => ({ data: { subscriptionPlan: 'free', allowedFeatures: ['BMI', 'CALORIES', 'WWP'] } })),
         getUnreadNotificationCount().catch(() => ({ data: { count: 0 } })),
       ]);
       setUser(p.data);
       setDaily(t.data);
       setSteps({ steps: Number(s.data?.steps || 0), distanceKm: Number(s.data?.distanceKm || 0) });
       setBurn({ totalCaloriesBurned: Number(b.data?.totalCaloriesBurned || 0) });
-      setAllowed(f.data?.allowedFeatures || ['BMI', 'WWP']);
+      setAllowed(f.data?.allowedFeatures || ['BMI', 'CALORIES', 'WWP']);
       setSubPlan(f.data?.subscriptionPlan || 'free');
       setUnread(Number(n.data?.count || 0));
     } catch (e) { console.warn('Home error', e); }
@@ -152,7 +153,11 @@ export default function HomeScreen() {
                 <TouchableOpacity key={tool.key} activeOpacity={0.7} onPress={() => handleTool(tool)}
                   style={{ alignItems: 'center', opacity: locked ? 0.4 : 1, width: 72 }}>
                   <View style={{ width: 60, height: 60, borderRadius: 999, backgroundColor: C.card, borderWidth: 1.5, borderColor: locked ? C.cardBorder : `${tool.color}40`, justifyContent: 'center', alignItems: 'center' }}>
-                    <Ionicons name={tool.icon} size={24} color={locked ? C.muted : tool.color} />
+                    {tool.image ? (
+                      <Image source={tool.image} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                    ) : (
+                      <Ionicons name={tool.icon} size={30} color={locked ? C.muted : tool.color} />
+                    )}
                     {locked && <View style={{ position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="lock-closed" size={10} color={C.muted} /></View>}
                   </View>
@@ -165,13 +170,14 @@ export default function HomeScreen() {
           {/* ═══ TODAY'S SUMMARY ═══ */}
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Summary</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-            {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', icon: 'flame-outline' as const, color: C.accent },
-              { label: 'Burned', value: `${Math.round(burn.totalCaloriesBurned)}`, sub: 'kcal', icon: 'flash-outline' as const, color: C.burn },
-              { label: 'Steps', value: `${Math.round(steps.steps).toLocaleString()}`, sub: `${steps.distanceKm.toFixed(1)} km`, icon: 'footsteps-outline' as const, color: '#60A5FA' },
+            {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', image: require('../../assets/icons/calories/food.png'), color: C.accent },
+              { label: 'Burned', value: `${Math.round(burn.totalCaloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn },
+              { label: 'Steps', value: `${Math.round(steps.steps).toLocaleString()}`, sub: `${steps.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA' },
             ].map((item) => (
               <View key={item.label} style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 14, alignItems: 'center' }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: `${item.color}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
-                  <Ionicons name={item.icon} size={18} color={item.color} /></View>
+                  <Image source={item.image} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                </View>
                 <Text style={{ fontSize: 20, fontWeight: '800', color: C.white }}>{item.value}</Text>
                 <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{item.sub}</Text>
                 <Text style={{ fontSize: 9, color: C.label, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>{item.label}</Text>
@@ -180,7 +186,7 @@ export default function HomeScreen() {
           </View>
 
           {/* Calorie progress */}
-          <View style={{ backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, marginBottom: 20 }}>
+        {/*  <View style={{ backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
               <Text style={{ color: C.white, fontSize: 14, fontWeight: '700' }}>Calorie Goal</Text>
               <Text style={{ color: C.accent, fontSize: 13, fontWeight: '700' }}>{Math.round(consumed)} / {Math.round(target)}</Text>
@@ -190,7 +196,7 @@ export default function HomeScreen() {
                 style={{ height: 6, borderRadius: 3, width: `${Math.min((consumed / Math.max(target, 1)) * 100, 100)}%` as any }} />
             </View>
             <Text style={{ color: C.muted, fontSize: 10, marginTop: 6 }}>{Math.max(0, Math.round(target - consumed))} kcal remaining</Text>
-          </View>
+          </View>*/}
 
           {/* ═══ TODAY'S WORKOUT ═══ */}
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Workout</Text>
