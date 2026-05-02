@@ -1,5 +1,57 @@
 import User from '../models/user.js';
 
+export const generateBMBPlan = async (req, res) => {
+  try {
+    const { calories, weight, height, goal } = req.body;
+
+    // Validation
+    if (!calories || !weight || !height || !goal) {
+      return res.status(400).json({ message: 'All fields required' });
+    }
+
+    const cal = Number(calories);
+    const wt = Number(weight);
+    const ht = Number(height);
+
+    if (cal <= 0 || wt <= 0 || ht <= 0) {
+      return res.status(400).json({ message: 'Invalid input values' });
+    }
+
+    // Macro ratios based on goal
+    const macroRatios = {
+      lose: { protein: 30, carbs: 40, fats: 30 },
+      maintain: { protein: 25, carbs: 45, fats: 30 },
+      gain: { protein: 25, carbs: 50, fats: 25 },
+    };
+
+    const ratios = macroRatios[goal] || macroRatios.maintain;
+
+    // Convert to grams
+    // protein (g) = (calories * protein%) / 4
+    // carbs (g) = (calories * carbs%) / 4
+    // fats (g) = (calories * fats%) / 9
+    // fiber (g) = calories / 1000 * 14
+    
+    const protein = Math.round((cal * (ratios.protein / 100)) / 4);
+    const carbs = Math.round((cal * (ratios.carbs / 100)) / 4);
+    const fats = Math.round((cal * (ratios.fats / 100)) / 9);
+    const fiber = Math.round((cal / 1000) * 14);
+
+    return res.status(200).json({
+      protein,
+      carbs,
+      fats,
+      fiber,
+      goal,
+      calories: cal,
+      weight: wt,
+      height: ht,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'BMB plan generation failed', error: error.message });
+  }
+};
+
 export const calculateBMB = async (req, res) => {
   try {
     const { protein, carbs, fat, fiber } = req.body;

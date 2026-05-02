@@ -15,6 +15,15 @@ const C = {
   white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)', burn: '#FF6B6B',
 };
 
+// VIBGYOR gradient colors for pro_plus avatar
+const VIBGYOR: [string, string, ...string[]] = ['#8B00FF', '#4B0082', '#0000FF', '#00FF00', '#FFFF00', '#FF7F00', '#FF0000'];
+
+function getAvatarBorderStyle(plan: string) {
+  if (plan === 'pro') return { borderColor: '#6A0DAD', shadowColor: '#6A0DAD', shadowOpacity: 0.4, shadowRadius: 12 };
+  if (plan === 'pro_plus') return { borderColor: '#FF0000', shadowColor: '#FFD700', shadowOpacity: 0.5, shadowRadius: 14 };
+  return { borderColor: 'rgba(180,180,180,0.3)', shadowColor: 'transparent', shadowOpacity: 0, shadowRadius: 0 };
+}
+
 const TOOLS = [
   { key: 'BMI', label: 'BMI Calc', icon: 'calculator-outline' as const, color: '#f20622ff', route: '/bmi-calculator' },
   { key: 'BMB', label: 'BMB', icon: 'restaurant-outline' as const, color: '#60A5FA', route: '/bmb-calculator' },
@@ -97,12 +106,28 @@ export default function HomeScreen() {
 
           {/* ═══ HEADER ═══ */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingBottom: 16 }}>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)} activeOpacity={0.7}
-              style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: 'rgba(31,164,99,0.35)', justifyContent: 'center', alignItems: 'center' }}>
-              {user?.avatar ? <Image source={{ uri: user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                : <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
-            </TouchableOpacity>
+            {/* Avatar with subscription-based border */}
+            {user?.subscriptionPlan === 'pro_plus' ? (
+              <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)} activeOpacity={0.7}>
+                <LinearGradient
+                  colors={VIBGYOR}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
+                    {user?.avatar ? <Image source={{ uri: user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                      : <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)} activeOpacity={0.7}
+                style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 2, ...getAvatarBorderStyle(user?.subscriptionPlan || 'free'), justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 0 }, elevation: 3 }}>
+                {user?.avatar ? <Image source={{ uri: user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                  : <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
+              </TouchableOpacity>
+            )}
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={{ fontSize: 12, color: C.label }}>Welcome back</Text>
               <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: -0.3 }}>{userName}</Text>
@@ -180,7 +205,7 @@ export default function HomeScreen() {
           </View>
 
           {/* Calorie progress */}
-          <View style={{ backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, marginBottom: 20 }}>
+          {/* <View style={{ backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
               <Text style={{ color: C.white, fontSize: 14, fontWeight: '700' }}>Calorie Goal</Text>
               <Text style={{ color: C.accent, fontSize: 13, fontWeight: '700' }}>{Math.round(consumed)} / {Math.round(target)}</Text>
@@ -190,7 +215,7 @@ export default function HomeScreen() {
                 style={{ height: 6, borderRadius: 3, width: `${Math.min((consumed / Math.max(target, 1)) * 100, 100)}%` as any }} />
             </View>
             <Text style={{ color: C.muted, fontSize: 10, marginTop: 6 }}>{Math.max(0, Math.round(target - consumed))} kcal remaining</Text>
-          </View>
+          </View> */}
 
           {/* ═══ TODAY'S WORKOUT ═══ */}
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Workout</Text>
