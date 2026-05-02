@@ -101,6 +101,12 @@ export default function RootLayout() {
         <Stack.Screen name="food-details" options={{ headerShown: false }} />
         <Stack.Screen name="home-workout" options={{ headerShown: false }} />
         <Stack.Screen name="home-workout-player" options={{ headerShown: false }} />
+        <Stack.Screen name="bmi-calculator" options={{ headerShown: false }} />
+        <Stack.Screen name="bmb-calculator" options={{ headerShown: false }} />
+        <Stack.Screen name="ai-diet" options={{ headerShown: false }} />
+        <Stack.Screen name="workout-plan" options={{ headerShown: false }} />
+        <Stack.Screen name="search" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="upgrade" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>

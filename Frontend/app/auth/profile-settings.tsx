@@ -14,6 +14,7 @@ import {
   getUserProfile, updateUserProfile, changeUserPassword,
   deleteUserAccount, setAuthToken, sendProfileEmailOtp, verifyProfileEmailOtp,
 } from '../../services/api';
+import { LinearGradient } from 'expo-linear-gradient';
 import GFLoader from '../../components/GFLoader';
 
 const C = {
@@ -25,6 +26,20 @@ const C = {
 
 function DarkCard({ children, style }: any) {
   return <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, overflow: 'hidden', ...style }}>{children}</View>;
+}
+
+const VIBGYOR: [string, string, ...string[]] = ['#8B00FF', '#4B0082', '#0000FF', '#00FF00', '#FFFF00', '#FF7F00', '#FF0000'];
+
+function getSubLabel(plan: string) {
+  if (plan === 'pro') return 'AI Trainer Pro';
+  if (plan === 'pro_plus') return 'AI Trainer Pro Plus';
+  return 'Free Plan';
+}
+
+function getAvatarBorder(plan: string) {
+  if (plan === 'pro') return { borderColor: '#6A0DAD', shadowColor: '#6A0DAD', shadowOpacity: 0.4, shadowRadius: 12 };
+  if (plan === 'pro_plus') return { borderColor: '#FF0000', shadowColor: '#FFD700', shadowOpacity: 0.5, shadowRadius: 14 };
+  return { borderColor: 'rgba(180,180,180,0.3)', shadowColor: 'transparent', shadowOpacity: 0, shadowRadius: 0 };
 }
 
 function SettingsRow({ icon, label, value, onPress, right, last }: any) {
@@ -264,23 +279,46 @@ export default function ProfileSettingsScreen() {
               <View style={{ width: 40 }} />
             </View>
 
-            {/* AVATAR */}
+            {/* AVATAR with subscription-based border */}
             <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 24 }}>
-              <View style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: 'rgba(31,164,99,0.3)', justifyContent: 'center', alignItems: 'center', shadowColor: C.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }}>
-                {hasAvatar ? (
-                  <Image source={{ uri: avatarUri }} style={{ width: 90, height: 90, borderRadius: 45 }} />
-                ) : (
-                  <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 38, fontWeight: '700', color: C.accent }}>{getInitials()}</Text>
+              {user?.subscriptionPlan === 'pro_plus' ? (
+                <LinearGradient colors={VIBGYOR} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ width: 104, height: 104, borderRadius: 52, justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
+                    {hasAvatar ? (
+                      <Image source={{ uri: avatarUri }} style={{ width: 90, height: 90, borderRadius: 45 }} />
+                    ) : (
+                      <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 38, fontWeight: '700', color: C.accent }}>{getInitials()}</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
+                </LinearGradient>
+              ) : (
+                <View style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 2.5, ...getAvatarBorder(user?.subscriptionPlan || 'free'), justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 0 }, elevation: 4 }}>
+                  {hasAvatar ? (
+                    <Image source={{ uri: avatarUri }} style={{ width: 90, height: 90, borderRadius: 45 }} />
+                  ) : (
+                    <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 38, fontWeight: '700', color: C.accent }}>{getInitials()}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
               <TouchableOpacity onPress={onPickPhoto} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.border }}>
                 <FontAwesome name="camera" size={12} color={C.label} style={{ marginRight: 6 }} />
                 <Text style={{ fontSize: 13, fontWeight: '600', color: C.white }}>Edit Photo</Text>
               </TouchableOpacity>
               <Text style={{ fontSize: 18, fontWeight: '700', color: C.white, marginTop: 10 }}>{name || '—'}</Text>
               {user?.email ? <Text style={{ fontSize: 13, color: C.label, marginTop: 2 }}>{user.email}</Text> : null}
+              {user?.subscriptionPlan && user.subscriptionPlan !== 'free' && (
+                <LinearGradient
+                  colors={user.subscriptionPlan === 'pro_plus' ? ['#8B00FF', '#FF0000'] : ['#6A0DAD', '#9B59B6']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, marginTop: 8 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#fff' }}>{user.subscriptionPlan === 'pro_plus' ? 'Pro+ Elite' : 'Pro Member'}</Text>
+                </LinearGradient>
+              )}
             </View>
 
             {/* ACCOUNT */}
@@ -370,6 +408,55 @@ export default function ProfileSettingsScreen() {
                   thumbColor="#fff"
                 />
               </View>
+            </DarkCard>
+
+            {/* SUBSCRIPTION PLAN */}
+            <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>Subscription Plan</Text>
+            <DarkCard style={{ marginBottom: 20, overflow: 'hidden' }}>
+              {user?.subscriptionPlan === 'pro_plus' ? (
+                <LinearGradient colors={['rgba(139,0,255,0.12)', 'rgba(255,0,0,0.06)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+                    <LinearGradient colors={VIBGYOR.slice(0, 3) as [string, string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
+                      <FontAwesome name="diamond" size={14} color="#fff" />
+                    </LinearGradient>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(user.subscriptionPlan)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
+                        <Text style={{ fontSize: 11, color: '#22C55E', fontWeight: '600' }}>Active</Text>
+                      </View>
+                    </View>
+                  </View>
+                </LinearGradient>
+              ) : user?.subscriptionPlan === 'pro' ? (
+                <LinearGradient colors={['rgba(106,13,173,0.12)', 'rgba(106,13,173,0.04)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(106,13,173,0.2)', justifyContent: 'center', alignItems: 'center' }}>
+                      <FontAwesome name="star" size={14} color="#9B59B6" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(user.subscriptionPlan)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
+                        <Text style={{ fontSize: 11, color: '#22C55E', fontWeight: '600' }}>Active</Text>
+                      </View>
+                    </View>
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(200,168,78,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                    <FontAwesome name="star-o" size={14} color={C.gold} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(user?.subscriptionPlan)}</Text>
+                    <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>Basic features</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => router.push('/upgrade' as any)} style={{ backgroundColor: '#6A0DAD', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 }}>
+                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Upgrade</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </DarkCard>
 
             {/* APP */}
