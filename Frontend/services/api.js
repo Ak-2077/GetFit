@@ -131,6 +131,7 @@ export const markAllNotificationsRead = () => API.patch('/api/notifications/read
 
 // BMB (Balance Meal Meter) endpoints
 export const calculateBMB = (data) => API.post('/api/bmb/calculate', data);
+export const generateBMBPlan = (data) => API.post('/api/bmb/generate', data);
 
 // Diet Plan endpoints
 export const getDietPlan = () => API.get('/api/diet/plan');
