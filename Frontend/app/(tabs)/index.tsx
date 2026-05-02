@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getUserProfile, getCaloriesToday, getCaloriesBurn, getStepsToday, getFeatures, setAuthToken, getUnreadNotificationCount } from '../../services/api';
+import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount } from '../../services/api';
+import { useFitness } from '../../hooks/useFitness';
 import GFLoader from '../../components/GFLoader';
 
 const C = {
@@ -38,11 +39,12 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [daily, setDaily] = useState<any>(null);
-  const [steps, setSteps] = useState({ steps: 0, distanceKm: 0 });
-  const [burn, setBurn] = useState({ totalCaloriesBurned: 0 });
   const [allowed, setAllowed] = useState<string[]>([]);
   const [subPlan, setSubPlan] = useState('free');
   const [unread, setUnread] = useState(0);
+
+  // ── HealthKit-backed fitness data (steps + burn) ──
+  const fitness = useFitness();
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -50,21 +52,19 @@ export default function HomeScreen() {
       const token = await AsyncStorage.getItem('token');
       if (!token) { router.replace('/auth' as any); return; }
       setAuthToken(token);
-      const [p, t, s, b, f, n] = await Promise.all([
+      const [p, t, f, n] = await Promise.all([
         getUserProfile().catch(() => ({ data: null })),
         getCaloriesToday().catch(() => ({ data: null })),
-        getStepsToday().catch(() => ({ data: { steps: 0, distanceKm: 0 } })),
-        getCaloriesBurn().catch(() => ({ data: { totalCaloriesBurned: 0 } })),
         getFeatures().catch(() => ({ data: { subscriptionPlan: 'free', allowedFeatures: ['BMI', 'CALORIES', 'WWP'] } })),
         getUnreadNotificationCount().catch(() => ({ data: { count: 0 } })),
       ]);
       setUser(p.data);
       setDaily(t.data);
-      setSteps({ steps: Number(s.data?.steps || 0), distanceKm: Number(s.data?.distanceKm || 0) });
-      setBurn({ totalCaloriesBurned: Number(b.data?.totalCaloriesBurned || 0) });
       setAllowed(f.data?.allowedFeatures || ['BMI', 'CALORIES', 'WWP']);
       setSubPlan(f.data?.subscriptionPlan || 'free');
       setUnread(Number(n.data?.count || 0));
+      // Also trigger a fitness refresh so steps/burn stay in sync
+      fitness.refresh();
     } catch (e) { console.warn('Home error', e); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
@@ -196,8 +196,8 @@ export default function HomeScreen() {
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Summary</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
             {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', image: require('../../assets/icons/calories/food.png'), color: C.accent },
-              { label: 'Burned', value: `${Math.round(burn.totalCaloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn },
-              { label: 'Steps', value: `${Math.round(steps.steps).toLocaleString()}`, sub: `${steps.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA' },
+              { label: 'Burned', value: `${Math.round(fitness.caloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn },
+              { label: 'Steps', value: `${Math.round(fitness.steps).toLocaleString()}`, sub: `${fitness.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA' },
             ].map((item) => (
               <View key={item.label} style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 14, alignItems: 'center' }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: `${item.color}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>

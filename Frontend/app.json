@@ -9,7 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "GetFit reads your step count and active energy burned to display accurate fitness data",
+        "NSHealthUpdateUsageDescription": "GetFit does not write health data"
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -58,7 +65,8 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to update your profile picture"
         }
-      ]
+      ],
+      "react-native-health"
     ],
     "experiments": {
       "typedRoutes": true,
