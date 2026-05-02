@@ -53,7 +53,7 @@ export const getPlans = async (req, res) => {
         ],
       },
       {
-        key: 'pro', name: 'AI Trainer Pro', price: '₹199', period: '/month', badge: 'Most Popular',
+        key: 'pro', name: 'AI Trainer Pro', price: '₹2450', period: '/month', badge: 'Most Popular',
         features: [
           { name: 'Basic Food Logging', included: true },
           { name: 'Step Tracking', included: true },
@@ -66,7 +66,7 @@ export const getPlans = async (req, res) => {
         ],
       },
       {
-        key: 'pro_plus', name: 'AI Trainer Pro+', price: '₹399', period: '/month', badge: 'Best Value',
+        key: 'pro_plus', name: 'AI Trainer Pro+', price: '₹3999', period: '/month', badge: 'Best Value',
         features: [
           { name: 'Basic Food Logging', included: true },
           { name: 'Step Tracking', included: true },
