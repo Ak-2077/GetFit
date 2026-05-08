@@ -31,12 +31,16 @@ export interface UseFitnessResult {
   manualCalories: number;
   /** Walking/auto-tracked calories */
   walkingCalories: number;
-  /** Data source: 'healthkit' | 'backend' | 'estimated' | 'none' */
+  /** Data source: 'healthkit' | 'pedometer' | 'backend' | 'estimated' | 'none' */
   source: FitnessSource;
-  /** Whether HealthKit is available on this device */
+  /** Whether HealthKit is available on this device (iOS) */
   isHealthKitAvailable: boolean;
-  /** Whether HealthKit permissions have been granted */
+  /** Whether HealthKit permissions have been granted (iOS) */
   isHealthKitAuthorized: boolean;
+  /** Whether Android pedometer hardware is available */
+  isPedometerAvailable: boolean;
+  /** Whether ACTIVITY_RECOGNITION permission has been granted (Android) */
+  isPedometerAuthorized: boolean;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Timestamp of last successful data update */
@@ -86,6 +90,8 @@ export function useFitness(): UseFitnessResult {
     source: state.source,
     isHealthKitAvailable: state.isHealthKitAvailable,
     isHealthKitAuthorized: state.isHealthKitAuthorized,
+    isPedometerAvailable: state.isPedometerAvailable,
+    isPedometerAuthorized: state.isPedometerAuthorized,
     isLoading: state.isLoading,
     lastUpdated: state.lastUpdated,
     refresh,

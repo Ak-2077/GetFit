@@ -6,6 +6,7 @@
  */
 
 export { HealthKitService } from './HealthKitService';
+export { AndroidPedometerService } from './AndroidPedometerService';
 export { StepManager } from './StepManager';
 export { CalorieManager } from './CalorieManager';
 export { FitnessStore } from './FitnessStore';
@@ -17,6 +18,10 @@ export type {
 } from './HealthKitService';
 
 export type {
+  PedometerStepResult,
+} from './AndroidPedometerService';
+
+export type {
   FitnessState,
   FitnessSource,
   FitnessListener,
@@ -24,3 +29,4 @@ export type {
 
 export type { StepResult } from './StepManager';
 export type { CalorieResult } from './CalorieManager';
+

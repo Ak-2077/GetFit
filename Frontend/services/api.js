@@ -114,6 +114,10 @@ export const removeBurnLog = (logId) => API.delete(`/api/burn/log/${logId}`);
 export const getWorkoutModel = (mode, bodyPart) =>
   API.get('/api/workout/model', { params: { mode, bodyPart } });
 
+// Workout list endpoints (subscription-filtered)
+export const getWorkoutsByType = (type) => API.get(`/api/workout/${type}`);
+export const getAllWorkoutsList = () => API.get('/api/workout/all');
+
 // Feature access endpoints
 export const getFeatures = () => API.get('/api/features');
 
