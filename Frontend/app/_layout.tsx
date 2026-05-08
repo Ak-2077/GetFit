@@ -93,7 +93,12 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          freezeOnBlur: true,
+        }}
+      >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
@@ -105,6 +110,8 @@ export default function RootLayout() {
         <Stack.Screen name="bmb-calculator" options={{ headerShown: false }} />
         <Stack.Screen name="ai-diet" options={{ headerShown: false }} />
         <Stack.Screen name="workout-plan" options={{ headerShown: false }} />
+        <Stack.Screen name="workout-list" options={{ headerShown: false }} />
+        <Stack.Screen name="workout-player" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="upgrade" options={{ headerShown: false }} />
       </Stack>

@@ -134,6 +134,17 @@ class _CalorieManager {
         console.log(
           `[CalorieManager] fetch: ${totalCaloriesBurned} kcal (HK: ${hkCalories} + manual: ${manualCalories}) | source: healthkit | ${Date.now() - t0}ms`
         );
+      } else if (estimatedCalories > 0 && currentSteps > 0) {
+        // Step-based estimation available (from Android pedometer or other step source)
+        totalCaloriesBurned = estimatedCalories + manualCalories;
+        walkingCalories = estimatedCalories;
+        // Use 'estimated' as source — FitnessService will override with 'pedometer'
+        // if the steps came from Android pedometer
+        source = 'estimated';
+
+        console.log(
+          `[CalorieManager] fetch: ${totalCaloriesBurned} kcal (steps: ${currentSteps}, est: ${estimatedCalories} + manual: ${manualCalories}) | source: estimated | weight: ${this._userWeightKg}kg | ${Date.now() - t0}ms`
+        );
       } else if (backendTotalCalories > 0) {
         // Backend has data — use it
         totalCaloriesBurned = backendTotalCalories;

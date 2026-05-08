@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /* ---------- Types ---------- */
 
-export type FitnessSource = 'healthkit' | 'backend' | 'estimated' | 'none';
+export type FitnessSource = 'healthkit' | 'pedometer' | 'backend' | 'estimated' | 'none';
 
 export interface FitnessState {
   steps: number;
@@ -28,6 +28,8 @@ export interface FitnessState {
   lastUpdated: number;
   isHealthKitAvailable: boolean;
   isHealthKitAuthorized: boolean;
+  isPedometerAvailable: boolean;
+  isPedometerAuthorized: boolean;
   isLoading: boolean;
 }
 
@@ -50,6 +52,8 @@ const INITIAL_STATE: FitnessState = {
   lastUpdated: 0,
   isHealthKitAvailable: false,
   isHealthKitAuthorized: false,
+  isPedometerAvailable: false,
+  isPedometerAuthorized: false,
   isLoading: true,
 };
 
@@ -100,7 +104,7 @@ class _FitnessStore {
         `[FitnessStore] Day boundary detected: ${this._lastDayKey} → ${currentDay} — resetting`
       );
       this._lastDayKey = currentDay;
-      this._state = { ...INITIAL_STATE, isHealthKitAvailable: this._state.isHealthKitAvailable, isHealthKitAuthorized: this._state.isHealthKitAuthorized };
+      this._state = { ...INITIAL_STATE, isHealthKitAvailable: this._state.isHealthKitAvailable, isHealthKitAuthorized: this._state.isHealthKitAuthorized, isPedometerAvailable: this._state.isPedometerAvailable, isPedometerAuthorized: this._state.isPedometerAuthorized };
     }
 
     const next = { ...this._state };
@@ -141,6 +145,8 @@ class _FitnessStore {
     if (partial.source !== undefined) next.source = partial.source;
     if (partial.isHealthKitAvailable !== undefined) next.isHealthKitAvailable = partial.isHealthKitAvailable;
     if (partial.isHealthKitAuthorized !== undefined) next.isHealthKitAuthorized = partial.isHealthKitAuthorized;
+    if (partial.isPedometerAvailable !== undefined) next.isPedometerAvailable = partial.isPedometerAvailable;
+    if (partial.isPedometerAuthorized !== undefined) next.isPedometerAuthorized = partial.isPedometerAuthorized;
     if (partial.isLoading !== undefined) next.isLoading = partial.isLoading;
 
     next.lastUpdated = Date.now();

@@ -14,6 +14,7 @@ import {
   Keyboard,
   RefreshControl,
   KeyboardAvoidingView,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -31,6 +32,7 @@ import {
   getFoodByBarcode,
   removeFoodFromLog,
   getUserProfile,
+  getFeatures,
 } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { FitnessService } from '../../services/fitness';
@@ -108,7 +110,7 @@ const CHART_PADDING_LEFT = 36;
 const CHART_PADDING_RIGHT = 8;
 const CHART_DRAW_WIDTH = CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
 
-function DualTrendChart({ intakeData, burnData }: { intakeData: DayPoint[]; burnData: DayPoint[] }) {
+const DualTrendChart = React.memo(function DualTrendChart({ intakeData, burnData }: { intakeData: DayPoint[]; burnData: DayPoint[] }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; value: number; type: string } | null>(null);
 
   const allValues = [...intakeData.map(d => d.calories), ...burnData.map(d => d.calories)];
@@ -229,10 +231,39 @@ function DualTrendChart({ intakeData, burnData }: { intakeData: DayPoint[]; burn
       </View>
     </View>
   );
-}
+});
 
 
-function LockedCard({ title, subtitle }: { title: string; subtitle: string }) {
+const LockedCard = React.memo(function LockedCard({ title, subtitle, unlocked = false, onPress }: { title: string; subtitle: string; unlocked?: boolean; onPress?: () => void }) {
+  if (unlocked) {
+    return (
+      <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{
+        flex: 1,
+        backgroundColor: C.card,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: C.cardBorder,
+        padding: 16,
+        minHeight: 115,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <View style={{
+            width: 32, height: 32, borderRadius: 10,
+            backgroundColor: 'rgba(0,230,118,0.12)',
+            alignItems: 'center', justifyContent: 'center', marginRight: 10,
+          }}>
+            <FontAwesome name="check" size={13} color={C.accent} />
+          </View>
+          <Text style={{ color: C.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{title}</Text>
+        </View>
+        <Text style={{ color: C.muted, fontSize: 11, lineHeight: 16, marginBottom: 10 }}>{subtitle}</Text>
+        <View style={{ backgroundColor: C.accentSoft, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+          <Text style={{ color: C.accent, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>UNLOCKED</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <View style={{
       flex: 1,
@@ -259,7 +290,7 @@ function LockedCard({ title, subtitle }: { title: string; subtitle: string }) {
       </View>
     </View>
   );
-}
+});
 
 export default function CaloriesScreen() {
   const router = useRouter();
@@ -275,6 +306,7 @@ export default function CaloriesScreen() {
     intakeTrend: [],
     burnedTrend: [],
   });
+  const [allowedFeatures, setAllowedFeatures] = useState<string[]>([]);
 
   // ── HealthKit-backed fitness data (steps + burn) ──
   const fitness = useFitness();
@@ -368,10 +400,11 @@ export default function CaloriesScreen() {
       const token = await AsyncStorage.getItem('token');
       setAuthToken(token || null);
 
-      const [todayRes, weeklyRes, profileRes] = await Promise.all([
+      const [todayRes, weeklyRes, profileRes, featuresRes] = await Promise.all([
         getCaloriesToday(),
         getCaloriesWeekly(),
         getUserProfile().catch(() => ({ data: null })),
+        getFeatures().catch(() => ({ data: { subscriptionPlan: 'free', allowedFeatures: ['BMI', 'CALORIES', 'WWP'] } })),
       ]);
 
       setDaily(todayRes.data || null);
@@ -391,6 +424,8 @@ export default function CaloriesScreen() {
         burnedTrend: Array.isArray(weeklyRes.data?.burnedTrend) ? weeklyRes.data.burnedTrend : [],
       });
 
+      setAllowedFeatures(featuresRes.data?.allowedFeatures || []);
+
       // Trigger fitness refresh for steps + burn (via HealthKit/backend)
       fitness.refresh();
     } catch (error) {
@@ -405,14 +440,9 @@ export default function CaloriesScreen() {
 
   const refreshCaloriesSilently = useCallback(() => loadData(true), [loadData]);
 
-  // Check location permission on focus
-  useFocusEffect(
-    useCallback(() => {
-      if (liveSyncTimerRef.current) {
-        clearInterval(liveSyncTimerRef.current);
-        liveSyncTimerRef.current = null;
-      }
-
+  // Load data once on mount — no auto-refresh, no polling
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
       loadData(false);
       (async () => {
         try {
@@ -421,19 +451,12 @@ export default function CaloriesScreen() {
           if (stored) setRecentSearches(JSON.parse(stored).slice(0, 8));
         } catch { /* ignore */ }
       })();
+    });
 
-      liveSyncTimerRef.current = setInterval(() => {
-        void refreshCaloriesSilently();
-      }, 20000);
-
-      return () => {
-        if (liveSyncTimerRef.current) {
-          clearInterval(liveSyncTimerRef.current);
-          liveSyncTimerRef.current = null;
-        }
-      };
-    }, [loadData])
-  );
+    return () => {
+      task.cancel();
+    };
+  }, []);
 
   // Debounced search (reuses existing API — no duplicate calls)
   useEffect(() => {
@@ -648,8 +671,9 @@ export default function CaloriesScreen() {
             </View>
           </View>
 
-          {/* ═══ HEALTHKIT PERMISSION CARD ═══ */}
-          {(fitness.isHealthKitAvailable && !fitness.isHealthKitAuthorized) && (
+          {/* ═══ FITNESS PERMISSION CARD (Platform-Adaptive) ═══ */}
+          {/* iOS: HealthKit not authorized */}
+          {(Platform.OS === 'ios' && fitness.isHealthKitAvailable && !fitness.isHealthKitAuthorized) && (
             <View style={{
               backgroundColor: C.card, borderRadius: 18, borderWidth: 1,
               borderColor: 'rgba(255,170,50,0.2)', padding: 16, marginTop: 12,
@@ -665,6 +689,33 @@ export default function CaloriesScreen() {
               <View style={{ flex: 1, marginRight: 10 }}>
                 <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Apple Health</Text>
                 <Text style={{ color: C.muted, fontSize: 11, marginTop: 2, lineHeight: 15 }}>Enable HealthKit for accurate steps and calorie burn data</Text>
+              </View>
+              <TouchableOpacity onPress={handleRequestHealthKit} activeOpacity={0.8}
+                style={{
+                  backgroundColor: C.accent, borderRadius: 10,
+                  paddingHorizontal: 14, paddingVertical: 8,
+                }}>
+                <Text style={{ color: '#050505', fontSize: 12, fontWeight: '700' }}>Enable</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {/* Android: Pedometer not authorized */}
+          {(Platform.OS === 'android' && fitness.isPedometerAvailable && !fitness.isPedometerAuthorized) && (
+            <View style={{
+              backgroundColor: C.card, borderRadius: 18, borderWidth: 1,
+              borderColor: 'rgba(255,170,50,0.2)', padding: 16, marginTop: 12,
+              flexDirection: 'row', alignItems: 'center',
+            }}>
+              <View style={{
+                width: 42, height: 42, borderRadius: 12,
+                backgroundColor: 'rgba(0,230,118,0.12)',
+                justifyContent: 'center', alignItems: 'center', marginRight: 14,
+              }}>
+                <FontAwesome name="heartbeat" size={18} color={C.accent} />
+              </View>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Activity Tracking</Text>
+                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2, lineHeight: 15 }}>Enable step counter for accurate steps and calorie burn data</Text>
               </View>
               <TouchableOpacity onPress={handleRequestHealthKit} activeOpacity={0.8}
                 style={{
@@ -693,6 +744,11 @@ export default function CaloriesScreen() {
                 {fitness.source === 'healthkit' && (
                   <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                     <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>❤️ HK</Text>
+                  </View>
+                )}
+                {fitness.source === 'pedometer' && (
+                  <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>📱 STEP</Text>
                   </View>
                 )}
                 {fitness.source === 'estimated' && (
@@ -795,8 +851,18 @@ export default function CaloriesScreen() {
           {/* ═══ PREMIUM INSIGHTS ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Premium Insights</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <LockedCard title="AI Diet" subtitle="Personalized daily diet coaching and adaptive meal timing based on your intake trends." />
-            <LockedCard title="MBM" subtitle="Real-time nutrient quality scoring and imbalance alerts for each meal." />
+            <LockedCard
+              title="AI Diet"
+              subtitle="Personalized daily diet coaching and adaptive meal timing based on your intake trends."
+              unlocked={allowedFeatures.includes('AI_DIET')}
+              onPress={() => router.push('/ai-diet')}
+            />
+            <LockedCard
+              title="MBM"
+              subtitle="Real-time nutrient quality scoring and imbalance alerts for each meal."
+              unlocked={allowedFeatures.includes('BMB')}
+              onPress={() => router.push('/bmb-calculator')}
+            />
           </View>
 
           <View style={{ height: 30 }} />
@@ -1025,7 +1091,7 @@ export default function CaloriesScreen() {
                         </Text>
                       </View>
                       <TouchableOpacity
-                        onPress={(e) => {
+                        onPress={(e: import('react-native').GestureResponderEvent) => {
                           e?.stopPropagation?.();
                           showMealPicker(food._id);
                         }}

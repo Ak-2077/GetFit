@@ -1,16 +1,20 @@
 /**
  * StepManager.ts
  * ──────────────────────────────────────────────────────────────
- * Manages step count retrieval with HealthKit priority + backend fallback.
+ * Manages step count retrieval with platform-native priority.
  *
- * • Tries HealthKit first (HKStatisticsQuery, cumulativeSum)
- * • Falls back to backend API on non-iOS or HealthKit failure
+ * Priority chain:
+ *   1. iOS  → HealthKit (HKStatisticsQuery, cumulativeSum)
+ *   2. Android → expo-sensors Pedometer (TYPE_STEP_COUNTER)
+ *   3. Fallback → Backend API
+ *
  * • Throttles queries to max 1 per 10 seconds
  * • Caches last known value — never returns a lower value within a day
  * ──────────────────────────────────────────────────────────────
  */
 
 import { HealthKitService } from './HealthKitService';
+import { AndroidPedometerService } from './AndroidPedometerService';
 import { getStepsToday } from '../api';
 import { FitnessSource } from './FitnessStore';
 
@@ -59,7 +63,7 @@ class _StepManager {
     const t0 = Date.now();
 
     try {
-      // ── Try HealthKit first ──
+      // ── 1. Try HealthKit first (iOS) ──
       if (HealthKitService.initialized) {
         const hkResult = await HealthKitService.getStepsToday();
 
@@ -77,7 +81,25 @@ class _StepManager {
         }
       }
 
-      // ── Fallback: Backend API ──
+      // ── 2. Try Android Pedometer (Android) ──
+      if (AndroidPedometerService.authorized) {
+        const pedometerResult = await AndroidPedometerService.getStepsToday();
+
+        if (pedometerResult && pedometerResult.value >= 0) {
+          const steps = pedometerResult.value;
+          const distanceKm = Number((steps * STRIDE_KM).toFixed(2));
+
+          const result: StepResult = { steps, distanceKm, source: 'pedometer' };
+          this._applyMonotonic(result);
+
+          console.log(
+            `[StepManager] fetch: ${result.steps} steps | source: pedometer | ${Date.now() - t0}ms`
+          );
+          return result;
+        }
+      }
+
+      // ── 3. Fallback: Backend API ──
       const apiRes = await getStepsToday().catch(() => ({ data: null }));
       const apiSteps = Number(apiRes?.data?.steps || 0);
       const apiDistance = Number(apiRes?.data?.distanceKm || 0);

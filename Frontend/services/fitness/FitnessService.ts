@@ -4,7 +4,8 @@
  * Central orchestrator for the fitness tracking system.
  *
  * • Coordinates StepManager + CalorieManager
- * • Manages HealthKit initialization + observers
+ * • Manages HealthKit initialization + observers (iOS)
+ * • Manages Android Pedometer initialization + watchers (Android)
  * • Debounces refresh calls (5s minimum between successful fetches)
  * • Handles foreground/background lifecycle
  * • Provides a single refreshAll() for UI consumption
@@ -13,6 +14,7 @@
 
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { HealthKitService } from './HealthKitService';
+import { AndroidPedometerService } from './AndroidPedometerService';
 import { StepManager } from './StepManager';
 import { CalorieManager } from './CalorieManager';
 import { FitnessStore } from './FitnessStore';
@@ -56,27 +58,11 @@ class _FitnessService {
       CalorieManager.setUserWeight(userWeightKg);
     }
 
-    // Check HealthKit availability
-    const isAvailable = HealthKitService.isAvailable();
-    FitnessStore.update({ isHealthKitAvailable: isAvailable });
-
-    // Initialize HealthKit (iOS only)
-    if (isAvailable) {
-      const authorized = await HealthKitService.initialize();
-      FitnessStore.update({ isHealthKitAuthorized: authorized });
-
-      if (authorized) {
-        // Set up background observer for step updates
-        HealthKitService.observeSteps(() => {
-          this._onHealthKitUpdate();
-        });
-
-        // Try to get weight from HealthKit
-        const weight = await HealthKitService.getLatestWeight();
-        if (weight) {
-          CalorieManager.setUserWeight(weight);
-        }
-      }
+    // ── Platform-specific initialization ──
+    if (Platform.OS === 'ios') {
+      await this._initializeHealthKit();
+    } else if (Platform.OS === 'android') {
+      await this._initializeAndroidPedometer();
     }
 
     // Set up day boundary tracking
@@ -90,9 +76,6 @@ class _FitnessService {
 
     // First fetch
     await this.refreshAll(true);
-
-    // Start auto-polling
-    this._startPolling();
 
     console.log('[FitnessService] Initialized successfully');
   }
@@ -129,6 +112,13 @@ class _FitnessService {
         CalorieManager.fetch(StepManager.getCached().steps, force),
       ]);
 
+      // Determine the final source — pedometer takes priority on Android
+      let finalSource = stepResult.source === 'healthkit'
+        ? 'healthkit' as const
+        : stepResult.source === 'pedometer'
+          ? 'pedometer' as const
+          : calorieResult.source;
+
       // Update the central store with both results
       FitnessStore.update({
         steps: stepResult.steps,
@@ -138,14 +128,14 @@ class _FitnessService {
         estimatedCalories: calorieResult.estimatedCalories,
         manualCalories: calorieResult.manualCalories,
         walkingCalories: calorieResult.walkingCalories,
-        source: stepResult.source === 'healthkit' ? 'healthkit' : calorieResult.source,
+        source: finalSource,
         isLoading: false,
       });
 
       this._lastRefresh = Date.now();
 
       console.log(
-        `[FitnessService] refresh complete | steps: ${stepResult.steps} | burn: ${calorieResult.totalCaloriesBurned} | source: ${stepResult.source}`
+        `[FitnessService] refresh complete | steps: ${stepResult.steps} | burn: ${calorieResult.totalCaloriesBurned} | source: ${finalSource}`
       );
     } catch (e) {
       console.warn('[FitnessService] refresh error:', e);
@@ -199,8 +189,63 @@ class _FitnessService {
       this._appStateSubscription.remove();
       this._appStateSubscription = null;
     }
+    // Stop Android pedometer watcher
+    AndroidPedometerService.stopWatching();
     this._initialized = false;
     console.log('[FitnessService] Destroyed');
+  }
+
+  /* ── Platform Initialization ── */
+
+  /**
+   * Initialize HealthKit on iOS.
+   */
+  private async _initializeHealthKit(): Promise<void> {
+    const isAvailable = HealthKitService.isAvailable();
+    FitnessStore.update({ isHealthKitAvailable: isAvailable });
+
+    if (isAvailable) {
+      const authorized = await HealthKitService.initialize();
+      FitnessStore.update({ isHealthKitAuthorized: authorized });
+
+      if (authorized) {
+        // Set up background observer for step updates
+        HealthKitService.observeSteps(() => {
+          this._onHealthKitUpdate();
+        });
+
+        // Try to get weight from HealthKit
+        const weight = await HealthKitService.getLatestWeight();
+        if (weight) {
+          CalorieManager.setUserWeight(weight);
+        }
+      }
+    }
+  }
+
+  /**
+   * Initialize Android Pedometer (TYPE_STEP_COUNTER via expo-sensors).
+   */
+  private async _initializeAndroidPedometer(): Promise<void> {
+    const isAvailable = await AndroidPedometerService.isAvailable();
+    FitnessStore.update({ isPedometerAvailable: isAvailable });
+
+    if (!isAvailable) {
+      console.log('[FitnessService] Android pedometer not available on this device');
+      return;
+    }
+
+    // Request ACTIVITY_RECOGNITION permission
+    const authorized = await AndroidPedometerService.requestPermissions();
+    FitnessStore.update({ isPedometerAuthorized: authorized });
+
+    if (authorized) {
+      // Start real-time step watcher for live UI updates
+      this._startPedometerWatcher();
+      console.log('[FitnessService] Android pedometer initialized + watcher started');
+    } else {
+      console.log('[FitnessService] Android pedometer permission denied');
+    }
   }
 
   /* ── Internal ── */
@@ -219,15 +264,36 @@ class _FitnessService {
     }
   }
 
+  /**
+   * Start the Android real-time step watcher.
+   * Each step event triggers a debounced refresh so the UI updates live while walking.
+   */
+  private _startPedometerWatcher(): void {
+    AndroidPedometerService.watchSteps((_steps: number) => {
+      // Step event received — trigger a refresh (debounced internally)
+      const now = Date.now();
+      if (now - this._lastRefresh > 3000) {
+        this.refreshAll(true);
+      }
+    });
+  }
+
   private _onAppStateChange = (state: AppStateStatus): void => {
     if (state === 'active') {
-      console.log('[FitnessService] App returned to foreground — refreshing');
+      console.log('[FitnessService] App returned to foreground');
       this._checkDayBoundary();
-      this.refreshAll(true);
-      this._startPolling();
+
+      // Restart Android pedometer watcher on foreground return
+      if (Platform.OS === 'android' && AndroidPedometerService.authorized) {
+        this._startPedometerWatcher();
+      }
     } else if (state === 'background') {
-      console.log('[FitnessService] App moved to background — stopping poll');
-      this._stopPolling();
+      console.log('[FitnessService] App moved to background');
+
+      // Stop Android pedometer watcher to save battery
+      if (Platform.OS === 'android') {
+        AndroidPedometerService.stopWatching();
+      }
     }
   };
 

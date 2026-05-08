@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Image, Alert, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -69,14 +69,12 @@ export default function HomeScreen() {
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(false); }, [load]));
-
-  // Notification polling
+  // Load data once on mount — no auto-refresh, no polling
   useEffect(() => {
-    const i = setInterval(async () => {
-      try { const r = await getUnreadNotificationCount(); setUnread(Number(r.data?.count || 0)); } catch {}
-    }, 30000);
-    return () => clearInterval(i);
+    const task = InteractionManager.runAfterInteractions(() => {
+      load(false);
+    });
+    return () => task.cancel();
   }, []);
 
   if (loading) return <GFLoader message="Loading home..." />;

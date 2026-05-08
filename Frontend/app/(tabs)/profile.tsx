@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -298,13 +298,12 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      setChartLoading(true);
-      loadProfile(false);
-    }, [loadProfile])
-  );
+  // Load data once on mount — no auto-refresh
+  useEffect(() => {
+    setLoading(true);
+    setChartLoading(true);
+    loadProfile(false);
+  }, []);
 
   if (loading) {
     return <GFLoader message="Loading profile..." />;
