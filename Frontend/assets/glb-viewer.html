@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#060D09;touch-action:none}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#loader{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#060D09;z-index:10;transition:opacity .4s}
+#loader.hidden{opacity:0;pointer-events:none}
+.spinner{width:40px;height:40px;border:3px solid rgba(31,164,99,.15);border-top:3px solid #1FA463;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#error{position:absolute;bottom:16px;left:16px;right:16px;padding:10px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);border-radius:10px;color:#EF4444;font:12px/1.4 system-ui;text-align:center;display:none;z-index:20}
+#auto-rotate-btn{position:absolute;top:12px;right:12px;z-index:15;width:40px;height:40px;border-radius:12px;border:1px solid rgba(31,164,99,0.25);background:rgba(15,26,19,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;opacity:0;pointer-events:none}
+#auto-rotate-btn.visible{opacity:1;pointer-events:auto}
+#auto-rotate-btn.active{background:rgba(31,164,99,0.25);border-color:rgba(31,164,99,0.5)}
+#auto-rotate-btn svg{width:20px;height:20px;fill:none;stroke:#1FA463;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:all .2s}
+#auto-rotate-btn.active svg{stroke:#4ADE80}
+</style>
+</head>
+<body>
+<div id="loader"><div class="spinner"></div></div>
+<div id="error"></div>
+<div id="auto-rotate-btn" onclick="toggleAutoRotate()" title="Toggle auto-rotate">
+  <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── State ──
+let scene, camera, renderer, mixer, clock, currentAction, controls;
+let model = null;
+let animationId = null;
+let isPaused = false;
+let autoRotate = false;
+
+// ── Init ──
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x060d09);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 100);
+  camera.position.set(0, 1.0, 3.5);
+  camera.lookAt(0, 0.8, 0);
+
+  // Renderer — full WebGL 2.0
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  // ── OrbitControls (touch to rotate) ──
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enableZoom = true;
+  controls.enablePan = false;
+  controls.minDistance = 1.5;
+  controls.maxDistance = 8;
+  controls.minPolarAngle = Math.PI * 0.1;
+  controls.maxPolarAngle = Math.PI * 0.85;
+  controls.autoRotate = false;
+  controls.autoRotateSpeed = 1.5;
+  controls.target.set(0, 0.8, 0);
+  controls.update();
+
+  // ── Lighting ──
+  // Ambient
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+  // Key light (warm)
+  const keyLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+  keyLight.position.set(3, 5, 4);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.camera.near = 0.1;
+  keyLight.shadow.camera.far = 20;
+  keyLight.shadow.camera.left = -3;
+  keyLight.shadow.camera.right = 3;
+  keyLight.shadow.camera.top = 3;
+  keyLight.shadow.camera.bottom = -3;
+  scene.add(keyLight);
+
+  // Fill light (cool)
+  const fillLight = new THREE.DirectionalLight(0xaaccff, 0.5);
+  fillLight.position.set(-3, 3, -2);
+  scene.add(fillLight);
+
+  // Rim / accent light (fitness green)
+  const rimLight = new THREE.DirectionalLight(0x1fa463, 0.6);
+  rimLight.position.set(0, 2, -4);
+  scene.add(rimLight);
+
+  // Ground glow
+  const groundGlow = new THREE.PointLight(0x1fa463, 0.4, 5);
+  groundGlow.position.set(0, -0.5, 0);
+  scene.add(groundGlow);
+
+  // Floor plane (subtle)
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(2.5, 64),
+    new THREE.MeshStandardMaterial({ color: 0x0a1a10, roughness: 0.9, metalness: 0 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.01;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  clock = new THREE.Clock();
+
+  window.addEventListener('resize', onResize);
+  sendMessage({ type: 'ready' });
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ── Load GLB from base64 or URL ──
+async function loadModel(source) {
+  try {
+    showLoader();
+
+    const loader = new GLTFLoader();
+
+    // Optional Draco support
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/libs/draco/');
+    loader.setDRACOLoader(draco);
+
+    let gltf;
+    if (source.startsWith('data:') || source.startsWith('blob:')) {
+      // base64 data URI
+      const response = await fetch(source);
+      const buffer = await response.arrayBuffer();
+      gltf = await new Promise((resolve, reject) => {
+        loader.parse(buffer, '', resolve, reject);
+      });
+    } else {
+      gltf = await new Promise((resolve, reject) => {
+        loader.load(source, resolve, undefined, reject);
+      });
+    }
+
+    // Remove previous model
+    if (model) {
+      scene.remove(model);
+      model.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+          else child.material.dispose();
+        }
+      });
+    }
+    if (mixer) mixer.stopAllAction();
+
+    model = gltf.scene;
+
+    // ── Debug log model hierarchy ──
+    let meshCount = 0, skinnedCount = 0, boneCount = 0;
+    const meshNames = [], animNames = [];
+
+    model.traverse(child => {
+      if (child.isMesh) meshCount++;
+      if (child.isSkinnedMesh) skinnedCount++;
+      if (child.isBone) boneCount++;
+
+      if (child.isMesh || child.isSkinnedMesh) {
+        meshNames.push(child.name || '(unnamed)');
+
+        // Hide Blender default cubes (non-skinned, 24 verts, named "Cube")
+        // These are accidentally exported and obscure the character
+        if (child.isMesh && !child.isSkinnedMesh) {
+          const geo = child.geometry;
+          const vertCount = geo?.attributes?.position?.count || 0;
+          const name = (child.name || '').toLowerCase();
+          if ((name.includes('cube') || name.includes('plane')) && vertCount <= 36 && !geo?.attributes?.skinIndex) {
+            child.visible = false;
+            console.log('[GLB-Viewer] Hidden default object:', child.name);
+            return;
+          }
+        }
+
+        // Ensure visibility for character meshes
+        child.visible = true;
+        child.castShadow = true;
+        child.receiveShadow = true;
+        child.frustumCulled = false;
+
+        // Fix materials
+        if (child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => {
+            mat.side = THREE.DoubleSide;
+            mat.needsUpdate = true;
+
+            // Fallback if material has no color/map (invisible)
+            if (!mat.map && (!mat.color || mat.color.getHex() === 0x000000)) {
+              mat.color = new THREE.Color(0xd9d9d9);
+            }
+          });
+        }
+      }
+    });
+
+    gltf.animations.forEach(clip => animNames.push(clip.name || '(unnamed)'));
+
+    const debugInfo = {
+      meshes: meshCount,
+      skinnedMeshes: skinnedCount,
+      bones: boneCount,
+      animations: gltf.animations.length,
+      meshNames,
+      animNames
+    };
+    console.log('[GLB-Viewer]', JSON.stringify(debugInfo, null, 2));
+    sendMessage({ type: 'debug', data: debugInfo });
+
+    // ── Auto-fit model ──
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const desiredHeight = 2.0;
+    const scale = desiredHeight / maxDim;
+    model.scale.setScalar(scale);
+
+    // Recompute after scale
+    box.setFromObject(model);
+    box.getCenter(center);
+    box.getSize(size);
+
+    // Center model on ground
+    model.position.x = -center.x;
+    model.position.y = -box.min.y;
+    model.position.z = -center.z;
+
+    scene.add(model);
+
+    // ── Camera framing ──
+    const modelHeight = size.y;
+    camera.position.set(0, modelHeight * 0.45, Math.max(2.5, maxDim * 1.8));
+    // Set orbit target to model center
+    if (controls) {
+      controls.target.set(0, modelHeight * 0.4, 0);
+      controls.update();
+    }
+
+    // ── Animations ──
+    if (gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(model);
+      const clip = gltf.animations[0];
+      currentAction = mixer.clipAction(clip);
+      currentAction.setLoop(THREE.LoopRepeat, Infinity);
+      currentAction.clampWhenFinished = false;
+      currentAction.play();
+      sendMessage({ type: 'animationStarted', name: clip.name, duration: clip.duration });
+    }
+
+    hideLoader();
+    sendMessage({ type: 'loaded' });
+
+    // Start render loop if not already running
+    if (!animationId) animate();
+
+  } catch (err) {
+    console.error('[GLB-Viewer] Load error:', err);
+    showError(err.message || 'Failed to load 3D model');
+    sendMessage({ type: 'error', message: err.message });
+  }
+}
+
+// ── Render loop ──
+function animate() {
+  animationId = requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  if (mixer && !isPaused) mixer.update(delta);
+  if (controls) controls.update();
+  renderer.render(scene, camera);
+}
+
+// ── Auto-rotate toggle ──
+function toggleAutoRotate() {
+  autoRotate = !autoRotate;
+  if (controls) controls.autoRotate = autoRotate;
+  const btn = document.getElementById('auto-rotate-btn');
+  if (btn) btn.classList.toggle('active', autoRotate);
+  sendMessage({ type: 'autoRotate', enabled: autoRotate });
+}
+
+// ── Controls ──
+function pause() {
+  isPaused = true;
+  if (currentAction) currentAction.paused = true;
+}
+
+function resume() {
+  isPaused = false;
+  if (currentAction) currentAction.paused = false;
+}
+
+function stop() {
+  if (mixer) mixer.stopAllAction();
+  if (animationId) cancelAnimationFrame(animationId);
+  animationId = null;
+}
+
+// ── UI helpers ──
+function showLoader() { document.getElementById('loader').classList.remove('hidden'); }
+function hideLoader() {
+  document.getElementById('loader').classList.add('hidden');
+  document.getElementById('auto-rotate-btn').classList.add('visible');
+}
+function showError(msg) {
+  hideLoader();
+  const el = document.getElementById('error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── RN Communication ──
+function sendMessage(data) {
+  if (window.ReactNativeWebView) {
+    window.ReactNativeWebView.postMessage(JSON.stringify(data));
+  }
+}
+
+// Listen for messages from React Native
+window.addEventListener('message', (event) => {
+  try {
+    const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    switch (msg.type) {
+      case 'load': loadModel(msg.source); break;
+      case 'pause': pause(); break;
+      case 'resume': resume(); break;
+      case 'stop': stop(); break;
+    }
+  } catch (e) {
+    console.error('[GLB-Viewer] Message error:', e);
+  }
+});
+
+// Also listen on document (Android compatibility)
+document.addEventListener('message', (event) => {
+  try {
+    const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    switch (msg.type) {
+      case 'load': loadModel(msg.source); break;
+      case 'pause': pause(); break;
+      case 'resume': resume(); break;
+      case 'stop': stop(); break;
+    }
+  } catch (e) {}
+});
+
+// ── Expose functions globally for injectJavaScript access ──
+window.loadModel = loadModel;
+window.pause = pause;
+window.resume = resume;
+window.stop = stop;
+window.toggleAutoRotate = toggleAutoRotate;
+
+// ── Boot ──
+init();
+</script>
+</body>
+</html>

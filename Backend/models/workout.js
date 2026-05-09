@@ -30,6 +30,11 @@ const workoutSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    bodyPart: {
+      type: String,
+      enum: ['chest', 'legs', 'shoulders', 'arms', 'back', 'core', 'other'],
+      default: 'other',
+    },
   },
   { timestamps: true }
 );

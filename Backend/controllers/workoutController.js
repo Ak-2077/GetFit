@@ -17,6 +17,13 @@ const WORKOUT_MODELS = {
       title: 'Legs Animation',
       source: 'local',
     },
+    core: {
+      mode: 'home',
+      bodyPart: 'core',
+      modelId: 'home_core',
+      title: 'Core Animation',
+      source: 'local',
+    },
   },
   gym: {},
 };
@@ -47,6 +54,7 @@ export const getWorkoutModel = async (req, res) => {
 export const getWorkoutsByType = async (req, res) => {
   try {
     const type = normalizeSegment(req.params.type);
+    const bodyPart = normalizeSegment(req.query.bodyPart);
 
     if (!['home', 'gym', 'ai'].includes(type)) {
       return res.status(400).json({ message: 'Invalid workout type. Must be home, gym, or ai.' });
@@ -55,8 +63,12 @@ export const getWorkoutsByType = async (req, res) => {
     const userPlan = req.user?.subscriptionPlan || 'free';
     const allowedLevels = PLAN_LEVELS[userPlan] || PLAN_LEVELS.free;
 
-    // Fetch only workouts the user's plan allows
-    const workouts = await Workout.find({ type, level: { $in: allowedLevels } })
+    // Build query
+    const query = { type, level: { $in: allowedLevels } };
+    if (bodyPart) query.bodyPart = bodyPart;
+
+    // Fetch only workouts the user's plan allows (and body part if provided)
+    const workouts = await Workout.find(query)
       .sort({ level: 1, difficulty: 1 })
       .lean();
 

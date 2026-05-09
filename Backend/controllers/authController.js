@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import twilio from 'twilio';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/user.js';
 import Otp from '../models/otp.js';
 
@@ -552,6 +553,88 @@ export async function verifyProfileEmailOtp(req, res) {
     return res.json({ message: 'Email verified successfully', user });
   } catch (error) {
     return res.status(500).json({ message: error.message || 'Failed to verify email' });
+  }
+}
+
+// =============================
+// GOOGLE LOGIN
+// =============================
+export async function googleLogin(req, res) {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ message: 'Google ID token is required' });
+    }
+
+    const GOOGLE_WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID;
+    const GOOGLE_IOS_CLIENT_ID = process.env.GOOGLE_IOS_CLIENT_ID; // Need to add this to .env
+
+    if (!GOOGLE_WEB_CLIENT_ID) {
+      return res.status(500).json({ message: 'Google OAuth is not configured on server' });
+    }
+
+    // Verify token with Google (Accept both Web and iOS client IDs as audience)
+    const client = new OAuth2Client();
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken,
+        audience: [GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID].filter(Boolean),
+      });
+    } catch (verifyErr) {
+      console.error('[Google Token Verify Error]', verifyErr.message);
+      return res.status(401).json({ message: 'Invalid Google token' });
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.sub) {
+      return res.status(401).json({ message: 'Unable to extract user info from Google token' });
+    }
+
+    const { sub: googleSub, email, name, picture } = payload;
+
+    // 1. Find by Google ID
+    let user = await User.findOne({ googleSub });
+
+    // 2. If not found by googleSub, try email
+    if (!user && email) {
+      user = await User.findOne({ email });
+      if (user) {
+        // Link Google to existing email account
+        user.googleSub = googleSub;
+        if (!user.avatar && picture) user.avatar = picture;
+        await user.save();
+      }
+    }
+
+    // 3. Create new user
+    if (!user) {
+      user = await User.create({
+        googleSub,
+        email: email || undefined,
+        name: name || undefined,
+        avatar: picture || undefined,
+        authProvider: 'google',
+        role: 'user',
+      });
+    }
+
+    const token = signToken(user._id);
+
+    return res.json({
+      message: 'Google authentication successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        avatar: user.avatar,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('[Google Login Error]', error);
+    return res.status(500).json({ message: error.message || 'Google authentication failed' });
   }
 }
 
