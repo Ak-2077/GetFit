@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 
 const C = {
   bg: '#060D09',
@@ -33,6 +34,49 @@ const calculateBmr = (gender: 'male' | 'female', age: number, weightKg: number, 
   if (gender === 'male') return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
   return 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
 };
+
+function CaloriesMeter({ total }: { total: number }) {
+  const size = 170;
+  const stroke = 12;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const maxCalories = 4000;
+  const progress = Math.max(0, Math.min(total / maxCalories, 1));
+  const offset = circumference * (1 - progress);
+
+  return (
+    <View style={{ alignItems: 'center', marginBottom: 16 }}>
+      <View style={{ width: size, height: size }}>
+        <Svg width={size} height={size}>
+          <Defs>
+            <SvgGradient id="calories-ring" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor="#00E676" />
+              <Stop offset="100%" stopColor="#6CFFB0" />
+            </SvgGradient>
+          </Defs>
+          <Circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="transparent" />
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="url(#calories-ring)"
+            strokeWidth={stroke}
+            fill="transparent"
+            strokeLinecap="round"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        </Svg>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: C.white, fontSize: 22, fontWeight: '800' }}>{Math.round(total)}</Text>
+          <Text style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>kcal/day</Text>
+        </View>
+      </View>
+      <Text style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>Target scale {maxCalories} kcal</Text>
+    </View>
+  );
+}
 
 export default function CaloriesCalculatorScreen() {
   const router = useRouter();
@@ -132,7 +176,8 @@ export default function CaloriesCalculatorScreen() {
                   <Text style={{ color: C.white, fontSize: 16, fontWeight: '800' }}>Result</Text>
                   <Text style={{ color: C.muted, fontSize: 12 }}>Daily Calories</Text>
                 </View>
-                <Text style={{ color: C.accent, fontSize: 28, fontWeight: '800', marginBottom: 10 }}>{Math.round(result.total)} kcal</Text>
+                <CaloriesMeter total={result.total} />
+                <Text style={{ color: C.accent, fontSize: 26, fontWeight: '800', marginBottom: 10 }}>{Math.round(result.total)} kcal</Text>
 
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1, backgroundColor: 'rgba(0,230,118,0.08)', borderRadius: 14, padding: 14, alignItems: 'center' }}>
