@@ -110,6 +110,7 @@ export default function RootLayout() {
         <Stack.Screen name="bmb-calculator" options={{ headerShown: false }} />
         <Stack.Screen name="ai-diet" options={{ headerShown: false }} />
         <Stack.Screen name="workout-plan" options={{ headerShown: false }} />
+        <Stack.Screen name="workout-bodyparts" options={{ headerShown: false }} />
         <Stack.Screen name="workout-list" options={{ headerShown: false }} />
         <Stack.Screen name="workout-player" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false, animation: 'fade' }} />

@@ -7,6 +7,7 @@ import {
 	emailPasswordAuth,
 	me,
 	updateProfile,
+	googleLogin,
 } from '../controllers/authController.js';
 import auth from '../middleware/authMiddleware.js';
 
@@ -17,6 +18,7 @@ router.post('/verify-otp', verifyOtp);
 router.post('/send-email-otp', sendEmailOtp);
 router.post('/verify-email-otp', verifyEmailOtp);
 router.post('/email-auth', emailPasswordAuth);
+router.post('/google-login', googleLogin);
 router.get('/me', auth, me);
 router.patch('/profile', auth, updateProfile);
 

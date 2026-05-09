@@ -20,14 +20,20 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import {
   sendOtpRequest,
   verifyOtpRequest,
   emailPasswordAuthRequest,
   forgotPassword,
+  googleLoginRequest,
   setAuthToken,
   getUserProfile,
 } from '../../services/api';
+
+// Warm up browser for faster OAuth popup
+WebBrowser.maybeCompleteAuthSession();
 
 const loginBackground = require('../../assets/images/Login_image.webp');
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -88,6 +94,43 @@ export default function AuthScreen() {
 
   const normalizedPhone = useMemo(() => normalizeToIndianPhone(phoneInput), [phoneInput]);
   const normalizedEmail = useMemo(() => emailInput.trim().toLowerCase(), [emailInput]);
+
+  // ─── GOOGLE AUTH ─────────────────────────────────────
+  const [googleRequest, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    redirectUri: 'host.exp.exponent:/oauth2redirect/google',
+  });
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const { id_token } = googleResponse.params;
+      if (id_token) {
+        handleGoogleLogin(id_token);
+      }
+    } else if (googleResponse?.type === 'error') {
+      setErrorText('Google sign in failed. Please try again.');
+    }
+  }, [googleResponse]);
+
+  const handleGoogleLogin = async (idToken: string) => {
+    try {
+      setLoading(true);
+      setErrorText('');
+      const res = await googleLoginRequest({ idToken });
+      const token = res.data?.token;
+      if (!token) {
+        setErrorText('No token returned from server');
+        return;
+      }
+      await completeAuth(token);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Google login failed';
+      setErrorText(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetState = () => {
     setErrorText('');
@@ -706,15 +749,20 @@ export default function AuthScreen() {
         </TouchableOpacity>
 
         {/* Google */}
-        <TouchableOpacity style={{
-          width: 100,
-          height: 75,
-          backgroundColor: '#272828',
-          borderRadius: 16,
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 6,
-        }}>
+        <TouchableOpacity
+          style={{
+            width: 100,
+            height: 75,
+            backgroundColor: '#272828',
+            borderRadius: 16,
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 6,
+            opacity: loading ? 0.5 : 1,
+          }}
+          disabled={loading || !googleRequest}
+          onPress={() => googlePromptAsync()}
+        >
           <Image
             source={require('../../assets/icons/google.png')}
             style={{ width: 26, height: 26 }}

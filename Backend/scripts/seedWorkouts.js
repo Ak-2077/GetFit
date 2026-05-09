@@ -124,6 +124,25 @@ const WORKOUTS = [
   { name: 'Goal Predictor', type: 'ai', level: 'pro_plus', duration: '15 min', difficulty: 'easy', description: 'AI timeline and milestone planner with weekly projections.' },
   { name: 'Elite Sport Mode', type: 'ai', level: 'pro_plus', duration: '50 min', difficulty: 'hard', description: 'Sport-specific peak performance plan for competitive athletes.' },
 ];
+// Heuristic mapper: derive bodyPart from workout name when not explicitly provided
+function mapNameToBodyPart(name = '') {
+  const n = String(name).toLowerCase();
+  const chest = ['bench', 'push', 'fly', 'incline', 'bench press', 'decline push'];
+  const legs = ['squat', 'lunge', 'leg', 'deadlift', 'pistol', 'hack squat', 'leg press', 'front squat', 'pause squat'];
+  const shoulders = ['shoulder', 'overhead', 'press', 'viking', 'arnold', 'shoulder press'];
+  const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'tricep pushdown', 'preacher curl', 'dumbbell curls'];
+  const back = ['row', 'pull', 'lat', 'deadlift', 'pendlay', 'pull', 'pulldown', 'barbell rows', 'lat pulldown', 'face pulls'];
+  const core = ['plank', 'crunch', 'situp', 'sit-up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber', 'superman', 'hanging leg raises'];
+
+  const match = (arr) => arr.some(k => n.includes(k));
+  if (match(chest)) return 'chest';
+  if (match(legs)) return 'legs';
+  if (match(shoulders)) return 'shoulders';
+  if (match(arms)) return 'arms';
+  if (match(back)) return 'back';
+  if (match(core)) return 'core';
+  return 'other';
+}
 
 async function seed() {
   try {
@@ -131,7 +150,14 @@ async function seed() {
     console.log('Connected to MongoDB');
     const deleted = await Workout.deleteMany({});
     console.log(`Cleared ${deleted.deletedCount} existing workouts`);
-    const inserted = await Workout.insertMany(WORKOUTS);
+
+    // Ensure each workout has a bodyPart field
+    const prepared = WORKOUTS.map((w) => ({
+      ...w,
+      bodyPart: w.bodyPart ? w.bodyPart : mapNameToBodyPart(w.name),
+    }));
+
+    const inserted = await Workout.insertMany(prepared);
     console.log(`Seeded ${inserted.length} workouts successfully`);
     for (const type of ['home', 'gym', 'ai']) {
       const count = inserted.filter(w => w.type === type).length;

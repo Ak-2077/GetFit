@@ -46,7 +46,6 @@ const CARDS = [
     icon: require('../../assets/icons/Home.png'),
     iconSize: 72,
     count: '30 workouts available',
-    badge: 'Basic',
     badgeColor: C.accent,
   },
   {
@@ -56,7 +55,6 @@ const CARDS = [
     icon: require('../../assets/icons/Gym.png'),
     iconSize: 72,
     count: '30 workouts available',
-    badge: 'Pro',
     badgeColor: C.purple,
   },
   {
@@ -67,8 +65,7 @@ const CARDS = [
     iconTint: '#fff',
     iconSize: 44,
     count: '30 AI-powered programs',
-    badge: 'Pro+',
-    badgeColor: '#FF7F00',
+    badgeColor: '#64e7f1',
     isAI: true,
   },
 ];
@@ -177,7 +174,7 @@ export default function WorkoutScreen() {
       router.push('/upgrade' as any);
       return;
     }
-    router.push(`/workout-list?workoutType=${cardKey}&userPlan=${userPlan}` as any);
+    router.push(`/workout-bodyparts?workoutType=${cardKey}&userPlan=${userPlan}` as any);
   };
 
   const renderCard = (card: typeof CARDS[0], index: number) => {
@@ -211,6 +208,7 @@ export default function WorkoutScreen() {
             <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, marginRight: 8 }}>
               {card.title}
             </Text>
+
           </View>
           <Text style={{ fontSize: 13, color: C.label, marginBottom: 6 }}>{card.subtitle}</Text>
           <Text style={{ fontSize: 11, color: C.muted }}>{card.count}</Text>
