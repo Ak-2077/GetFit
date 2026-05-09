@@ -67,9 +67,10 @@ function PressableScale({ children, onPress, style, disabled }: any) {
 
 export default function WorkoutListScreen() {
   const router = useRouter();
-  const { workoutType = 'home', userPlan: paramPlan = 'free' } = useLocalSearchParams<{
+  const { workoutType = 'home', userPlan: paramPlan = 'free', bodyPart: selectedBodyPart = '' } = useLocalSearchParams<{
     workoutType: string;
     userPlan: string;
+    bodyPart?: string;
   }>();
 
   const [loading, setLoading] = useState(true);
@@ -126,6 +127,34 @@ export default function WorkoutListScreen() {
 
   // Get workouts for active tab
   const filteredWorkouts = allWorkouts.filter(w => w.level === activeTab);
+
+  // Map workout item to a canonical body part using name heuristics.
+  const mapWorkoutToBodyPart = (w: any) => {
+    if (!w) return '';
+    // Prefer explicit field if present
+    if (w.bodyPart) return String(w.bodyPart).toLowerCase();
+    const name = String(w.name || '').toLowerCase();
+    const chest = ['bench', 'push', 'fly', 'incline'];
+    const legs = ['squat', 'lunge', 'leg', 'deadlift', 'pistol', 'hack squat', 'press'];
+    const shoulders = ['shoulder', 'overhead', 'press', 'viking', 'arnold'];
+    const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'curl'];
+    const back = ['row', 'pull', 'lat', 'deadlift', 'pendlay', 'pull-ups', 'pullups', 'pulldown'];
+    const core = ['plank', 'crunch', 'situp', 'sit-up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber'];
+
+    const match = (keywords: string[]) => keywords.some(k => name.includes(k));
+    if (match(chest)) return 'chest';
+    if (match(legs)) return 'legs';
+    if (match(shoulders)) return 'shoulders';
+    if (match(arms)) return 'arms';
+    if (match(back)) return 'back';
+    if (match(core)) return 'core';
+    return 'other';
+  };
+
+  // If a bodyPart was selected upstream, filter client-side by heuristics or explicit field
+  const activeBodyFiltered = selectedBodyPart
+    ? filteredWorkouts.filter((w) => mapWorkoutToBodyPart(w) === String(selectedBodyPart).toLowerCase())
+    : filteredWorkouts;
 
   // Placeholder data for locked tabs
   const LOCKED_PLACEHOLDERS = [
@@ -277,6 +306,7 @@ export default function WorkoutListScreen() {
                     workoutDuration: workout.duration,
                     workoutDifficulty: workout.difficulty || 'medium',
                     workoutId: workout._id || '',
+                    bodyPart: selectedBodyPart || undefined,
                   },
                 } as any);
               }}
@@ -344,7 +374,7 @@ export default function WorkoutListScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '800', color: C.white }}>
-              {TYPE_TITLES[workoutType] || 'Workouts'}
+              {selectedBodyPart ? `${String(selectedBodyPart).charAt(0).toUpperCase()}${String(selectedBodyPart).slice(1)} Workouts` : (TYPE_TITLES[workoutType] || 'Workouts')}
             </Text>
             <Text style={{ fontSize: 12, color: C.label, marginTop: 2 }}>
               {allWorkouts.length} of {totalAvailable} workouts available
@@ -484,7 +514,7 @@ export default function WorkoutListScreen() {
               {/* Locked placeholder cards */}
               {LOCKED_PLACEHOLDERS.map((w, i) => renderWorkoutCard(w, i, true))}
             </View>
-          ) : filteredWorkouts.length === 0 ? (
+          ) : activeBodyFiltered.length === 0 ? (
             // ── EMPTY STATE ──
             <View style={{ alignItems: 'center', paddingTop: 60 }}>
               <View
@@ -504,12 +534,12 @@ export default function WorkoutListScreen() {
                 No workouts yet
               </Text>
               <Text style={{ fontSize: 13, color: C.label, textAlign: 'center' }}>
-                Workouts for this category are coming soon.
+                Workouts for this selection are coming soon.
               </Text>
             </View>
           ) : (
             // ── WORKOUT LIST ──
-            filteredWorkouts.map((w: any, i: number) => renderWorkoutCard(w, i, false))
+            activeBodyFiltered.map((w: any, i: number) => renderWorkoutCard(w, i, false))
           )}
         </ScrollView>
       </SafeAreaView>

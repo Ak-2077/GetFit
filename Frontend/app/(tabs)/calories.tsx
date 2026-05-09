@@ -37,7 +37,7 @@ import {
 import { useFitness } from '../../hooks/useFitness';
 import { FitnessService } from '../../services/fitness';
 
-const BarcodeIcon:Record<string, any> = {
+const BarcodeIcon: Record<string, any> = {
   barcode: require('../../assets/icons/calories/barcode.png'),
   food: require('../../assets/icons/calories/food.png'),
   burn: require('../../assets/icons/calories/burn.png'),
@@ -731,9 +731,9 @@ export default function CaloriesScreen() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10,  justifyContent: 'center', alignItems: 'center' }}>
-                   <Image source={BarcodeIcon.burn} style={{ width: 50, height: 50 }} resizeMode="contain" />
-                  
+                <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
+                  <Image source={BarcodeIcon.burn} style={{ width: 50, height: 50 }} resizeMode="contain" />
+
                 </View>
                 <Text style={{ color: C.subtext, fontSize: 12 }}>Calories Burn</Text>
               </View>
@@ -760,7 +760,7 @@ export default function CaloriesScreen() {
             </View>
             <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10,  justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
                   <Image source={BarcodeIcon.steps} style={{ width: 50, height: 50 }} resizeMode="contain" />
                 </View>
                 <Text style={{ color: C.subtext, fontSize: 12 }}>Daily Steps</Text>
@@ -781,7 +781,7 @@ export default function CaloriesScreen() {
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Quick Actions</Text>
           <TouchableOpacity activeOpacity={0.8} onPress={openActionPicker}
             style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16, flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ width: 42, height: 42, borderRadius: 12,  justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}>
               {/* <Image source={BarcodeIcon.food} style={{ width: 50, height: 50 }} resizeMode="contain" /> */}
             </View>
             <View style={{ flex: 1, marginLeft: -32 }}>
@@ -874,18 +874,18 @@ export default function CaloriesScreen() {
           <View style={{ backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 18 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
               <View style={{ width: 36, height: 0, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-               
+
               </View>
               {/*                               */}
               <TouchableOpacity onPress={closeActionPicker} style={{ width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' }}>
-               
+
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => { closeActionPicker(); setManualPickerVisible(true); }}
-              style={{  borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
+              style={{ borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
             >
               <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                 <FontAwesome name="search" size={15} color={C.text} />
@@ -900,9 +900,9 @@ export default function CaloriesScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={openBarcodeScan}
-              style={{  borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center' }}
+              style={{ borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center' }}
             >
-              <View style={{ width: 36, height: 36, borderRadius: 10,  justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                 <Image source={BarcodeIcon.barcode} style={{ width: 45, height: 45 }} resizeMode="contain" />
               </View>
               <View style={{ flex: 1 }}>

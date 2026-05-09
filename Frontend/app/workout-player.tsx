@@ -3,13 +3,8 @@ import { View, Text, TouchableOpacity, Animated, Easing, Dimensions } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { GLView } from 'expo-gl';
-import { Renderer } from 'expo-three';
-import { Asset } from 'expo-asset';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { LinearGradient } from 'expo-linear-gradient';
-import GFLoader from '../components/GFLoader';
+import GLBViewer from '../components/GLBViewer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,19 +22,64 @@ const C = {
 
 /**
  * ── GLB Model → require() mapping ──
- * 
- * Add your GLB files here. Each key should match the workout's modelId
- * from the backend, or use a naming convention like `{type}_{name_slug}`.
- * 
- * Example:
- *   'home_push_ups': require('../assets/models/workouts/push_ups.glb'),
- *   'gym_bench_press': require('../assets/models/workouts/bench_press.glb'),
- *   'gym_deadlift': require('../assets/models/workouts/deadlift.glb'),
+ *
+ * HOW IT WORKS:
+ * When you click "Start" on a workout, the key is auto-generated as:
+ *   `{workoutType}_{workout_name_in_snake_case}`
+ *
+ * Examples of auto-generated keys:
+ *   Workout: "Push-ups"     type: "home"  →  key: "home_push_ups"
+ *   Workout: "Bench Press"  type: "gym"   →  key: "gym_bench_press"
+ *   Workout: "Sit-ups"      type: "home"  →  key: "home_sit_ups"
+ *   Workout: "Deadlift"     type: "gym"   →  key: "gym_deadlift"
+ *
+ * TO ADD A NEW ANIMATION:
+ *   1. Export your GLB from Blender (Principled BSDF materials only)
+ *   2. Drop the .glb file in: assets/models/{category}/{name}.glb
+ *   3. Add one line below:  'key': require('../assets/models/path/file.glb'),
+ *   4. Done! The workout will auto-play the animation when started.
+ *
+ * NOTE: If a workout navigates with `bodyPart` param (e.g. "core"),
+ * the key becomes `{type}_{bodyPart}` instead (e.g. "home_core").
  */
 const MODEL_MAP: Record<string, number> = {
-  // ── Add your GLB files below ──
-  // 'home_push_ups': require('../assets/models/workouts/push_ups.glb'),
-  // 'gym_bench_press': require('../assets/models/workouts/bench_press.glb'),
+  // ═══════════════════════════════════════════
+  // HOME WORKOUTS (type: "home")
+  // ═══════════════════════════════════════════
+
+  // ── Body Part shortcuts (used by home-workout flow) ──
+  'home_core': require('../assets/models/HomeWorkout/body-parts/legs/situps.glb'),
+
+  // ── Individual exercises ──
+  'home_sit_ups': require('../assets/models/HomeWorkout/body-parts/legs/situps.glb'),
+  // 'home_push_ups':             require('../assets/models/home/push_ups.glb'),
+  // 'home_bodyweight_squats':    require('../assets/models/home/squats.glb'),
+  // 'home_lunges':               require('../assets/models/home/lunges.glb'),
+  // 'home_plank':                require('../assets/models/home/plank.glb'),
+  // 'home_incline_push_ups':     require('../assets/models/home/incline_push_ups.glb'),
+  // 'home_burpees':              require('../assets/models/home/burpees.glb'),
+  // 'home_mountain_climbers':    require('../assets/models/home/mountain_climbers.glb'),
+  // 'home_jumping_jacks':        require('../assets/models/home/jumping_jacks.glb'),
+  // 'home_pull_ups':             require('../assets/models/home/pull_ups.glb'),
+  // 'home_dips':                 require('../assets/models/home/dips.glb'),
+  // 'home_decline_push_ups':     require('../assets/models/home/decline_push_ups.glb'),
+  // 'home_pistol_squats':        require('../assets/models/home/pistol_squats.glb'),
+  // 'home_handstand_push_ups':   require('../assets/models/home/handstand_push_ups.glb'),
+  // 'home_muscle_ups':           require('../assets/models/home/muscle_ups.glb'),
+
+  // ═══════════════════════════════════════════
+  // GYM WORKOUTS (type: "gym")
+  // ═══════════════════════════════════════════
+  // 'gym_bench_press':           require('../assets/models/gym/bench_press.glb'),
+  // 'gym_deadlift':              require('../assets/models/gym/deadlift.glb'),
+  // 'gym_barbell_rows':          require('../assets/models/gym/barbell_rows.glb'),
+  // 'gym_overhead_press':        require('../assets/models/gym/overhead_press.glb'),
+  // 'gym_lat_pulldown':          require('../assets/models/gym/lat_pulldown.glb'),
+  // 'gym_cable_flyes':           require('../assets/models/gym/cable_flyes.glb'),
+  // 'gym_leg_press':             require('../assets/models/gym/leg_press.glb'),
+  // 'gym_barbell_curls':         require('../assets/models/gym/barbell_curls.glb'),
+  // 'gym_hack_squat':            require('../assets/models/gym/hack_squat.glb'),
+  // 'gym_front_squats':          require('../assets/models/gym/front_squats.glb'),
 };
 
 /**
@@ -79,16 +119,12 @@ export default function WorkoutPlayerScreen() {
   const workoutType = params.workoutType || 'home';
   const workoutDuration = params.workoutDuration || '15 min';
   const workoutDifficulty = params.workoutDifficulty || 'medium';
+  const selectedBodyPart = (params as any).bodyPart || '';
 
-  const [modelLoading, setModelLoading] = useState(true);
-  const [modelError, setModelError] = useState('');
   const [isPlaying, setIsPlaying] = useState(true);
   const [elapsed, setElapsed] = useState(0);
+  const [modelError, setModelError] = useState('');
 
-  const frameRef = useRef<number | null>(null);
-  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
-  const actionRef = useRef<THREE.AnimationAction | null>(null);
-  const clockRef = useRef<THREE.Clock | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Pulse animation for the timer
@@ -121,125 +157,20 @@ export default function WorkoutPlayerScreen() {
   // ── Cleanup on unmount ──
   useEffect(() => {
     return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
   // ── Toggle play/pause ──
   const togglePlayPause = useCallback(() => {
-    if (actionRef.current) {
-      if (isPlaying) {
-        actionRef.current.paused = true;
-      } else {
-        actionRef.current.paused = false;
-      }
-    }
     setIsPlaying((prev) => !prev);
-  }, [isPlaying]);
+  }, []);
 
   // ── End workout ──
   const endWorkout = useCallback(() => {
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
-    if (actionRef.current) actionRef.current.stop();
     router.back();
   }, [router]);
-
-  // ── GLView context creation (loads GLB + starts animation) ──
-  const onContextCreate = async (gl: any) => {
-    try {
-      setModelLoading(true);
-      setModelError('');
-
-      const modelKey = getModelKey(workoutType, workoutName);
-      const modelModule = MODEL_MAP[modelKey];
-
-      if (!modelModule) {
-        setModelError(`No 3D model found for "${workoutName}". Add the GLB file to MODEL_MAP in workout-player.tsx.`);
-        setModelLoading(false);
-        return;
-      }
-
-      // ── Scene setup ──
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x060d09);
-
-      const camera = new THREE.PerspectiveCamera(
-        60,
-        gl.drawingBufferWidth / gl.drawingBufferHeight,
-        0.1,
-        1000
-      );
-      camera.position.set(0, 1.4, 3);
-
-      const renderer = new Renderer({ gl });
-      renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
-
-      // ── Lighting ──
-      const ambient = new THREE.AmbientLight(0xffffff, 1.2);
-      scene.add(ambient);
-      const directional = new THREE.DirectionalLight(0xffffff, 1.1);
-      directional.position.set(2, 5, 3);
-      scene.add(directional);
-      const fill = new THREE.DirectionalLight(0x1fa463, 0.4);
-      fill.position.set(-3, 2, -2);
-      scene.add(fill);
-
-      // ── Load GLB ──
-      const asset = Asset.fromModule(modelModule);
-      await asset.downloadAsync();
-      const uri = asset.localUri || asset.uri;
-      if (!uri) {
-        setModelError('Unable to load model file from local assets.');
-        setModelLoading(false);
-        return;
-      }
-
-      const response = await fetch(uri);
-      const arrayBuffer = await response.arrayBuffer();
-
-      const loader = new GLTFLoader();
-      const gltf: any = await new Promise((resolve, reject) => {
-        loader.parse(arrayBuffer, '', resolve, reject);
-      });
-
-      const model = gltf.scene;
-      model.position.set(0, -1.15, 0);
-      model.scale.set(1.2, 1.2, 1.2);
-      scene.add(model);
-
-      // ── Animation ──
-      const mixer = gltf.animations?.length ? new THREE.AnimationMixer(model) : null;
-      mixerRef.current = mixer;
-
-      if (mixer && gltf.animations[0]) {
-        const action = mixer.clipAction(gltf.animations[0]);
-        action.play();
-        actionRef.current = action;
-      }
-
-      const clock = new THREE.Clock();
-      clockRef.current = clock;
-
-      setModelLoading(false);
-
-      // ── Render loop ──
-      const render = () => {
-        const delta = clock.getDelta();
-        if (mixer) mixer.update(delta);
-        model.rotation.y += 0.003;
-        renderer.render(scene, camera);
-        gl.endFrameEXP();
-        frameRef.current = requestAnimationFrame(render);
-      };
-
-      render();
-    } catch (err: any) {
-      setModelError(err?.message || 'Failed to load 3D model');
-      setModelLoading(false);
-    }
-  };
 
   // ── Difficulty colors ──
   const diffColors: Record<string, { bg: string; text: string }> = {
@@ -249,8 +180,10 @@ export default function WorkoutPlayerScreen() {
   };
   const diff = diffColors[workoutDifficulty] || diffColors.medium;
 
-  const modelKey = getModelKey(workoutType, workoutName);
-  const hasModel = !!MODEL_MAP[modelKey];
+  // Prefer a bodyPart-specific model key when provided (e.g. 'home_core')
+  const modelKey = selectedBodyPart ? `${workoutType}_${String(selectedBodyPart).toLowerCase()}` : getModelKey(workoutType, workoutName);
+  const modelModule = MODEL_MAP[modelKey];
+  const hasModel = !!modelModule;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -319,25 +252,14 @@ export default function WorkoutPlayerScreen() {
           }}
         >
           {hasModel ? (
-            <>
-              <GLView
-                style={{ flex: 1 }}
-                onContextCreate={onContextCreate}
-              />
-              {modelLoading && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: 'rgba(6,13,9,0.9)',
-                  }}
-                >
-                  <GFLoader fullScreen={false} size={44} message="Loading animation..." />
-                </View>
-              )}
-            </>
+            <GLBViewer
+              modelModule={modelModule}
+              isPlaying={isPlaying}
+              onError={(msg) => setModelError(msg)}
+              onDebugInfo={(info) => {
+                console.log('[WorkoutPlayer] Model debug:', info);
+              }}
+            />
           ) : (
             // ── Placeholder when no GLB file is mapped ──
             <View
