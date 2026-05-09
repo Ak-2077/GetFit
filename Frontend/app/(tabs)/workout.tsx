@@ -43,7 +43,8 @@ const CARDS = [
     key: 'home',
     title: 'Home Workout',
     subtitle: 'Train anywhere, anytime',
-    icon: require('../../assets/icons/home-workout.png'),
+    icon: require('../../assets/icons/Home.png'),
+    iconSize: 72,
     count: '30 workouts available',
     badge: 'Basic',
     badgeColor: C.accent,
@@ -53,6 +54,7 @@ const CARDS = [
     title: 'Gym',
     subtitle: 'Full equipment training',
     icon: require('../../assets/icons/Gym.png'),
+    iconSize: 72,
     count: '30 workouts available',
     badge: 'Pro',
     badgeColor: C.purple,
@@ -62,6 +64,8 @@ const CARDS = [
     title: 'AI Trainer',
     subtitle: 'Personalized AI guidance',
     icon: require('../../assets/icons/ai.png'),
+    iconTint: '#fff',
+    iconSize: 44,
     count: '30 AI-powered programs',
     badge: 'Pro+',
     badgeColor: '#FF7F00',
@@ -155,7 +159,7 @@ export default function WorkoutScreen() {
   const getBorderStyle = (cardKey: string) => {
     if (cardKey === 'ai') return 'vibgyor';
     if (userPlan === 'pro_plus') return 'vibgyor';
-    if (userPlan === 'pro') return 'purple';
+    if (userPlan === 'pro') return 'grey';
     return 'grey';
   };
 
@@ -192,23 +196,14 @@ export default function WorkoutScreen() {
         }}
       >
         {/* Icon */}
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 20,
-            backgroundColor: 'rgba(31,164,99,0.08)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginRight: 16,
-          }}
-        >
-          <Image
-            source={card.icon}
-            style={{ width: 44, height: 44, tintColor: '#fff' }}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={card.icon}
+          style={[
+            { width: card.iconSize ?? 44, height: card.iconSize ?? 44, marginRight: 16 },
+            card.iconTint ? { tintColor: card.iconTint } : null,
+          ]}
+          resizeMode={card.iconSize && card.iconSize >= 60 ? 'cover' : 'contain'}
+        />
 
         {/* Text content */}
         <View style={{ flex: 1 }}>
@@ -216,19 +211,6 @@ export default function WorkoutScreen() {
             <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, marginRight: 8 }}>
               {card.title}
             </Text>
-            {/* Badge */}
-            <View
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: 6,
-                backgroundColor: `${card.badgeColor}20`,
-              }}
-            >
-              <Text style={{ fontSize: 9, fontWeight: '800', color: card.badgeColor, textTransform: 'uppercase' }}>
-                {card.badge}
-              </Text>
-            </View>
           </View>
           <Text style={{ fontSize: 13, color: C.label, marginBottom: 6 }}>{card.subtitle}</Text>
           <Text style={{ fontSize: 11, color: C.muted }}>{card.count}</Text>
@@ -324,28 +306,6 @@ export default function WorkoutScreen() {
           >
             {cardContent}
           </LinearGradient>
-        </PressableCard>
-      );
-    }
-
-    // ── Purple border (pro user) ──
-    if (borderType === 'purple') {
-      return (
-        <PressableCard key={card.key} onPress={() => handleCardPress(card.key)} style={{ marginBottom: 16 }}>
-          <View
-            style={{
-              borderRadius: 24,
-              borderWidth: 1.5,
-              borderColor: C.purple,
-              shadowColor: C.purple,
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
-              elevation: 4,
-            }}
-          >
-            {cardContent}
-          </View>
         </PressableCard>
       );
     }
