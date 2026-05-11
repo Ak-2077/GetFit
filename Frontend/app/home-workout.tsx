@@ -8,11 +8,11 @@ export default function HomeWorkoutScreen() {
   const router = useRouter();
 
   const bodyParts = [
-    { name: 'Arms', icon: require('../assets/icons/Homeworkout/Arms.png') },
+    { name: 'Arms', icon: require('../assets/icons/Homeworkout/arms.png') },
     { name: 'Back', icon: require('../assets/icons/Homeworkout/back.png') },
-    { name: 'Chest', icon: require('../assets/icons/Homeworkout/chest.png') },
+    { name: 'Chest', icon: require('../assets/icons/Homeworkout/Chest.png') },
     { name: 'Core', icon: require('../assets/icons/Homeworkout/abs.png') },
-    { name: 'Legs', icon: require('../assets/icons/Homeworkout/Legs.png') },
+    { name: 'Legs', icon: require('../assets/icons/Homeworkout/legs.png') },
     { name: 'Shoulder', icon: require('../assets/icons/Homeworkout/Shoulder.png') },
   ];
 
@@ -43,13 +43,13 @@ export default function HomeWorkoutScreen() {
                 <TouchableOpacity
                   onPress={() => handleBodyPartPress(part.name)}
                   activeOpacity={0.8}
-                  className="bg-[#1A1A1A] rounded-3xl border border-[#2A2A2A] items-center justify-center w-full mb-3"
+                  className="bg-[#1A1A1A] rounded-3xl border border-[#2A2A2A] items-center justify-center w-full mb-3 overflow-hidden"
                   style={{ aspectRatio: 1 }}
                 >
                   <Image
                     source={part.icon}
-                    style={{ width: 80, height: 80, tintColor: '#fff' }}
-                    resizeMode="contain"
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
                 <Text className="text-white text-base font-semibold">{part.name}</Text>
