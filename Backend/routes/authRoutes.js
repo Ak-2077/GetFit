@@ -8,6 +8,7 @@ import {
 	me,
 	updateProfile,
 	googleLogin,
+	appleLogin,
 } from '../controllers/authController.js';
 import auth from '../middleware/authMiddleware.js';
 
@@ -19,6 +20,7 @@ router.post('/send-email-otp', sendEmailOtp);
 router.post('/verify-email-otp', verifyEmailOtp);
 router.post('/email-auth', emailPasswordAuth);
 router.post('/google-login', googleLogin);
+router.post('/apple-login', appleLogin);
 router.get('/me', auth, me);
 router.patch('/profile', auth, updateProfile);
 

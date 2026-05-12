@@ -32,16 +32,20 @@ export interface HealthKitCalorieResult {
 let AppleHealthKit: any = null;
 
 const getHealthKit = (): any => {
+  console.log(`[HealthKitService] getHealthKit called | platform: ${Platform.OS}`);
   if (Platform.OS !== 'ios') return null;
   if (!AppleHealthKit) {
     try {
       // react-native-health provides the HealthKit bindings
-      AppleHealthKit = require('react-native-health').default;
+      const mod = require('react-native-health');
+      console.log(`[HealthKitService] react-native-health module keys: ${Object.keys(mod || {}).join(', ')}`);
+      AppleHealthKit = mod?.default || mod;
     } catch (e) {
       console.warn('[HealthKitService] react-native-health not available:', e);
       return null;
     }
   }
+  console.log(`[HealthKitService] AppleHealthKit loaded: ${!!AppleHealthKit}`);
   return AppleHealthKit;
 };
 

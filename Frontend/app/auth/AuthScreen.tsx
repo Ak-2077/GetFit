@@ -23,12 +23,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import {
   sendOtpRequest,
   verifyOtpRequest,
   emailPasswordAuthRequest,
   forgotPassword,
   googleLoginRequest,
+  appleLoginRequest,
   setAuthToken,
   getUserProfile,
 } from '../../services/api';
@@ -127,6 +129,48 @@ export default function AuthScreen() {
       await completeAuth(token);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Google login failed';
+      setErrorText(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── APPLE AUTH ──────────────────────────────────────
+  const handleAppleLogin = async () => {
+    try {
+      setLoading(true);
+      setErrorText('');
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setErrorText('Apple sign in failed: no identity token');
+        return;
+      }
+
+      const res = await appleLoginRequest({
+        identityToken: credential.identityToken,
+        email: credential.email,
+        fullName: credential.fullName,
+        user: credential.user,
+      });
+
+      const token = res.data?.token;
+      if (!token) {
+        setErrorText('No token returned from server');
+        return;
+      }
+      await completeAuth(token);
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') {
+        // User cancelled — do nothing
+        return;
+      }
+      const msg = err?.response?.data?.message || err?.message || 'Apple sign in failed';
       setErrorText(msg);
     } finally {
       setLoading(false);
@@ -771,19 +815,26 @@ export default function AuthScreen() {
           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Google</Text>
         </TouchableOpacity>
 
-        {/* Facebook */}
-        <TouchableOpacity style={{
-          width: 100,
-          height: 75,
-          backgroundColor: '#272828',
-          borderRadius: 16,
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <FontAwesome name="facebook" size={24} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Facebook</Text>
-        </TouchableOpacity>
+        {/* Apple (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            style={{
+              width: 100,
+              height: 75,
+              backgroundColor: '#272828',
+              borderRadius: 16,
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 6,
+              opacity: loading ? 0.5 : 1,
+            }}
+            disabled={loading}
+            onPress={handleAppleLogin}
+          >
+            <FontAwesome name="apple" size={26} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Apple</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );

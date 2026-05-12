@@ -70,19 +70,19 @@ class _StepManager {
 
     try {
       // ── 1. Try HealthKit first (iOS) ──
+      // HealthKit returns clean daily totals from midnight — no calibration needed
       if (HealthKitService.initialized) {
         const hkResult = await HealthKitService.getStepsToday();
 
         if (hkResult && hkResult.value >= 0) {
-          const rawSteps = hkResult.value;
-          const steps = await this._calibrateSteps(rawSteps);
+          const steps = Math.round(hkResult.value);
           const distanceKm = Number((steps * STRIDE_KM).toFixed(2));
 
           const result: StepResult = { steps, distanceKm, source: 'healthkit' };
           this._applyMonotonic(result);
 
           console.log(
-            `[StepManager] fetch: ${result.steps} steps (raw: ${rawSteps}, baseline: ${this._baselineSteps}) | source: healthkit | ${Date.now() - t0}ms`
+            `[StepManager] fetch: ${result.steps} steps | source: healthkit | ${Date.now() - t0}ms`
           );
           return result;
         }
