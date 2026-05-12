@@ -15,10 +15,10 @@ const C = {
 };
 
 const PARTS = [
-  { key: 'chest', label: 'Chest', image: require('../assets/icons/Homeworkout/Chest.png') },
-  { key: 'legs', label: 'Legs', image: require('../assets/icons/Homeworkout/legs.png') },
+  { key: 'chest', label: 'Chest', image: require('../assets/icons/Homeworkout/chest.png') },
+  { key: 'legs', label: 'Legs', image: require('../assets/icons/Homeworkout/Legs.png') },
   { key: 'shoulders', label: 'Shoulders', image: require('../assets/icons/Homeworkout/Shoulder.png') },
-  { key: 'arms', label: 'Arms', image: require('../assets/icons/Homeworkout/arms.png') },
+  { key: 'arms', label: 'Arms', image: require('../assets/icons/Homeworkout/Arms.png') },
   { key: 'back', label: 'Back', image: require('../assets/icons/Homeworkout/back.png') },
   { key: 'abs', label: 'Abs', image: require('../assets/icons/Homeworkout/abs.png') }
 ];

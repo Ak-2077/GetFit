@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import GFLoader from '../components/GFLoader';
+
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -140,7 +140,7 @@ export default function ScanScreen() {
 
         {isProcessing ? (
           <View style={styles.processingOverlay}>
-            <GFLoader fullScreen={false} size={40} />
+            <ActivityIndicator size="large" color="#fff" />
             <Text style={styles.processingText}>Processing...</Text>
           </View>
         ) : null}

@@ -1,12 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWorkoutPlan, setAuthToken } from '../services/api';
-import GFLoader from '../components/GFLoader';
+
 
 const C = { bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463', white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)' };
 
@@ -29,8 +29,8 @@ export default function WorkoutPlanScreen() {
 
   useFocusEffect(useCallback(() => { fetchPlan(); }, [fetchPlan]));
 
-  if (loading) return <GFLoader message="Building workout plan..." />;
-  if (!data) return <GFLoader message="No plan available" />;
+  if (loading) return <View style={{ flex: 1, backgroundColor: '#060D09', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#1FA463" /><Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 13 }}>Building workout plan...</Text></View>;
+  if (!data) return <View style={{ flex: 1, backgroundColor: '#060D09', justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>No plan available</Text></View>;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>

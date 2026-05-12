@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
-  Alert, TextInput, Switch, Modal, KeyboardAvoidingView, Platform, Linking,
+  Alert, TextInput, Switch, Modal, KeyboardAvoidingView, Platform, Linking, ActivityIndicator,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import {
   deleteUserAccount, setAuthToken, sendProfileEmailOtp, verifyProfileEmailOtp,
 } from '../../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
-import GFLoader from '../../components/GFLoader';
+
 
 const C = {
   bg: '#050505', card: 'rgba(25,25,25,1)', border: 'rgba(70,130,90,0.18)',
@@ -257,7 +257,7 @@ export default function ProfileSettingsScreen() {
   const hasAvatar = !!(avatarUri && avatarUri.length > 0);
 
   if (loading) {
-    return <GFLoader message="Loading settings..." />;
+    return <View style={{ flex: 1, backgroundColor: '#050505', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#1FA463" /></View>;
   }
 
   const levelLabel = (l: string) => l === 'beginner' ? 'Beginner' : l === 'intermediate' ? 'Intermediate' : l === 'advanced' ? 'Advanced' : '—';
@@ -464,13 +464,13 @@ export default function ProfileSettingsScreen() {
             <DarkCard style={{ marginBottom: 20 }}>
               <SettingsRow icon="shield" label="Privacy Policy" onPress={() => Linking.openURL('https://getfit.app/privacy')} />
               <SettingsRow icon="trash" label="Delete My Account" onPress={onDeleteAccount}
-                right={deleting ? <GFLoader fullScreen={false} size={16} /> : <FontAwesome name="chevron-right" size={12} color="#DC2626" />} />
+                right={deleting ? <ActivityIndicator size="small" color="#DC2626" /> : <FontAwesome name="chevron-right" size={12} color="#DC2626" />} />
               <SettingsRow icon="sign-out" label="Sign Out" onPress={onSignOut} last />
             </DarkCard>
 
             {/* SAVE */}
             <TouchableOpacity onPress={onSave} disabled={saving} activeOpacity={0.85} style={{ backgroundColor: C.accent, borderRadius: 14, height: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
-              {saving ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Save Changes</Text>}
+              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Save Changes</Text>}
             </TouchableOpacity>
 
           </ScrollView>
@@ -497,7 +497,7 @@ export default function ProfileSettingsScreen() {
                   </View>
                 ))}
                 <TouchableOpacity onPress={onChangePassword} disabled={changingPassword} style={{ backgroundColor: C.accent, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
-                  {changingPassword ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Change Password</Text>}
+                  {changingPassword ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Change Password</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -519,7 +519,7 @@ export default function ProfileSettingsScreen() {
                     <TextInput value={emailInput} onChangeText={setEmailInput} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" placeholderTextColor={C.muted}
                       style={{ backgroundColor: C.input, borderRadius: 12, padding: 14, color: C.white, fontSize: 15, borderWidth: 1, borderColor: C.border }} />
                     <TouchableOpacity onPress={onSendEmailOtp} disabled={emailSending} style={{ backgroundColor: C.accent, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 16 }}>
-                      {emailSending ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Send Verification Code</Text>}
+                      {emailSending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Send Verification Code</Text>}
                     </TouchableOpacity>
                   </>
                 ) : (
@@ -528,7 +528,7 @@ export default function ProfileSettingsScreen() {
                     <TextInput value={emailOtp} onChangeText={setEmailOtp} keyboardType="number-pad" maxLength={6} placeholder="000000" placeholderTextColor={C.muted}
                       style={{ backgroundColor: C.input, borderRadius: 12, padding: 14, color: C.white, fontSize: 22, fontWeight: '700', letterSpacing: 8, textAlign: 'center', borderWidth: 1, borderColor: C.border }} />
                     <TouchableOpacity onPress={onVerifyEmailOtp} disabled={emailVerifying} style={{ backgroundColor: C.accent, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 16 }}>
-                      {emailVerifying ? <GFLoader fullScreen={false} size={18} /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Verify</Text>}
+                      {emailVerifying ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Verify</Text>}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => { setEmailStep('enter'); setEmailOtp(''); }} style={{ marginTop: 12, alignItems: 'center' }}>
                       <Text style={{ color: C.accent, fontSize: 13 }}>Resend code</Text>
@@ -549,7 +549,7 @@ export default function ProfileSettingsScreen() {
                 <TouchableOpacity onPress={() => setPickerModal(null)}><FontAwesome name="times" size={20} color={C.label} /></TouchableOpacity>
               </View>
               {pickerSaving ? (
-                <GFLoader fullScreen={false} size={36} />
+                <ActivityIndicator size="small" color="#1FA463" />
               ) : (
                 (pickerModal?.type === 'level'
                   ? [{ key: 'beginner', label: 'Beginner' }, { key: 'intermediate', label: 'Intermediate' }, { key: 'advanced', label: 'Advanced' }]

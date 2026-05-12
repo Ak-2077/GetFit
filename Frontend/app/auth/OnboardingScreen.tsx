@@ -10,8 +10,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
-import GFLoader from '../../components/GFLoader';
+
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -420,7 +421,7 @@ export default function OnboardingScreen() {
               activeOpacity={0.8}
             >
               {loading ? (
-                <GFLoader fullScreen={false} size={20} />
+                <ActivityIndicator size="small" color="#000" />
               ) : (
                 <Text style={styles.nextButtonText}>
                   {currentStep === TOTAL_STEPS - 1 ? 'Complete' : 'Next'}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,7 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getSubscriptionPlans, upgradeSubscription, setAuthToken } from '../services/api';
-import GFLoader from '../components/GFLoader';
+
 
 const C = {
   bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463',
@@ -103,7 +103,7 @@ export default function UpgradeScreen() {
     return { borderColor: C.cardBorder, bg: [C.card, C.card] as [string, string] };
   };
 
-  if (loading) return <GFLoader message="Loading plans..." />;
+  if (loading) return <View style={{ flex: 1, backgroundColor: '#060D09', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#1FA463" /></View>;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -178,7 +178,7 @@ export default function UpgradeScreen() {
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={{ height: 46, justifyContent: 'center', alignItems: 'center', borderRadius: 14 }}>
                         {upgrading === plan.key ? (
-                          <GFLoader fullScreen={false} size={18} />
+                          <ActivityIndicator size="small" color="#fff" />
                         ) : (
                           <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Upgrade to {plan.name}</Text>
                         )}

@@ -10,7 +10,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWorkoutsByType, setAuthToken } from '../services/api';
-import GFLoader from '../components/GFLoader';
+import { WorkoutListSkeleton } from '../components/SkeletonScreens';
 
 const { width } = Dimensions.get('window');
 
@@ -48,10 +48,10 @@ const TYPE_TITLES: Record<string, string> = {
 
 // Body part image map for workout card thumbnails
 const BODY_PART_IMAGES: Record<string, any> = {
-  chest: require('../assets/icons/Homeworkout/Chest.png'),
-  legs: require('../assets/icons/Homeworkout/legs.png'),
+  chest: require('../assets/icons/Homeworkout/chest.png'),
+  legs: require('../assets/icons/Homeworkout/Legs.png'),
   shoulders: require('../assets/icons/Homeworkout/Shoulder.png'),
-  arms: require('../assets/icons/Homeworkout/arms.png'),
+  arms: require('../assets/icons/Homeworkout/Arms.png'),
   back: require('../assets/icons/Homeworkout/back.png'),
   abs: require('../assets/icons/Homeworkout/abs.png'),
 };
@@ -125,7 +125,7 @@ export default function WorkoutListScreen() {
     }).start();
   }, [activeTab]);
 
-  if (loading) return <GFLoader message="Loading workouts..." />;
+  if (loading) return <WorkoutListSkeleton />;
 
   const planRank = PLAN_RANK[currentPlan] ?? 0;
 
@@ -141,26 +141,36 @@ export default function WorkoutListScreen() {
   // Get workouts for active tab
   const filteredWorkouts = allWorkouts.filter(w => w.level === activeTab);
 
+  // Normalize body-part values so backend 'core' matches frontend 'abs'
+  const normalizeBodyPart = (bp: string) => {
+    const lower = bp.toLowerCase();
+    if (lower === 'core') return 'abs';
+    return lower;
+  };
+
   // Map workout item to a canonical body part using name heuristics.
   const mapWorkoutToBodyPart = (w: any) => {
     if (!w) return '';
-    // Prefer explicit field if present
-    if (w.bodyPart) return String(w.bodyPart).toLowerCase();
+    // Prefer explicit field if present (normalize core→abs)
+    if (w.bodyPart) return normalizeBodyPart(String(w.bodyPart));
     const name = String(w.name || '').toLowerCase();
-    const chest = ['bench', 'push', 'fly', 'incline'];
-    const legs = ['squat', 'lunge', 'leg', 'deadlift', 'pistol', 'hack squat', 'press'];
-    const shoulders = ['shoulder', 'overhead', 'press', 'viking', 'arnold'];
-    const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'curl'];
-    const back = ['row', 'pull', 'lat', 'deadlift', 'pendlay', 'pull-ups', 'pullups', 'pulldown'];
-    const core = ['plank', 'crunch', 'situp', 'sit-up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber'];
+
+    // NOTE: Order matters! More specific matches first to avoid overlaps.
+    // e.g. 'leg raise' is abs, not legs; 'overhead press' is shoulders, not legs.
+    const abs = ['plank', 'crunch', 'situp', 'sit-up', 'sit up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber', 'abs', 'v-up', 'flutter', 'russian twist'];
+    const shoulders = ['shoulder', 'overhead press', 'military press', 'viking', 'arnold', 'lateral raise', 'front raise', 'face pull', 'shrug'];
+    const chest = ['bench', 'push-up', 'push up', 'pushup', 'fly', 'chest', 'incline press', 'decline press', 'dumbbell press'];
+    const back = ['row', 'pull-up', 'pullup', 'pull up', 'lat pulldown', 'pulldown', 'lat ', 'pendlay', 'barbell row', 'cable row', 'back '];
+    const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'hammer', 'preacher', 'concentration'];
+    const legs = ['squat', 'lunge', 'leg press', 'leg extension', 'leg curl', 'deadlift', 'pistol', 'hack squat', 'calf', 'glute', 'hip thrust'];
 
     const match = (keywords: string[]) => keywords.some(k => name.includes(k));
-    if (match(chest)) return 'chest';
-    if (match(legs)) return 'legs';
+    if (match(abs)) return 'abs';
     if (match(shoulders)) return 'shoulders';
-    if (match(arms)) return 'arms';
+    if (match(chest)) return 'chest';
     if (match(back)) return 'back';
-    if (match(core)) return 'core';
+    if (match(arms)) return 'arms';
+    if (match(legs)) return 'legs';
     return 'other';
   };
 

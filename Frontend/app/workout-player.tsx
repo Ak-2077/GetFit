@@ -48,10 +48,12 @@ const MODEL_MAP: Record<string, number> = {
   // ═══════════════════════════════════════════
 
   // ── Body Part shortcuts (used by home-workout flow) ──
-  'home_core': require('../assets/models/HomeWorkout/body-parts/legs/situps.glb'),
+  'home_core': require('../assets/models/HomeWorkout/body-parts/abs/situps.glb'),
+  'home_abs': require('../assets/models/HomeWorkout/body-parts/abs/situps.glb'),
+  'home_legs': require('../assets/models/HomeWorkout/body-parts/legs/situps.glb'),
 
   // ── Individual exercises ──
-  'home_sit_ups': require('../assets/models/HomeWorkout/body-parts/legs/situps.glb'),
+  'home_sit_ups': require('../assets/models/HomeWorkout/body-parts/abs/situps.glb'),
   // 'home_push_ups':             require('../assets/models/home/push_ups.glb'),
   // 'home_bodyweight_squats':    require('../assets/models/home/squats.glb'),
   // 'home_lunges':               require('../assets/models/home/lunges.glb'),

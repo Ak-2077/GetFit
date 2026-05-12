@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMe, setAuthToken } from '../../services/api';
-import GFLoader from '../../components/GFLoader';
+
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   }, []);
 
   if (loading) {
-    return <GFLoader message="Verifying admin access..." />;
+    return <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#1FA463" /></View>;
   }
 
   return (

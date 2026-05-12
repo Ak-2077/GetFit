@@ -8,11 +8,11 @@ export default function HomeWorkoutScreen() {
   const router = useRouter();
 
   const bodyParts = [
-    { name: 'Arms', icon: require('../assets/icons/Homeworkout/arms.png') },
+    { name: 'Arms', icon: require('../assets/icons/Homeworkout/Arms.png') },
     { name: 'Back', icon: require('../assets/icons/Homeworkout/back.png') },
-    { name: 'Chest', icon: require('../assets/icons/Homeworkout/Chest.png') },
+    { name: 'Chest', icon: require('../assets/icons/Homeworkout/chest.png') },
     { name: 'Core', icon: require('../assets/icons/Homeworkout/abs.png') },
-    { name: 'Legs', icon: require('../assets/icons/Homeworkout/legs.png') },
+    { name: 'Legs', icon: require('../assets/icons/Homeworkout/Legs.png') },
     { name: 'Shoulder', icon: require('../assets/icons/Homeworkout/Shoulder.png') },
   ];
 

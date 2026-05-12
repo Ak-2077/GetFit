@@ -32,7 +32,7 @@ const workoutSchema = new mongoose.Schema(
     },
     bodyPart: {
       type: String,
-      enum: ['chest', 'legs', 'shoulders', 'arms', 'back', 'core', 'other'],
+      enum: ['chest', 'legs', 'shoulders', 'arms', 'back', 'core', 'abs', 'other'],
       default: 'other',
     },
   },

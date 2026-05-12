@@ -10,7 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserProfile, setAuthToken } from '../../services/api';
-import GFLoader from '../../components/GFLoader';
+import { AITrainerSkeleton } from '../../components/SkeletonScreens';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -93,7 +93,7 @@ export default function AITrainerScreen() {
     useCallback(() => { load(); }, [])
   );
 
-  if (loading) return <GFLoader message="Loading AI Trainer..." />;
+  if (loading) return <AITrainerSkeleton />;
 
   const isUnlocked = userPlan === 'pro_plus';
 
@@ -272,7 +272,7 @@ export default function AITrainerScreen() {
               {/* Workout image */}
               <View style={{ width: 100, height: 120, borderRadius: 16, overflow: 'hidden', marginRight: 14 }}>
                 <Image
-                  source={require('../../assets/icons/Homeworkout/Chest.png')}
+                  source={require('../../assets/icons/Homeworkout/chest.png')}
                   style={{ width: '100%', height: '100%' }}
                   resizeMode="cover"
                 />
