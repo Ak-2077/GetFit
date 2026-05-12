@@ -7,7 +7,7 @@
     "icon": "./assets/images/RealLogo.png",
     "scheme": "client",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "bundleIdentifier": "com.getfit.fitness",
       "supportsTablet": true,
