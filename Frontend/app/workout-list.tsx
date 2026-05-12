@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWorkoutsByType, setAuthToken } from '../services/api';
@@ -135,8 +134,6 @@ export default function WorkoutListScreen() {
     return required > planRank;
   };
 
-  // Show AI Coach banner only on Basic & Pro tabs (not Pro Plus)
-  const showAICoachBanner = activeTab === 'basic' || activeTab === 'pro';
 
   // Get workouts for active tab
   const filteredWorkouts = allWorkouts.filter(w => w.level === activeTab);
@@ -188,7 +185,6 @@ export default function WorkoutListScreen() {
 
   const tabWidth = (width - 52) / 3;
 
-  // Get the display body part name for the AI Coach banner
   const bodyPartDisplay = selectedBodyPart
     ? `${String(selectedBodyPart).charAt(0).toUpperCase()}${String(selectedBodyPart).slice(1)}`
     : 'Body';
@@ -278,116 +274,83 @@ export default function WorkoutListScreen() {
     }
 
     return (
-      <PressableScale key={workout._id || index} style={{ marginBottom: 12 }}>
+      <PressableScale key={workout._id || index} style={{ marginBottom: 10 }}>
         <View
           style={{
-            borderRadius: 20,
+            borderRadius: 16,
             borderWidth: 1,
             borderColor: C.cardBorder,
             backgroundColor: C.card,
-            padding: 16,
+            padding: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
           }}
         >
-          <View style={{ flexDirection: 'row' }}>
-            {/* Workout thumbnail */}
-            <View style={{ width: 90, height: 90, borderRadius: 16, overflow: 'hidden', marginRight: 14 }}>
-              <Image
-                source={workoutImage}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="cover"
-              />
-            </View>
-
-            {/* Details */}
-            <View style={{ flex: 1 }}>
-              {/* Top row: icon + name + bookmark + menu */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                <View
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(31,164,99,0.12)',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    marginRight: 8,
-                  }}
-                >
-                  <Ionicons name="barbell" size={14} color={C.accent} />
-                </View>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: C.white, flex: 1 }} numberOfLines={1}>
-                  {workout.name}
-                </Text>
-                <TouchableOpacity style={{ marginLeft: 8 }}>
-                  <Ionicons name="bookmark-outline" size={20} color={C.label} />
-                </TouchableOpacity>
-                <TouchableOpacity style={{ marginLeft: 8 }}>
-                  <Ionicons name="ellipsis-vertical" size={18} color={C.label} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Duration + difficulty */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                <Ionicons name="time-outline" size={13} color={C.label} />
-                <Text style={{ fontSize: 12, color: C.label, marginLeft: 4, marginRight: 8 }}>{workout.duration}</Text>
-                <Text style={{ fontSize: 10, color: C.muted }}>·</Text>
-                <View
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 6,
-                    backgroundColor: diff.bg,
-                    marginLeft: 8,
-                  }}
-                >
-                  <Text style={{ fontSize: 10, fontWeight: '800', color: diff.text, textTransform: 'uppercase' }}>
-                    {workout.difficulty}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Description */}
-              {workout.description ? (
-                <Text style={{ fontSize: 11, color: C.muted, lineHeight: 16 }} numberOfLines={2}>
-                  {workout.description}
-                </Text>
-              ) : null}
-            </View>
+          {/* Workout thumbnail */}
+          <View style={{ width: 64, height: 64, borderRadius: 14, overflow: 'hidden', marginRight: 12 }}>
+            <Image
+              source={workoutImage}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
           </View>
 
-          {/* Start button — bottom right */}
-          <View style={{ alignItems: 'flex-end', marginTop: 10 }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                router.push({
-                  pathname: '/workout-player',
-                  params: {
-                    workoutName: workout.name,
-                    workoutType: workoutType,
-                    workoutDuration: workout.duration,
-                    workoutDifficulty: workout.difficulty || 'medium',
-                    workoutId: workout._id || '',
-                    bodyPart: selectedBodyPart || undefined,
-                  },
-                } as any);
-              }}
-              style={{ borderRadius: 12, overflow: 'hidden' }}
-            >
-              <LinearGradient
-                colors={[C.accent, '#178A52']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+          {/* Details */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: C.white }} numberOfLines={1}>
+              {workout.name}
+            </Text>
+
+            {/* Duration + difficulty */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <Ionicons name="time-outline" size={12} color={C.label} />
+              <Text style={{ fontSize: 11, color: C.label, marginLeft: 3, marginRight: 8 }}>{workout.duration}</Text>
+              <View
                 style={{
-                  paddingHorizontal: 24,
-                  paddingVertical: 10,
-                  borderRadius: 12,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 5,
+                  backgroundColor: diff.bg,
                 }}
               >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>Start</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: diff.text, textTransform: 'uppercase' }}>
+                  {workout.difficulty}
+                </Text>
+              </View>
+            </View>
           </View>
+
+          {/* Start button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              router.push({
+                pathname: '/workout-player',
+                params: {
+                  workoutName: workout.name,
+                  workoutType: workoutType,
+                  workoutDuration: workout.duration,
+                  workoutDifficulty: workout.difficulty || 'medium',
+                  workoutId: workout._id || '',
+                  bodyPart: selectedBodyPart || undefined,
+                },
+              } as any);
+            }}
+            style={{ borderRadius: 10, overflow: 'hidden', marginLeft: 8 }}
+          >
+            <LinearGradient
+              colors={[C.accent, '#178A52']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                paddingHorizontal: 18,
+                paddingVertical: 8,
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>Start</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </PressableScale>
     );
@@ -534,58 +497,6 @@ export default function WorkoutListScreen() {
             />
           }
         >
-          {/* ═══ AI COACH BANNER (Basic & Pro tabs only) ═══ */}
-          {showAICoachBanner && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.push('/(tabs)/ai-trainer' as any)}
-              style={{ marginBottom: 16 }}
-            >
-              <LinearGradient
-                colors={['#121212', '#181818']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  borderRadius: 20,
-                  padding: 20,
-                  borderWidth: 1,
-                  borderColor: 'rgba(31,164,99,0.2)',
-                  overflow: 'hidden',
-                }}
-              >
-                <View style={{ flexDirection: 'row' }}>
-                  <View style={{ flex: 1 }}>
-                    {/* AI Coach badge */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                      <View style={{ backgroundColor: 'rgba(31,164,99,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, flexDirection: 'row', alignItems: 'center' }}>
-                        <Ionicons name="sparkles" size={12} color={C.accent} />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: C.accent, marginLeft: 4 }}>AI Coach</Text>
-                      </View>
-                    </View>
-
-                    <Text style={{ fontSize: 20, fontWeight: '900', color: C.white, marginBottom: 4 }}>
-                      Build a Stronger{'\n'}{bodyPartDisplay}
-                    </Text>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: C.accent, marginBottom: 8 }}>
-                      Smarter. Safer. Better.
-                    </Text>
-                    <Text style={{ fontSize: 12, color: C.label, lineHeight: 18 }}>
-                      AI-powered workouts{'\n'}customized for your goals{'\n'}and performance.
-                    </Text>
-                  </View>
-
-                  {/* Robot image */}
-                  <View style={{ width: 130, justifyContent: 'center', alignItems: 'center' }}>
-                    <Image
-                      source={require('../assets/icons/ai-robot.png')}
-                      style={{ width: 130, height: 140 }}
-                      resizeMode="contain"
-                    />
-                  </View>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
 
           {isTabLocked(activeTab) ? (
             // ── LOCKED STATE ──

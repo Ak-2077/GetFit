@@ -148,5 +148,9 @@ export const getWorkoutPlan = () => API.get('/api/workout-plan/plan');
 export const getSubscriptionPlans = () => API.get('/api/subscription/plans');
 export const upgradeSubscription = (plan) => API.post('/api/subscription/upgrade', { plan });
 
+// Exercise endpoints (muscle-group specific)
+export const getExercisesByMuscle = (muscleGroup) => API.get(`/api/exercises/${muscleGroup}`);
+export const getAllExercises = () => API.get('/api/exercises');
+
 export default API;
 
