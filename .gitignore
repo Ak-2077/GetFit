@@ -3,16 +3,17 @@
 node_modules/
 
 # Frontend
-frontend/node_modules/
-frontend/.expo/
+Frontend/node_modules/
+Frontend/.expo/
 
 # Backend
-backend/node_modules/
+Backend/node_modules/
 
 # Env
 .env
-backend/.env
-frontend/.env.example
+Frontend/.env
+Backend/.env
+Frontend/.env.example
 
 # Build
 dist/

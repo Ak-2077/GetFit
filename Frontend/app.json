@@ -14,7 +14,10 @@
       "infoPlist": {
         "NSHealthShareUsageDescription": "GetFit reads your step count and active energy burned to display accurate fitness data",
         "NSHealthUpdateUsageDescription": "GetFit does not write health data",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,

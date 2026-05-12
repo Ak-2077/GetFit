@@ -24,23 +24,47 @@ export default function TabLayout() {
         setChecking(false);
 
         // ── Initialize FitnessService after auth ──
-        // Fetch user weight for calorie estimation fallback
-        let userWeight: number | undefined;
+        // Isolated from auth check so HealthKit/native errors don't masquerade
+        // as auth failures (and don't log the user out).
         try {
-          const profileRes = await getUserProfile();
-          const w = Number(profileRes?.data?.weight);
-          if (w > 0) userWeight = w;
-        } catch {
-          // profile fetch failed — proceed without weight
-        }
+          let userWeight: number | undefined;
+          try {
+            const profileRes = await getUserProfile();
+            const w = Number(profileRes?.data?.weight);
+            if (w > 0) userWeight = w;
+          } catch {
+            // profile fetch failed — proceed without weight
+          }
 
-        await FitnessService.initialize(userWeight);
+          await FitnessService.initialize(userWeight);
+        } catch (fitErr: any) {
+          console.log('[FITNESS-INIT-FAIL]', fitErr?.message || String(fitErr));
+        }
+        return;
       } catch (e: any) {
-        console.warn('auth check failed', e?.response?.status || e);
-        // Token is invalid / expired → clear and redirect
-        await AsyncStorage.removeItem('token');
-        setAuthToken(null);
-        router.replace('/auth');
+        const details = {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+          code: e?.code,
+          url: e?.config?.url,
+          baseURL: e?.config?.baseURL,
+          hasAuthHeader: Boolean(e?.config?.headers?.Authorization),
+        };
+        console.log('[AUTH-CHECK-FAIL]', JSON.stringify(details));
+        console.warn('auth check failed', details);
+        // Only clear token on definitive auth failures (401/403).
+        // For network errors / 5xx, keep the token so the user isn't logged out
+        // every time the backend is briefly unreachable.
+        const status = e?.response?.status;
+        if (status === 401 || status === 403) {
+          await AsyncStorage.removeItem('token');
+          setAuthToken(null);
+          router.replace('/auth');
+        } else {
+          // Allow the app to render; individual screens will retry.
+          setChecking(false);
+        }
       }
     })();
 
