@@ -10,6 +10,7 @@ import {
   Alert,
   ImageSourcePropType,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,7 +20,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Text as SvgText, Line } from 'react-native-svg';
 import { getUserProfile, getWeeklyCalories, setAuthToken, updateUserProfile } from '../../services/api';
-import GFLoader from '../../components/GFLoader';
+
+import { ProfileSkeleton } from '../../components/SkeletonScreens';
 
 // ─── THEME ──────────────────────────────────────────────
 const C = {
@@ -152,7 +154,7 @@ function WeeklyChart({ weeklyData, goalCalories, bmi, loading }: ChartProps) {
   if (loading) {
     return (
       <View style={{ height: chartHeight + 50, justifyContent: 'center', alignItems: 'center' }}>
-        <GFLoader fullScreen={false} size={32} />
+        <ActivityIndicator size="small" color="#1FA463" />
         <Text style={{ fontSize: 12, color: C.label, marginTop: 8 }}>Loading chart…</Text>
       </View>
     );
@@ -305,9 +307,7 @@ export default function ProfileScreen() {
     loadProfile(false);
   }, []);
 
-  if (loading) {
-    return <GFLoader message="Loading profile..." />;
-  }
+  if (loading) return <ProfileSkeleton />;
 
   const bmi = user?.bmi || null;
   const bmiInfo = bmi ? getBmiCategory(bmi) : null;
@@ -608,7 +608,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity onPress={() => setPickerModal(null)}><FontAwesome name="times" size={20} color={C.label} /></TouchableOpacity>
               </View>
               {pickerSaving ? (
-                <GFLoader fullScreen={false} size={36} />
+                <ActivityIndicator size="small" color="#1FA463" />
               ) : (
                 (pickerModal?.type === 'level'
                   ? [{ key: 'beginner', label: 'Beginner' }, { key: 'intermediate', label: 'Intermediate' }, { key: 'advanced', label: 'Advanced' }]

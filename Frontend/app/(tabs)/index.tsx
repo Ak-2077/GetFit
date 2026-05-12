@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
-import GFLoader from '../../components/GFLoader';
+import { HomeSkeleton } from '../../components/SkeletonScreens';
 
 const C = {
   bg: '#060D09', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(29,36,31,0.18)', accent: '#1FA463',
@@ -77,7 +77,7 @@ export default function HomeScreen() {
     return () => task.cancel();
   }, []);
 
-  if (loading) return <GFLoader message="Loading home..." />;
+  if (loading) return <HomeSkeleton />;
 
   const consumed = Number(daily?.consumedCalories || 0);
   const target = Number(user?.goalCalories || user?.maintenanceCalories || daily?.targetCalories || 2000);

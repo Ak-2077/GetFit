@@ -24,6 +24,13 @@ const WORKOUT_MODELS = {
       title: 'Core Animation',
       source: 'local',
     },
+    abs: {
+      mode: 'home',
+      bodyPart: 'abs',
+      modelId: 'home_abs_situps',
+      title: 'Abs Animation',
+      source: 'local',
+    },
   },
   gym: {},
 };

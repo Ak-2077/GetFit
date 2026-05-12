@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,12 +15,12 @@ const C = {
 };
 
 const PARTS = [
-  { key: 'chest', label: 'Chest', icon: 'barbell' },
-  { key: 'legs', label: 'Legs', icon: 'walk' },
-  { key: 'shoulders', label: 'Shoulders', icon: 'swap-vertical' },
-  { key: 'arms', label: 'Arms', icon: 'hand-left' },
-  { key: 'back', label: 'Back', icon: 'arrow-undo' },
-  { key: 'core', label: 'Core', icon: 'fitness' },
+  { key: 'chest', label: 'Chest', image: require('../assets/icons/Homeworkout/chest.png') },
+  { key: 'legs', label: 'Legs', image: require('../assets/icons/Homeworkout/Legs.png') },
+  { key: 'shoulders', label: 'Shoulders', image: require('../assets/icons/Homeworkout/Shoulder.png') },
+  { key: 'arms', label: 'Arms', image: require('../assets/icons/Homeworkout/Arms.png') },
+  { key: 'back', label: 'Back', image: require('../assets/icons/Homeworkout/back.png') },
+  { key: 'abs', label: 'Abs', image: require('../assets/icons/Homeworkout/abs.png') }
 ];
 
 export default function WorkoutBodyParts() {
@@ -51,8 +51,16 @@ export default function WorkoutBodyParts() {
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: 'rgba(31,164,99,0.06)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                    <Ionicons name={p.icon as any} size={28} color="#fff" />
+                  <View style={{ width: 52, height: 52, borderRadius: 14, overflow: 'hidden', backgroundColor: 'rgba(31,164,99,0.06)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                    {p.image ? (
+                      <Image
+                        source={p.image}
+                        style={{ width: 52, height: 52 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Ionicons name={(p as any).icon as any} size={28} color="#fff" />
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: C.white }}>{p.label}</Text>
