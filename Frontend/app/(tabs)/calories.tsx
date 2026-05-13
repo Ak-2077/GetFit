@@ -37,6 +37,7 @@ import {
 } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { FitnessService } from '../../services/fitness';
+import { HealthKitPermissionCard } from '../../components/HealthKitPermissionCard';
 
 const BarcodeIcon: Record<string, any> = {
   barcode: require('../../assets/icons/calories/barcode.png'),
@@ -358,6 +359,28 @@ export default function CaloriesScreen() {
 
   const recentFoods = useMemo(() => (daily?.logs || []).slice(0, 5), [daily?.logs]);
 
+  /**
+   * Weekly burn trend with today's bucket overlaid by the live HealthKit
+   * value. The backend `burnedTrend` lags real-time HK data because the
+   * server only knows what we've persisted; this overlay keeps the chart
+   * in sync with the hero card without requiring a backend write on
+   * every refresh.
+   */
+  const liveBurnedTrend = useMemo<DayPoint[]>(() => {
+    const trend = weekly.burnedTrend;
+    if (!Array.isArray(trend) || trend.length === 0) return trend ?? [];
+    const liveBurn = Math.round(fitness.caloriesBurned || 0);
+    if (liveBurn <= 0) return trend;
+    const last = trend[trend.length - 1];
+    // Take the max so a transient HK dip never lowers a value the
+    // backend has already persisted for today.
+    const merged = Math.max(Number(last?.calories || 0), liveBurn);
+    if (merged === Number(last?.calories || 0)) return trend;
+    const copy = trend.slice();
+    copy[copy.length - 1] = { ...last, calories: merged };
+    return copy;
+  }, [weekly.burnedTrend, fitness.caloriesBurned]);
+
   // Flat food list for grid
   const allFoodEntries: FoodEntry[] = useMemo(() => {
     const entries: FoodEntry[] = [];
@@ -619,6 +642,12 @@ export default function CaloriesScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Apple Health permission recovery (renders only when denied) */}
+          <HealthKitPermissionCard
+            permissionIssue={fitness.permissionIssue}
+            onEnabled={() => loadData(true)}
+          />
+
           {/* ═══ HERO CARD — Calorie Ring ═══ */}
           <View style={{
             backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.cardBorder,
@@ -729,7 +758,7 @@ export default function CaloriesScreen() {
 
           {/* ═══ BURN + STEPS CARDS ═══ */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-            <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => router.push('/analytics/calories' as any)} style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
                   <Image source={BarcodeIcon.burn} style={{ width: 50, height: 50 }} resizeMode="contain" />
@@ -757,8 +786,8 @@ export default function CaloriesScreen() {
                   </View>
                 )}
               </View>
-            </View>
-            <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => router.push('/analytics/steps' as any)} style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
                   <Image source={BarcodeIcon.steps} style={{ width: 50, height: 50 }} resizeMode="contain" />
@@ -770,12 +799,12 @@ export default function CaloriesScreen() {
                 <FontAwesome name="map-marker" size={10} color={C.accent} />
                 <Text style={{ color: C.accent, fontSize: 11, fontWeight: '600' }}>{fitness.distanceKm.toFixed(2)} km</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* ═══ WEEKLY ANALYTICS — Dual Chart ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 2 }}>Weekly Analytics</Text>
-          <DualTrendChart intakeData={weekly.intakeTrend} burnData={weekly.burnedTrend} />
+          <DualTrendChart intakeData={weekly.intakeTrend} burnData={liveBurnedTrend} />
 
           {/* ═══ QUICK ACTIONS ═══ */}
           <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Quick Actions</Text>

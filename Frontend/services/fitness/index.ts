@@ -7,10 +7,31 @@
 
 export { HealthKitService } from './HealthKitService';
 export { AndroidPedometerService } from './AndroidPedometerService';
+export { PedometerService } from './PedometerService';
 export { StepManager } from './StepManager';
 export { CalorieManager } from './CalorieManager';
 export { FitnessStore } from './FitnessStore';
 export { FitnessService } from './FitnessService';
+export { FitnessDataResolver } from './FitnessDataResolver';
+export { CalorieReconciliationEngine } from './CalorieReconciliationEngine';
+export type {
+  MetricSnapshot,
+  IncomingMetric,
+  ReconciliationDecision,
+} from './CalorieReconciliationEngine';
+export {
+  calculateBMR,
+  estimateActiveCaloriesFromSteps,
+  estimateBaselineActiveCaloriesElapsed,
+  estimateCalories,
+} from './CalorieEstimator';
+export type {
+  Gender,
+  UserProfile,
+  EstimationResult,
+} from './CalorieEstimator';
+export type { ResolvedFitnessData } from './FitnessDataResolver';
+export type { PedometerStepReading } from './PedometerService';
 
 export type {
   HealthKitStepResult,

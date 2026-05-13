@@ -33,6 +33,14 @@ export interface UseFitnessResult {
   walkingCalories: number;
   /** Data source: 'healthkit' | 'pedometer' | 'backend' | 'estimated' | 'none' */
   source: FitnessSource;
+  /** Human-readable source label ("Tracked by Apple Health", etc.) */
+  sourceLabel: string;
+  /** 0–100 confidence score for the chosen calorie source */
+  confidence: number;
+  /** True when HealthKit appears denied (heuristic) */
+  permissionIssue: boolean;
+  /** True while reconciliation is holding a suspicious drop (UI may show "Syncing") */
+  isSyncing: boolean;
   /** Whether HealthKit is available on this device (iOS) */
   isHealthKitAvailable: boolean;
   /** Whether HealthKit permissions have been granted (iOS) */
@@ -88,6 +96,10 @@ export function useFitness(): UseFitnessResult {
     manualCalories: state.manualCalories,
     walkingCalories: state.walkingCalories,
     source: state.source,
+    sourceLabel: state.sourceLabel,
+    confidence: state.confidence,
+    permissionIssue: state.permissionIssue,
+    isSyncing: state.isSyncing,
     isHealthKitAvailable: state.isHealthKitAvailable,
     isHealthKitAuthorized: state.isHealthKitAuthorized,
     isPedometerAvailable: state.isPedometerAvailable,

@@ -11,6 +11,10 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  CalorieReconciliationEngine,
+  type MetricSnapshot,
+} from './CalorieReconciliationEngine';
 
 /* ---------- Types ---------- */
 
@@ -25,6 +29,16 @@ export interface FitnessState {
   manualCalories: number;
   walkingCalories: number;
   source: FitnessSource;
+  /** Human-readable source description for the UI */
+  sourceLabel: string;
+  /** 0–100 confidence score for the chosen calorie source */
+  confidence: number;
+  /** True when HealthKit appears denied (heuristic) and we recommend
+   *  prompting the user to enable Apple Health permissions. */
+  permissionIssue: boolean;
+  /** True while reconciliation is holding a suspicious drop and we
+   *  expect a retry shortly (UI may show a subtle "Syncing" hint). */
+  isSyncing: boolean;
   lastUpdated: number;
   isHealthKitAvailable: boolean;
   isHealthKitAuthorized: boolean;
@@ -49,6 +63,10 @@ const INITIAL_STATE: FitnessState = {
   manualCalories: 0,
   walkingCalories: 0,
   source: 'none',
+  sourceLabel: '',
+  confidence: 0,
+  permissionIssue: false,
+  isSyncing: false,
   lastUpdated: 0,
   isHealthKitAvailable: false,
   isHealthKitAuthorized: false,
@@ -73,8 +91,40 @@ class _FitnessStore {
   private _listeners: Set<FitnessListener> = new Set();
   private _lastDayKey: string = '';
 
+  /** Per-metric metadata used by the reconciliation engine to make
+   *  confidence-aware decisions. Not part of the public FitnessState
+   *  (which only exposes what the UI needs). */
+  private _stepsMeta: MetricSnapshot = {
+    value: 0,
+    source: 'none',
+    confidence: 0,
+    timestamp: 0,
+    estimated: false,
+  };
+  private _caloriesMeta: MetricSnapshot = {
+    value: 0,
+    source: 'none',
+    confidence: 0,
+    timestamp: 0,
+    estimated: false,
+  };
+
+  /** Number of consecutive holds (suspicious drops). The caller can
+   *  read this to decide whether to keep retrying. */
+  private _retryHints = { steps: 0, calories: 0 };
+
   constructor() {
     this._lastDayKey = getTodayKey();
+  }
+
+  /** Read the pending-retry hints (consumed by FitnessService). */
+  consumeRetryHint(): { steps: boolean; calories: boolean } {
+    const hint = {
+      steps: this._retryHints.steps > 0,
+      calories: this._retryHints.calories > 0,
+    };
+    this._retryHints = { steps: 0, calories: 0 };
+    return hint;
   }
 
   /* ── Public API ── */
@@ -108,17 +158,45 @@ class _FitnessStore {
     }
 
     const next = { ...this._state };
+    const now = Date.now();
 
-    // Monotonic step guarantee
+    const incomingConfidence =
+      partial.confidence !== undefined ? partial.confidence : this._caloriesMeta.confidence;
+    const incomingSource: FitnessSource = partial.source ?? this._caloriesMeta.source;
+    const recalculation = (partial as any).recalculation === true;
+    let isSyncingNext = false;
+
+    // ── Step reconciliation ───────────────────────────────────
     if (partial.steps !== undefined) {
-      if (partial.steps < this._state.steps && this._state.steps > 0) {
-        console.warn(
-          `[FitnessStore] ⚠️ step drop detected: ${this._state.steps} → ${partial.steps} (keeping ${this._state.steps})`
-        );
-      } else {
+      const decision = CalorieReconciliationEngine.reconcile(
+        this._state.steps > 0 ? this._stepsMeta : null,
+        {
+          value: partial.steps,
+          source: incomingSource,
+          confidence: incomingConfidence,
+          timestamp: now,
+          estimated: false,
+          recalculation,
+        }
+      );
+      console.log(
+        `[FitnessResolver] steps comparing: old=${this._state.steps} (${this._stepsMeta.source}, conf=${this._stepsMeta.confidence}) new=${partial.steps} (${incomingSource}, conf=${incomingConfidence}) → ${
+          decision.accept ? 'ACCEPT' : 'HOLD'
+        } (${decision.reason})`
+      );
+      if (decision.accept) {
         next.steps = partial.steps;
-        // Recalculate distance from steps: average stride ~0.762m
-        next.distanceKm = Number(((partial.steps * 0.000762)).toFixed(2));
+        next.distanceKm = Number((partial.steps * 0.000762).toFixed(2));
+        this._stepsMeta = {
+          value: partial.steps,
+          source: incomingSource,
+          confidence: incomingConfidence,
+          timestamp: now,
+          estimated: false,
+        };
+      } else if (decision.suggestRetry) {
+        this._retryHints.steps += 1;
+        isSyncingNext = true;
       }
     }
 
@@ -126,16 +204,44 @@ class _FitnessStore {
       next.distanceKm = Number(partial.distanceKm.toFixed(2));
     }
 
-    // Monotonic calorie guarantee
+    // ── Calorie reconciliation ────────────────────────────────
     if (partial.caloriesBurned !== undefined) {
-      if (partial.caloriesBurned < this._state.caloriesBurned && this._state.caloriesBurned > 0) {
-        console.warn(
-          `[FitnessStore] ⚠️ calorie drop detected: ${this._state.caloriesBurned} → ${partial.caloriesBurned} (keeping ${this._state.caloriesBurned})`
-        );
-      } else {
+      const estimatedFlag =
+        (partial as any).estimated === true ||
+        (incomingSource !== 'healthkit' && incomingSource !== 'pedometer');
+      const decision = CalorieReconciliationEngine.reconcile(
+        this._state.caloriesBurned > 0 ? this._caloriesMeta : null,
+        {
+          value: partial.caloriesBurned,
+          source: incomingSource,
+          confidence: incomingConfidence,
+          timestamp: now,
+          estimated: estimatedFlag,
+          recalculation,
+        }
+      );
+      console.log(
+        `[FitnessResolver] calories comparing: old=${this._state.caloriesBurned} (${this._caloriesMeta.source}, conf=${this._caloriesMeta.confidence}) new=${partial.caloriesBurned} (${incomingSource}, conf=${incomingConfidence}) → ${
+          decision.accept ? 'ACCEPT' : 'HOLD'
+        } (${decision.reason})`
+      );
+      if (decision.accept) {
         next.caloriesBurned = partial.caloriesBurned;
+        this._caloriesMeta = {
+          value: partial.caloriesBurned,
+          source: incomingSource,
+          confidence: incomingConfidence,
+          timestamp: now,
+          estimated: estimatedFlag,
+        };
+      } else if (decision.suggestRetry) {
+        this._retryHints.calories += 1;
+        isSyncingNext = true;
       }
     }
+
+    // Sync flag — cleared on the next accepted update (or set if any hold).
+    next.isSyncing = isSyncingNext;
 
     // Non-monotonic fields (metadata, can change freely)
     if (partial.healthKitCalories !== undefined) next.healthKitCalories = partial.healthKitCalories;
@@ -143,6 +249,9 @@ class _FitnessStore {
     if (partial.manualCalories !== undefined) next.manualCalories = partial.manualCalories;
     if (partial.walkingCalories !== undefined) next.walkingCalories = partial.walkingCalories;
     if (partial.source !== undefined) next.source = partial.source;
+    if (partial.sourceLabel !== undefined) next.sourceLabel = partial.sourceLabel;
+    if (partial.confidence !== undefined) next.confidence = partial.confidence;
+    if (partial.permissionIssue !== undefined) next.permissionIssue = partial.permissionIssue;
     if (partial.isHealthKitAvailable !== undefined) next.isHealthKitAvailable = partial.isHealthKitAvailable;
     if (partial.isHealthKitAuthorized !== undefined) next.isHealthKitAuthorized = partial.isHealthKitAuthorized;
     if (partial.isPedometerAvailable !== undefined) next.isPedometerAvailable = partial.isPedometerAvailable;

@@ -18,6 +18,8 @@ import { AndroidPedometerService } from './AndroidPedometerService';
 import { StepManager } from './StepManager';
 import { CalorieManager } from './CalorieManager';
 import { FitnessStore } from './FitnessStore';
+import { FitnessDataResolver } from './FitnessDataResolver';
+import type { UserProfile } from './CalorieEstimator';
 
 /* ---------- Constants ---------- */
 
@@ -35,6 +37,12 @@ class _FitnessService {
   private _dayCheckTimer: ReturnType<typeof setInterval> | null = null;
   private _appStateSubscription: any = null;
   private _lastDayKey: string = '';
+  private _profile: Partial<UserProfile> = {};
+  /** Set to true by the HealthKit observer right before a refresh so the
+   *  reconciliation engine treats the resulting update as a recalculation. */
+  private _observerTriggered = false;
+  /** Single-shot timer for the post-hold retry. */
+  private _retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Initialize the fitness tracking system.
@@ -106,43 +114,68 @@ class _FitnessService {
     this._refreshing = true;
 
     try {
-      // Fetch steps and calories in parallel
-      const [stepResult, calorieResult] = await Promise.all([
-        StepManager.fetch(force),
-        CalorieManager.fetch(StepManager.getCached().steps, force),
-      ]);
+      // Single resolver call — combines HK / Pedometer / backend / estimates
+      const resolved = await FitnessDataResolver.resolve({ profile: this._profile });
 
-      // Determine the final source — pedometer takes priority on Android
-      let finalSource = stepResult.source === 'healthkit'
-        ? 'healthkit' as const
-        : stepResult.source === 'pedometer'
-          ? 'pedometer' as const
-          : calorieResult.source;
-
-      // Update the central store with both results
       FitnessStore.update({
-        steps: stepResult.steps,
-        distanceKm: stepResult.distanceKm,
-        caloriesBurned: calorieResult.totalCaloriesBurned,
-        healthKitCalories: calorieResult.healthKitCalories,
-        estimatedCalories: calorieResult.estimatedCalories,
-        manualCalories: calorieResult.manualCalories,
-        walkingCalories: calorieResult.walkingCalories,
-        source: finalSource,
+        steps: resolved.steps,
+        distanceKm: resolved.distanceKm,
+        caloriesBurned: resolved.calories,
+        healthKitCalories:
+          resolved.source === 'healthkit' && !resolved.estimated
+            ? resolved.activeCalories
+            : 0,
+        estimatedCalories: resolved.estimated ? resolved.activeCalories : 0,
+        manualCalories: resolved.manualCalories,
+        walkingCalories: resolved.activeCalories,
+        source: resolved.source,
+        sourceLabel: resolved.sourceLabel,
+        confidence: resolved.confidence,
+        permissionIssue: resolved.permissionIssue,
         isLoading: false,
-      });
+        // Hint to the reconciliation engine that this is a fresh HK
+        // recalculation (observer-driven). Allows the engine to accept
+        // drops unconditionally when triggered by a real Health sync.
+        ...(this._observerTriggered ? { recalculation: true } : {}),
+      } as any);
 
       this._lastRefresh = Date.now();
+      this._observerTriggered = false;
 
       console.log(
-        `[FitnessService] refresh complete | steps: ${stepResult.steps} | burn: ${calorieResult.totalCaloriesBurned} | source: ${finalSource}`
+        `[FitnessService] refresh complete | steps: ${resolved.steps} | burn: ${resolved.calories} | source: ${resolved.source} | conf: ${resolved.confidence} | permIssue: ${resolved.permissionIssue}`
       );
+
+      // If reconciliation held a suspicious drop, retry once after a short
+      // delay so a partial HK sync gets a chance to complete.
+      const retryHint = FitnessStore.consumeRetryHint();
+      if (retryHint.steps || retryHint.calories) {
+        if (this._retryTimer) clearTimeout(this._retryTimer);
+        console.log('[FitnessResolver] stale HK sync suspected — retrying fetch in 3s');
+        this._retryTimer = setTimeout(() => {
+          this._retryTimer = null;
+          this.refreshAll(true);
+        }, 3000);
+      }
     } catch (e) {
       console.warn('[FitnessService] refresh error:', e);
       FitnessStore.update({ isLoading: false });
     } finally {
       this._refreshing = false;
     }
+  }
+
+  /**
+   * Update the user profile used by the calorie estimator (weight, height,
+   * age, gender). Any subset of fields may be passed; unspecified fields
+   * keep their previous value.
+   */
+  setUserProfile(profile: Partial<UserProfile>): void {
+    this._profile = { ...this._profile, ...profile };
+    if (profile.weightKg && profile.weightKg > 0) {
+      CalorieManager.setUserWeight(profile.weightKg);
+    }
+    console.log('[FitnessService] profile updated:', this._profile);
   }
 
   /**
@@ -188,6 +221,10 @@ class _FitnessService {
     if (this._appStateSubscription) {
       this._appStateSubscription.remove();
       this._appStateSubscription = null;
+    }
+    if (this._retryTimer) {
+      clearTimeout(this._retryTimer);
+      this._retryTimer = null;
     }
     // Stop Android pedometer watcher
     AndroidPedometerService.stopWatching();
@@ -305,6 +342,7 @@ class _FitnessService {
     // Force refresh but respect a shorter debounce for observer triggers
     const now = Date.now();
     if (now - this._lastRefresh > 3000) {
+      this._observerTriggered = true;
       this.refreshAll(true);
     }
   }
