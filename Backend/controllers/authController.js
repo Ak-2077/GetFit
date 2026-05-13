@@ -3,6 +3,7 @@ import twilio from 'twilio';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
+import appleSignin from 'apple-signin-auth';
 import User from '../models/user.js';
 import Otp from '../models/otp.js';
 
@@ -638,3 +639,86 @@ export async function googleLogin(req, res) {
   }
 }
 
+// =============================
+// APPLE LOGIN (Native iOS only)
+// =============================
+export async function appleLogin(req, res) {
+  try {
+    const { identityToken, fullName, email: clientEmail, user: appleUser } = req.body;
+
+    if (!identityToken) {
+      return res.status(400).json({ message: 'Apple identity token is required' });
+    }
+
+    // Verify the identityToken with Apple's servers
+    // Only requires bundle identifier for native iOS flow
+    const BUNDLE_ID = process.env.APPLE_BUNDLE_ID;
+    if (!BUNDLE_ID) {
+      console.error('[Apple Login] APPLE_BUNDLE_ID is not configured in environment');
+      return res.status(500).json({ message: 'Apple Sign-In is not configured on server' });
+    }
+
+    let applePayload;
+    try {
+      applePayload = await appleSignin.verifyIdToken(identityToken, {
+        audience: BUNDLE_ID,
+        ignoreExpiration: false,
+      });
+    } catch (verifyErr) {
+      console.error('[Apple Token Verify Error]', verifyErr.message);
+      return res.status(401).json({ message: 'Invalid Apple identity token' });
+    }
+
+    const { sub: appleSub, email: tokenEmail } = applePayload;
+    if (!appleSub) {
+      return res.status(401).json({ message: 'Unable to extract user info from Apple token' });
+    }
+
+    // Apple only provides email/name on FIRST sign-in, so prioritize client-provided values
+    const email = clientEmail || tokenEmail || undefined;
+    const name = fullName
+      ? [fullName.givenName, fullName.familyName].filter(Boolean).join(' ') || undefined
+      : undefined;
+
+    // 1. Find by Apple ID
+    let user = await User.findOne({ appleSub });
+
+    // 2. If not found, try email
+    if (!user && email) {
+      user = await User.findOne({ email });
+      if (user) {
+        // Link Apple ID to existing account
+        user.appleSub = appleSub;
+        if (name && !user.name) user.name = name;
+        await user.save();
+      }
+    }
+
+    // 3. Create new user
+    if (!user) {
+      user = await User.create({
+        appleSub,
+        email: email || undefined,
+        name: name || undefined,
+        authProvider: 'apple',
+        role: 'user',
+      });
+    }
+
+    const token = signToken(user._id);
+
+    return res.json({
+      message: 'Apple authentication successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('[Apple Login Error]', error);
+    return res.status(500).json({ message: error.message || 'Apple authentication failed' });
+  }
+}
