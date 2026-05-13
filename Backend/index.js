@@ -8,6 +8,17 @@ connectDB();
 
 const app = express();
 app.use(cors());
+
+// ⚠ Razorpay webhook needs the *raw* request body for HMAC validation.
+//   This route MUST be registered BEFORE express.json(), otherwise
+//   bodyParser will mutate req.body and the signature check fails.
+import { razorpayWebhook } from './routes/paymentsRoute.js';
+app.post(
+  '/api/payments/razorpay/webhook',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  razorpayWebhook
+);
+
 app.use(express.json({ limit: '10mb' }));
 
 // Request logger — helps debug routing issues
@@ -33,6 +44,7 @@ import dietRoute from './routes/dietRoute.js';
 import workoutPlanRoute from './routes/workoutPlanRoute.js';
 import subscriptionRoute from './routes/subscriptionRoute.js';
 import exerciseRoute from './routes/exerciseRoute.js';
+import paymentsRoute from './routes/paymentsRoute.js';
 
 app.use('/api/auth', authRoute);
 app.use('/api/food', foodRoute);
@@ -52,6 +64,7 @@ app.use('/api/diet', dietRoute);
 app.use('/api/workout-plan', workoutPlanRoute);
 app.use('/api/subscription', subscriptionRoute);
 app.use('/api/exercises', exerciseRoute);
+app.use('/api/payments', paymentsRoute);
 
 app.get("/", (req, res) => {
     res.send("Welcome to GetFit!");
