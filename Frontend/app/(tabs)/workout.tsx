@@ -1,24 +1,22 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, RefreshControl,
-  Image, Animated, Easing, Dimensions,
+  Image, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserProfile, setAuthToken } from '../../services/api';
-import GFLoader from '../../components/GFLoader';
+import { WorkoutSkeleton } from '../../components/SkeletonScreens';
 
-const { width } = Dimensions.get('window');
 
 // ── Design tokens ──
 const C = {
   bg: '#060D09',
-  card: '#0F1A13',
-  cardBorder: 'rgba(31,164,99,0.12)',
+  card: 'rgba(25,25,25,1)',
+  cardBorder: 'rgba(255,255,255,0.08)',
   accent: '#1FA463',
   accentGlow: 'rgba(31,164,99,0.06)',
   white: '#F0F0F0',
@@ -28,14 +26,6 @@ const C = {
   grey: 'rgba(180,180,180,0.3)',
 };
 
-// Google AI-style gradient colors (blue → purple → pink → orange → blue)
-const AI_GRADIENT: [string, string, ...string[]] = [
-  '#4285F4', '#A855F7', '#EC4899', '#F97316', '#4285F4',
-];
-
-const VIBGYOR: [string, string, ...string[]] = [
-  '#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#8B00FF',
-];
 
 // ── Card data ──
 const CARDS = [
@@ -106,30 +96,12 @@ function PressableCard({ children, onPress, style }: any) {
   );
 }
 
-// ── Smooth rotating gradient for AI card (like Google AI Mode) ──
-function useSmoothRotation(durationMs = 3000) {
-  const rotation = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
-        duration: durationMs,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    ).start();
-  }, [rotation, durationMs]);
-
-  return rotation;
-}
 
 export default function WorkoutScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userPlan, setUserPlan] = useState('free');
-  const aiRotation = useSmoothRotation(3000);
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -150,24 +122,10 @@ export default function WorkoutScreen() {
   // Load data once on mount — no auto-refresh
   useEffect(() => { load(false); }, []);
 
-  if (loading) return <GFLoader message="Loading workouts..." />;
-
-  // ── Border style per plan ──
-  const getBorderStyle = (cardKey: string) => {
-    if (cardKey === 'ai') return 'vibgyor';
-    if (userPlan === 'pro_plus') return 'vibgyor';
-    if (userPlan === 'pro') return 'grey';
-    return 'grey';
-  };
+  if (loading) return <WorkoutSkeleton />;
 
   // ── AI lock status ──
   const isAILocked = userPlan === 'free';
-
-  // Smooth rotation interpolation for AI border
-  const aiRotateDeg = aiRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const handleCardPress = (cardKey: string) => {
     if (cardKey === 'ai' && isAILocked) {
@@ -178,147 +136,63 @@ export default function WorkoutScreen() {
   };
 
   const renderCard = (card: typeof CARDS[0], index: number) => {
-    const borderType = getBorderStyle(card.key);
     const isLocked = card.isAI && isAILocked;
 
-    // Card inner content — always has solid dark background
-    const cardContent = (
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: 20,
-          backgroundColor: C.card,
-          borderRadius: 22,
-        }}
-      >
-        {/* Icon */}
-        <Image
-          source={card.icon}
-          style={[
-            { width: card.iconSize ?? 44, height: card.iconSize ?? 44, marginRight: 16 },
-            card.iconTint ? { tintColor: card.iconTint } : null,
-          ]}
-          resizeMode={card.iconSize && card.iconSize >= 60 ? 'cover' : 'contain'}
-        />
-
-        {/* Text content */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, marginRight: 8 }}>
-              {card.title}
-            </Text>
-
-          </View>
-          <Text style={{ fontSize: 13, color: C.label, marginBottom: 6 }}>{card.subtitle}</Text>
-          <Text style={{ fontSize: 11, color: C.muted }}>{card.count}</Text>
-
-          {/* AI status */}
-          {card.isAI && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-              <Ionicons
-                name={isLocked ? 'lock-closed' : 'sparkles'}
-                size={12}
-                color={isLocked ? '#FF6B6B' : '#FFD700'}
-              />
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  color: isLocked ? '#FF6B6B' : '#FFD700',
-                  marginLeft: 4,
-                }}
-              >
-                {isLocked ? 'Locked' : 'Unlocked'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Chevron */}
-        <Ionicons name="chevron-forward" size={20} color={C.muted} />
-      </View>
-    );
-
-    // ── AI card: smooth rotating gradient border (Google AI Mode style) ──
-    if (borderType === 'vibgyor' && card.isAI) {
-      const CARD_HEIGHT = 130;
-      const DIAG = Math.sqrt(Math.pow(width, 2) + Math.pow(CARD_HEIGHT, 2)) * 1.5;
-      return (
-        <PressableCard key={card.key} onPress={() => handleCardPress(card.key)} style={{ marginBottom: 16 }}>
-          <View
-            style={{
-              borderRadius: 24,
-              overflow: 'hidden',
-              shadowColor: '#A855F7',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.5,
-              shadowRadius: 16,
-              elevation: 8,
-            }}
-          >
-            {/* Rotating gradient layer */}
-            <Animated.View
-              style={{
-                position: 'absolute',
-                top: -(DIAG - CARD_HEIGHT) / 2,
-                left: -(DIAG - (width - 40)) / 2,
-                width: DIAG,
-                height: DIAG,
-                transform: [{ rotate: aiRotateDeg }],
-              }}
-            >
-              <LinearGradient
-                colors={AI_GRADIENT}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ flex: 1 }}
-              />
-            </Animated.View>
-            {/* Inner card — solid dark bg, creates border effect */}
-            <View style={{ margin: 2.5, borderRadius: 22, overflow: 'hidden' }}>
-              {cardContent}
-            </View>
-          </View>
-        </PressableCard>
-      );
-    }
-
-    // ── VIBGYOR border for non-AI cards (pro_plus user) ──
-    if (borderType === 'vibgyor') {
-      return (
-        <PressableCard key={card.key} onPress={() => handleCardPress(card.key)} style={{ marginBottom: 16 }}>
-          <LinearGradient
-            colors={VIBGYOR}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 24,
-              padding: 2,
-              shadowColor: '#FFD700',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.3,
-              shadowRadius: 10,
-              elevation: 4,
-            }}
-          >
-            {cardContent}
-          </LinearGradient>
-        </PressableCard>
-      );
-    }
-
-    // ── Default: grey border, no glow ──
     return (
       <PressableCard key={card.key} onPress={() => handleCardPress(card.key)} style={{ marginBottom: 16 }}>
         <View
           style={{
-            borderRadius: 24,
+            borderRadius: 22,
             borderWidth: 1,
-            borderColor: C.grey,
+            borderColor: C.cardBorder,
+            backgroundColor: C.card,
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 20,
           }}
         >
-          {cardContent}
+          {/* Icon */}
+          <Image
+            source={card.icon}
+            style={[
+              { width: card.iconSize ?? 44, height: card.iconSize ?? 44, marginRight: 16 },
+              card.iconTint ? { tintColor: card.iconTint } : null,
+            ]}
+            resizeMode={card.iconSize && card.iconSize >= 60 ? 'cover' : 'contain'}
+          />
+
+          {/* Text content */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, marginBottom: 4 }}>
+              {card.title}
+            </Text>
+            <Text style={{ fontSize: 13, color: C.label, marginBottom: 4 }}>{card.subtitle}</Text>
+            <Text style={{ fontSize: 11, color: C.muted }}>{card.count}</Text>
+
+            {/* AI status */}
+            {card.isAI && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                <Ionicons
+                  name={isLocked ? 'lock-closed' : 'sparkles'}
+                  size={12}
+                  color={isLocked ? '#FF6B6B' : '#FFD700'}
+                />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: isLocked ? '#FF6B6B' : '#FFD700',
+                    marginLeft: 4,
+                  }}
+                >
+                  {isLocked ? 'Locked' : 'Unlocked'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Chevron */}
+          <Ionicons name="chevron-forward" size={20} color={C.muted} />
         </View>
       </PressableCard>
     );

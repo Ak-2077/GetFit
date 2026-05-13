@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Platform, KeyboardAvoidingView } from 'react-native';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { addBrandFood, addFoodToLog, searchFoods, getFoodById, getFoodByBarcode } from '../services/api';
-import GFLoader from '../components/GFLoader';
+
 
 type FoodItem = {
   _id: string;
@@ -328,7 +328,7 @@ export default function FoodDetailsScreen() {
         <View className="px-5 pb-8">
         {loading ? (
           <View className="min-h-[320px] items-center justify-center">
-            <GFLoader fullScreen={false} size={44} message="Loading food details..." />
+            <ActivityIndicator size="large" color="#1FA463" />
           </View>
         ) : !food ? (
           <View className="min-h-[320px] items-center justify-center">

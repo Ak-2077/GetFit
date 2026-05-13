@@ -32,6 +32,7 @@ import bmbRoute from './routes/bmbRoute.js';
 import dietRoute from './routes/dietRoute.js';
 import workoutPlanRoute from './routes/workoutPlanRoute.js';
 import subscriptionRoute from './routes/subscriptionRoute.js';
+import exerciseRoute from './routes/exerciseRoute.js';
 
 app.use('/api/auth', authRoute);
 app.use('/api/food', foodRoute);
@@ -50,6 +51,7 @@ app.use('/api/bmb', bmbRoute);
 app.use('/api/diet', dietRoute);
 app.use('/api/workout-plan', workoutPlanRoute);
 app.use('/api/subscription', subscriptionRoute);
+app.use('/api/exercises', exerciseRoute);
 
 app.get("/", (req, res) => {
     res.send("Welcome to GetFit!");

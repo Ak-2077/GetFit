@@ -65,6 +65,7 @@ export const sendEmailOtpRequest = (data) => API.post('/api/auth/send-email-otp'
 export const verifyEmailOtpRequest = (data) => API.post('/api/auth/verify-email-otp', data);
 export const emailPasswordAuthRequest = (data) => API.post('/api/auth/email-auth', data);
 export const googleLoginRequest = (data) => API.post('/api/auth/google-login', data);
+export const appleLoginRequest = (data) => API.post('/api/auth/apple-login', data);
 export const getMe = () => API.get('/api/auth/me');
 export const updateProfile = (data) => API.patch('/api/auth/profile', data);
 export const changePassword = (data) => API.post('/api/auth/change-password', data);
@@ -147,6 +148,10 @@ export const getWorkoutPlan = () => API.get('/api/workout-plan/plan');
 // Subscription endpoints
 export const getSubscriptionPlans = () => API.get('/api/subscription/plans');
 export const upgradeSubscription = (plan) => API.post('/api/subscription/upgrade', { plan });
+
+// Exercise endpoints (muscle-group specific)
+export const getExercisesByMuscle = (muscleGroup) => API.get(`/api/exercises/${muscleGroup}`);
+export const getAllExercises = () => API.get('/api/exercises');
 
 export default API;
 

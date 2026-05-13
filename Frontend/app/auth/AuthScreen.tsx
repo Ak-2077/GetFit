@@ -4,7 +4,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  ImageBackground,
   Keyboard,
   Platform,
   Text,
@@ -12,8 +11,10 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ActivityIndicator,
 } from 'react-native';
-import GFLoader from '../../components/GFLoader';
+import { Video, ResizeMode } from 'expo-av';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,12 +23,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import {
   sendOtpRequest,
   verifyOtpRequest,
   emailPasswordAuthRequest,
   forgotPassword,
   googleLoginRequest,
+  appleLoginRequest,
   setAuthToken,
   getUserProfile,
 } from '../../services/api';
@@ -35,7 +38,7 @@ import {
 // Warm up browser for faster OAuth popup
 WebBrowser.maybeCompleteAuthSession();
 
-const loginBackground = require('../../assets/images/Login_image.webp');
+const loginVideo = require('../../assets/images/AILogin.mp4');
 const RESEND_COOLDOWN_SECONDS = 30;
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -126,6 +129,48 @@ export default function AuthScreen() {
       await completeAuth(token);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Google login failed';
+      setErrorText(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── APPLE AUTH ──────────────────────────────────────
+  const handleAppleLogin = async () => {
+    try {
+      setLoading(true);
+      setErrorText('');
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setErrorText('Apple sign in failed: no identity token');
+        return;
+      }
+
+      const res = await appleLoginRequest({
+        identityToken: credential.identityToken,
+        email: credential.email,
+        fullName: credential.fullName,
+        user: credential.user,
+      });
+
+      const token = res.data?.token;
+      if (!token) {
+        setErrorText('No token returned from server');
+        return;
+      }
+      await completeAuth(token);
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') {
+        // User cancelled — do nothing
+        return;
+      }
+      const msg = err?.response?.data?.message || err?.message || 'Apple sign in failed';
       setErrorText(msg);
     } finally {
       setLoading(false);
@@ -421,7 +466,7 @@ export default function AuthScreen() {
             }}
           >
             {loading ? (
-              <GFLoader fullScreen={false} size={20} />
+              <ActivityIndicator size="small" color="#000" />
             ) : (
               <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Send OTP</Text>
             )}
@@ -472,7 +517,7 @@ export default function AuthScreen() {
           }}
         >
           {loading ? (
-            <GFLoader fullScreen={false} size={20} />
+            <ActivityIndicator size="small" color="#000" />
           ) : (
             <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Verify OTP</Text>
           )}
@@ -559,7 +604,7 @@ export default function AuthScreen() {
         }}
       >
         {loading ? (
-          <GFLoader fullScreen={false} size={20} />
+          <ActivityIndicator size="small" color="#000" />
         ) : (
           <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Continue</Text>
         )}
@@ -669,7 +714,7 @@ export default function AuthScreen() {
         }}
       >
         {loading ? (
-          <GFLoader fullScreen={false} size={20} />
+          <ActivityIndicator size="small" color="#000" />
         ) : (
           <Text style={{ color: '#000', fontWeight: '700', fontSize: 16 }}>Reset Password</Text>
         )}
@@ -770,19 +815,26 @@ export default function AuthScreen() {
           <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Google</Text>
         </TouchableOpacity>
 
-        {/* Facebook */}
-        <TouchableOpacity style={{
-          width: 100,
-          height: 75,
-          backgroundColor: '#272828',
-          borderRadius: 16,
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <FontAwesome name="facebook" size={24} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Facebook</Text>
-        </TouchableOpacity>
+        {/* Apple (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            style={{
+              width: 100,
+              height: 75,
+              backgroundColor: '#272828',
+              borderRadius: 16,
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 6,
+              opacity: loading ? 0.5 : 1,
+            }}
+            disabled={loading}
+            onPress={handleAppleLogin}
+          >
+            <FontAwesome name="apple" size={26} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Apple</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );
@@ -796,35 +848,37 @@ export default function AuthScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={{ flex: 1 }}>
 
-          {/* ═══ BACKGROUND IMAGE (Hero) ═══ */}
+          {/* ═══ BACKGROUND VIDEO (Hero) ═══ */}
           <Animated.View style={{
             ...({ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as any),
             transform: [{ translateY: heroTranslateY }],
             opacity: heroOpacity,
           }}>
-            <ImageBackground
-              source={loginBackground}
-              style={{ flex: 1 }}
-              resizeMode="cover"
-            >
-              {/* Bottom gradient */}
-              <LinearGradient
-                colors={[
-                  'rgba(0, 0, 0, 0)',
-                  'rgba(0, 0, 0, 0.78)',
-                  'rgba(0, 0, 0, 0.99)',
-                  'rgba(0, 0, 0, 1)',
-                ]}
-                locations={[0, 0.6, 0.99, 1]}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                }}
-              />
-            </ImageBackground>
+            <Video
+              source={loginVideo}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping
+              isMuted
+            />
+            {/* Bottom gradient */}
+            <LinearGradient
+              colors={[
+                'rgba(0, 0, 0, 0)',
+                'rgba(0, 0, 0, 0.78)',
+                'rgba(0, 0, 0, 0.99)',
+                'rgba(0, 0, 0, 1)',
+              ]}
+              locations={[0, 0.6, 0.99, 1]}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+              }}
+            />
           </Animated.View>
 
           {/* ═══ DARK OVERLAY (appears on focus) ═══ */}

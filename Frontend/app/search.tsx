@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { globalSearch } from '../services/api';
-import GFLoader from '../components/GFLoader';
+
 
 const C = {
   bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463',
@@ -116,7 +116,7 @@ export default function SearchScreen() {
           {/* Loading */}
           {loading && (
             <View style={{ alignItems: 'center', marginTop: 60 }}>
-              <GFLoader fullScreen={false} size={32} />
+              <ActivityIndicator size="small" color="#1FA463" />
               <Text style={{ color: C.muted, fontSize: 13, marginTop: 12 }}>Searching...</Text>
             </View>
           )}

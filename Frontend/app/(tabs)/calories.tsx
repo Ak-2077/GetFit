@@ -15,6 +15,7 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   InteractionManager,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -51,7 +52,8 @@ const mealImages: Record<string, any> = {
   dinner: require('../../assets/icons/calories/dinner.png'),
   snacks: require('../../assets/icons/calories/snack.png'),
 };
-import GFLoader from '../../components/GFLoader';
+
+import { CaloriesSkeleton } from '../../components/SkeletonScreens';
 
 const C = {
   bg: '#050505',
@@ -573,9 +575,7 @@ export default function CaloriesScreen() {
 
   const suggestionExamples = ['Optimum Nutrition', 'MuscleBlaze Whey', 'Creatine', 'Oats', 'Greek Yogurt'];
 
-  if (loading) {
-    return <GFLoader message="Loading calories dashboard..." />;
-  }
+  if (loading) return <CaloriesSkeleton />;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -583,10 +583,10 @@ export default function CaloriesScreen() {
       <View style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(0,230,118,0.06)' }} />
       <View style={{ position: 'absolute', top: -20, right: -20, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(0,230,118,0.04)' }} />
 
-      {/* Custom GFLoader refresh indicator */}
+      {/* Refresh indicator */}
       {refreshing && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 99, alignItems: 'center', paddingTop: 60 }}>
-          <GFLoader fullScreen={false} size={32} message="Refreshing..." />
+          <ActivityIndicator size="small" color="#00E676" />
         </View>
       )}
 
@@ -1008,7 +1008,7 @@ export default function CaloriesScreen() {
                   style={{ color: C.text, flex: 1, marginLeft: 10, fontSize: 14 }}
                 />
                 {searchLoading ? (
-                  <GFLoader fullScreen={false} size={20} />
+                  <ActivityIndicator size="small" color="#00E676" />
                 ) : searchText.length > 0 ? (
                   <TouchableOpacity onPress={() => { setSearchText(''); setResults([]); }}>
                     <FontAwesome name="times-circle" size={16} color={C.muted} />

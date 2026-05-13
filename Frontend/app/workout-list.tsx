@@ -1,25 +1,24 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Animated,
-  Easing, Dimensions, RefreshControl,
+  Easing, Dimensions, RefreshControl, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWorkoutsByType, setAuthToken } from '../services/api';
-import GFLoader from '../components/GFLoader';
+import { WorkoutListSkeleton } from '../components/SkeletonScreens';
 
 const { width } = Dimensions.get('window');
 
 // ── Design tokens ──
 const C = {
-  bg: '#060D09',
-  card: '#0F1A13',
-  cardBorder: 'rgba(31,164,99,0.12)',
-  accent: '#1FA463',
+  bg: '#050505',
+  card: '#121212',
+  cardBorder: 'rgba(255,255,255,0.06)',
+  accent: '#0d0e0dff',
   white: '#F0F0F0',
   label: 'rgba(255,255,255,0.50)',
   muted: 'rgba(255,255,255,0.30)',
@@ -44,6 +43,16 @@ const TYPE_TITLES: Record<string, string> = {
   home: 'Home Workouts',
   gym: 'Gym Workouts',
   ai: 'AI Trainer',
+};
+
+// Body part image map for workout card thumbnails
+const BODY_PART_IMAGES: Record<string, any> = {
+  chest: require('../assets/icons/Homeworkout/chest.png'),
+  legs: require('../assets/icons/Homeworkout/Legs.png'),
+  shoulders: require('../assets/icons/Homeworkout/Shoulder.png'),
+  arms: require('../assets/icons/Homeworkout/Arms.png'),
+  back: require('../assets/icons/Homeworkout/back.png'),
+  abs: require('../assets/icons/Homeworkout/abs.png'),
 };
 
 // ── Animated press wrapper ──
@@ -115,7 +124,7 @@ export default function WorkoutListScreen() {
     }).start();
   }, [activeTab]);
 
-  if (loading) return <GFLoader message="Loading workouts..." />;
+  if (loading) return <WorkoutListSkeleton />;
 
   const planRank = PLAN_RANK[currentPlan] ?? 0;
 
@@ -125,29 +134,40 @@ export default function WorkoutListScreen() {
     return required > planRank;
   };
 
+
   // Get workouts for active tab
   const filteredWorkouts = allWorkouts.filter(w => w.level === activeTab);
+
+  // Normalize body-part values so backend 'core' matches frontend 'abs'
+  const normalizeBodyPart = (bp: string) => {
+    const lower = bp.toLowerCase();
+    if (lower === 'core') return 'abs';
+    return lower;
+  };
 
   // Map workout item to a canonical body part using name heuristics.
   const mapWorkoutToBodyPart = (w: any) => {
     if (!w) return '';
-    // Prefer explicit field if present
-    if (w.bodyPart) return String(w.bodyPart).toLowerCase();
+    // Prefer explicit field if present (normalize core→abs)
+    if (w.bodyPart) return normalizeBodyPart(String(w.bodyPart));
     const name = String(w.name || '').toLowerCase();
-    const chest = ['bench', 'push', 'fly', 'incline'];
-    const legs = ['squat', 'lunge', 'leg', 'deadlift', 'pistol', 'hack squat', 'press'];
-    const shoulders = ['shoulder', 'overhead', 'press', 'viking', 'arnold'];
-    const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'curl'];
-    const back = ['row', 'pull', 'lat', 'deadlift', 'pendlay', 'pull-ups', 'pullups', 'pulldown'];
-    const core = ['plank', 'crunch', 'situp', 'sit-up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber'];
+
+    // NOTE: Order matters! More specific matches first to avoid overlaps.
+    // e.g. 'leg raise' is abs, not legs; 'overhead press' is shoulders, not legs.
+    const abs = ['plank', 'crunch', 'situp', 'sit-up', 'sit up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber', 'abs', 'v-up', 'flutter', 'russian twist'];
+    const shoulders = ['shoulder', 'overhead press', 'military press', 'viking', 'arnold', 'lateral raise', 'front raise', 'face pull', 'shrug'];
+    const chest = ['bench', 'push-up', 'push up', 'pushup', 'fly', 'chest', 'incline press', 'decline press', 'dumbbell press'];
+    const back = ['row', 'pull-up', 'pullup', 'pull up', 'lat pulldown', 'pulldown', 'lat ', 'pendlay', 'barbell row', 'cable row', 'back '];
+    const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'hammer', 'preacher', 'concentration'];
+    const legs = ['squat', 'lunge', 'leg press', 'leg extension', 'leg curl', 'deadlift', 'pistol', 'hack squat', 'calf', 'glute', 'hip thrust'];
 
     const match = (keywords: string[]) => keywords.some(k => name.includes(k));
-    if (match(chest)) return 'chest';
-    if (match(legs)) return 'legs';
+    if (match(abs)) return 'abs';
     if (match(shoulders)) return 'shoulders';
-    if (match(arms)) return 'arms';
+    if (match(chest)) return 'chest';
     if (match(back)) return 'back';
-    if (match(core)) return 'core';
+    if (match(arms)) return 'arms';
+    if (match(legs)) return 'legs';
     return 'other';
   };
 
@@ -165,8 +185,19 @@ export default function WorkoutListScreen() {
 
   const tabWidth = (width - 52) / 3;
 
+  const bodyPartDisplay = selectedBodyPart
+    ? `${String(selectedBodyPart).charAt(0).toUpperCase()}${String(selectedBodyPart).slice(1)}`
+    : 'Body';
+
+  // Get the image for the current body part
+  const getWorkoutImage = (workout: any) => {
+    const bp = selectedBodyPart ? String(selectedBodyPart).toLowerCase() : mapWorkoutToBodyPart(workout);
+    return BODY_PART_IMAGES[bp] || BODY_PART_IMAGES.chest;
+  };
+
   const renderWorkoutCard = (workout: any, index: number, locked = false) => {
     const diff = DIFFICULTY_COLORS[workout.difficulty] || DIFFICULTY_COLORS.medium;
+    const workoutImage = getWorkoutImage(workout);
 
     if (locked) {
       return (
@@ -243,96 +274,83 @@ export default function WorkoutListScreen() {
     }
 
     return (
-      <PressableScale key={workout._id || index} style={{ marginBottom: 12 }}>
+      <PressableScale key={workout._id || index} style={{ marginBottom: 10 }}>
         <View
           style={{
-            borderRadius: 20,
+            borderRadius: 16,
             borderWidth: 1,
             borderColor: C.cardBorder,
             backgroundColor: C.card,
-            padding: 18,
+            padding: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {/* Exercise icon */}
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                backgroundColor: 'rgba(31,164,99,0.08)',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginRight: 14,
-              }}
-            >
-              <Ionicons name="barbell-outline" size={22} color={C.accent} />
-            </View>
-
-            {/* Details */}
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: C.white }}>{workout.name}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
-                {/* Duration */}
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="time-outline" size={12} color={C.label} />
-                  <Text style={{ fontSize: 11, color: C.label, marginLeft: 4 }}>{workout.duration}</Text>
-                </View>
-                {/* Difficulty badge */}
-                <View
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 6,
-                    backgroundColor: diff.bg,
-                  }}
-                >
-                  <Text style={{ fontSize: 9, fontWeight: '800', color: diff.text, textTransform: 'uppercase' }}>
-                    {workout.difficulty}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Start button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                router.push({
-                  pathname: '/workout-player',
-                  params: {
-                    workoutName: workout.name,
-                    workoutType: workoutType,
-                    workoutDuration: workout.duration,
-                    workoutDifficulty: workout.difficulty || 'medium',
-                    workoutId: workout._id || '',
-                    bodyPart: selectedBodyPart || undefined,
-                  },
-                } as any);
-              }}
-              style={{ borderRadius: 12, overflow: 'hidden' }}
-            >
-              <LinearGradient
-                colors={[C.accent, '#178A52']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>Start</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+          {/* Workout thumbnail */}
+          <View style={{ width: 64, height: 64, borderRadius: 14, overflow: 'hidden', marginRight: 12 }}>
+            <Image
+              source={workoutImage}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
           </View>
 
-          {/* Description */}
-          {workout.description ? (
-            <Text style={{ fontSize: 11, color: C.muted, marginTop: 10, lineHeight: 16 }}>
-              {workout.description}
+          {/* Details */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: C.white }} numberOfLines={1}>
+              {workout.name}
             </Text>
-          ) : null}
+
+            {/* Duration + difficulty */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <Ionicons name="time-outline" size={12} color={C.label} />
+              <Text style={{ fontSize: 11, color: C.label, marginLeft: 3, marginRight: 8 }}>{workout.duration}</Text>
+              <View
+                style={{
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 5,
+                  backgroundColor: diff.bg,
+                }}
+              >
+                <Text style={{ fontSize: 9, fontWeight: '800', color: diff.text, textTransform: 'uppercase' }}>
+                  {workout.difficulty}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Start button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              router.push({
+                pathname: '/workout-player',
+                params: {
+                  workoutName: workout.name,
+                  workoutType: workoutType,
+                  workoutDuration: workout.duration,
+                  workoutDifficulty: workout.difficulty || 'medium',
+                  workoutId: workout._id || '',
+                  bodyPart: selectedBodyPart || undefined,
+                },
+              } as any);
+            }}
+            style={{ borderRadius: 10, overflow: 'hidden', marginLeft: 8 }}
+          >
+            <LinearGradient
+              colors={[C.accent, '#178A52']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                paddingHorizontal: 18,
+                paddingVertical: 8,
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>Start</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </PressableScale>
     );
@@ -374,12 +392,27 @@ export default function WorkoutListScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '800', color: C.white }}>
-              {selectedBodyPart ? `${String(selectedBodyPart).charAt(0).toUpperCase()}${String(selectedBodyPart).slice(1)} Workouts` : (TYPE_TITLES[workoutType] || 'Workouts')}
+              {selectedBodyPart ? `${bodyPartDisplay} Workouts` : (TYPE_TITLES[workoutType] || 'Workouts')}
             </Text>
             <Text style={{ fontSize: 12, color: C.label, marginTop: 2 }}>
               {allWorkouts.length} of {totalAvailable} workouts available
             </Text>
           </View>
+          {/* Filter icon */}
+          <TouchableOpacity
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: C.card,
+              borderWidth: 1,
+              borderColor: C.cardBorder,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Ionicons name="options-outline" size={20} color={C.white} />
+          </TouchableOpacity>
         </View>
 
         {/* ═══ TABS ═══ */}
@@ -464,6 +497,7 @@ export default function WorkoutListScreen() {
             />
           }
         >
+
           {isTabLocked(activeTab) ? (
             // ── LOCKED STATE ──
             <View>
@@ -539,7 +573,46 @@ export default function WorkoutListScreen() {
             </View>
           ) : (
             // ── WORKOUT LIST ──
-            activeBodyFiltered.map((w: any, i: number) => renderWorkoutCard(w, i, false))
+            <View>
+              {activeBodyFiltered.map((w: any, i: number) => renderWorkoutCard(w, i, false))}
+
+              {/* ═══ UNLOCK PRO FOOTER (for free users) ═══ */}
+              {currentPlan === 'free' && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: C.card,
+                    borderRadius: 16,
+                    padding: 16,
+                    marginTop: 8,
+                    borderWidth: 1,
+                    borderColor: C.cardBorder,
+                  }}
+                >
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                    <Ionicons name="lock-closed" size={16} color={C.muted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: C.white }}>Unlock Pro Workouts</Text>
+                    <Text style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Access advanced workouts & training plans.</Text>
+                  </View>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/upgrade' as any)}
+                    style={{
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: C.accent,
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: C.accent }}>Upgrade</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           )}
         </ScrollView>
       </SafeAreaView>

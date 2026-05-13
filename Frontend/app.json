@@ -9,16 +9,26 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.getfit.fitness",
       "supportsTablet": true,
       "infoPlist": {
         "NSHealthShareUsageDescription": "GetFit reads your step count and active energy burned to display accurate fitness data",
-        "NSHealthUpdateUsageDescription": "GetFit does not write health data"
+        "NSHealthUpdateUsageDescription": "GetFit does not write health data",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       },
       "entitlements": {
-        "com.apple.developer.healthkit": true
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.applesignin": [
+          "Default",
+          "Default"
+        ]
       }
     },
     "android": {
+      "package": "com.getfit.fitness",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/RealLogo.png",
@@ -28,7 +38,11 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.ACTIVITY_RECOGNITION"
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -69,11 +83,25 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to update your profile picture"
         }
       ],
-      "react-native-health"
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "GetFit reads your step count and active energy burned to display accurate fitness data",
+          "NSHealthUpdateUsageDescription": "GetFit does not write health data",
+          "background": false
+        }
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a8597b82-250e-49f7-80ef-201369c9fa22"
+      }
     }
   }
 }

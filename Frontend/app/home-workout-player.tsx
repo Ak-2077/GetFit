@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { Asset } from 'expo-asset';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getWorkoutModel } from '../services/api';
-import GFLoader from '../components/GFLoader';
+
 
 type WorkoutModelResponse = {
 	mode: string;
@@ -20,6 +20,8 @@ type WorkoutModelResponse = {
 
 const LOCAL_MODEL_MAP: Record<string, number> = {
 	home_legs_situps: require('../assets/models/HomeWorkout/body-parts/legs/situps.glb'),
+	home_abs_situps: require('../assets/models/HomeWorkout/body-parts/abs/situps.glb'),
+	home_core_situps: require('../assets/models/HomeWorkout/body-parts/abs/situps.glb'),
 };
 
 export default function HomeWorkoutPlayerScreen() {
@@ -138,7 +140,7 @@ export default function HomeWorkoutPlayerScreen() {
 
 			{loading ? (
 				<View className="flex-1 items-center justify-center">
-					<GFLoader fullScreen={false} size={44} message="Loading animation..." />
+					<ActivityIndicator size="large" color="#1FA463" />
 				</View>
 			) : error ? (
 				<View className="flex-1 items-center justify-center px-6">

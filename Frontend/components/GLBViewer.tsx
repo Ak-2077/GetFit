@@ -13,7 +13,6 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Asset } from 'expo-asset';
-import GFLoader from './GFLoader';
 
 /** Convert ArrayBuffer to base64 string (no external deps) */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -162,22 +161,6 @@ export default function GLBViewer({
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
       />
-      {loading && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: 'rgba(6,13,9,0.95)',
-          }}
-        >
-          <GFLoader fullScreen={false} size={44} message="Loading 3D model..." />
-        </View>
-      )}
     </View>
   );
 }
