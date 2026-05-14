@@ -91,7 +91,8 @@
           "background": false
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
