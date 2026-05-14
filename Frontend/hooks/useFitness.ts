@@ -33,6 +33,14 @@ export interface UseFitnessResult {
   walkingCalories: number;
   /** Data source: 'healthkit' | 'pedometer' | 'backend' | 'estimated' | 'none' */
   source: FitnessSource;
+  /** Human-readable source label ("Tracked by Apple Health", etc.) */
+  sourceLabel: string;
+  /** 0–100 confidence score for the chosen calorie source */
+  confidence: number;
+  /** True when HealthKit appears denied (heuristic) */
+  permissionIssue: boolean;
+  /** True while reconciliation is holding a suspicious drop (UI may show "Syncing") */
+  isSyncing: boolean;
   /** Whether HealthKit is available on this device (iOS) */
   isHealthKitAvailable: boolean;
   /** Whether HealthKit permissions have been granted (iOS) */
@@ -41,6 +49,10 @@ export interface UseFitnessResult {
   isPedometerAvailable: boolean;
   /** Whether ACTIVITY_RECOGNITION permission has been granted (Android) */
   isPedometerAuthorized: boolean;
+  /** Whether Health Connect is available on this device (Android) */
+  isHealthConnectAvailable: boolean;
+  /** Whether Health Connect permissions have been granted (Android) */
+  isHealthConnectAuthorized: boolean;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Timestamp of last successful data update */
@@ -88,10 +100,16 @@ export function useFitness(): UseFitnessResult {
     manualCalories: state.manualCalories,
     walkingCalories: state.walkingCalories,
     source: state.source,
+    sourceLabel: state.sourceLabel,
+    confidence: state.confidence,
+    permissionIssue: state.permissionIssue,
+    isSyncing: state.isSyncing,
     isHealthKitAvailable: state.isHealthKitAvailable,
     isHealthKitAuthorized: state.isHealthKitAuthorized,
     isPedometerAvailable: state.isPedometerAvailable,
     isPedometerAuthorized: state.isPedometerAuthorized,
+    isHealthConnectAvailable: state.isHealthConnectAvailable,
+    isHealthConnectAuthorized: state.isHealthConnectAuthorized,
     isLoading: state.isLoading,
     lastUpdated: state.lastUpdated,
     refresh,

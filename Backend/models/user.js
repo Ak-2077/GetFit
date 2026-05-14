@@ -85,10 +85,21 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     // Subscription
+    // ⚠ This is a CACHE for fast reads. The Subscription collection
+    //   is the source of truth. See services/subscriptionService.js.
     subscriptionPlan: {
       type: String,
       enum: ['free', 'pro', 'pro_plus'],
       default: 'free',
+    },
+    subscriptionExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    activeSubscriptionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Subscription',
+      default: null,
     },
     // Preferences
     notificationsEnabled: {

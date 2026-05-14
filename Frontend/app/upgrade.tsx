@@ -1,196 +1,759 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+/**
+ * Upgrade Screen
+ * ────────────────────────────────────────────────────────────
+ * Real subscription flow:
+ *   1. Fetch plans + current status from /api/payments/plans
+ *   2. User selects monthly | yearly + plan tier
+ *   3. POST /api/payments/razorpay/create-order → RZP order id
+ *   4. Open Razorpay Checkout (Android only)
+ *   5. POST /api/payments/razorpay/verify → backend HMAC verifies
+ *   6. Backend activates Subscription → we refresh useSubscription
+ *
+ * Premium UX:
+ *   • Monthly / yearly toggle with savings badge
+ *   • Animated plan cards with "Most Popular" badge
+ *   • Processing modal during checkout
+ *   • Success / Failed inline result cards
+ *   • Restore Purchases button
+ *   • iOS-aware (gracefully shows "coming soon" until Phase 3)
+ * ────────────────────────────────────────────────────────────
+ */
+
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+  Alert,
+  StyleSheet,
+  Modal,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getSubscriptionPlans, upgradeSubscription, setAuthToken } from '../services/api';
+import * as Haptics from 'expo-haptics';
 
+import {
+  getPaymentPlans,
+  getUserProfile,
+  setAuthToken,
+} from '../services/api';
+import { useSubscription } from '../hooks/useSubscription';
+import RazorpayCheckoutService from '../services/payments/RazorpayCheckoutService';
+
+/* ---------- Theme ---------- */
 
 const C = {
-  bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463',
-  white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)',
-  purple: '#6A0DAD', gold: '#C8A84E',
+  bg: '#060D09',
+  card: 'rgba(20,22,24,0.92)',
+  cardBorder: 'rgba(255,255,255,0.06)',
+  accent: '#1FA463',
+  accentSoft: 'rgba(31,164,99,0.14)',
+  white: '#F0F0F0',
+  label: 'rgba(255,255,255,0.55)',
+  muted: 'rgba(255,255,255,0.40)',
+  purple: '#6A0DAD',
+  burn: '#FF6B6B',
 };
 
-const VIBGYOR: [string, string, ...string[]] = ['#8B00FF', '#4B0082', '#0000FF', '#00FF00', '#FFFF00', '#FF7F00', '#FF0000'];
+/* ---------- Types ---------- */
 
-const FALLBACK_PLANS = [
-  {
-    key: 'free', name: 'Free Plan', price: '₹0', period: 'forever',
-    features: [
-      { name: 'Basic Food Logging', included: true },
-      { name: 'Step Tracking', included: true },
-      { name: 'BMI Calculator', included: true },
-      { name: 'Weekly Workout Plan', included: true },
-      { name: 'Balance Meal Meter', included: false },
-      { name: 'AI Diet Plans', included: false },
-      { name: 'Priority Support', included: false },
-    ],
-  },
-  {
-    key: 'pro', name: 'AI Trainer Pro', price: '₹199', period: '/month', badge: 'Most Popular',
-    features: [
-      { name: 'Basic Food Logging', included: true },
-      { name: 'Step Tracking', included: true },
-      { name: 'BMI Calculator', included: true },
-      { name: 'Weekly Workout Plan', included: true },
-      { name: 'Balance Meal Meter', included: true },
-      { name: 'AI Diet Plans', included: true },
-      { name: 'Priority Support', included: false },
-    ],
-  },
-  {
-    key: 'pro_plus', name: 'AI Trainer Pro+', price: '₹399', period: '/month', badge: 'Best Value',
-    features: [
-      { name: 'Basic Food Logging', included: true },
-      { name: 'Step Tracking', included: true },
-      { name: 'BMI Calculator', included: true },
-      { name: 'Weekly Workout Plan', included: true },
-      { name: 'Balance Meal Meter', included: true },
-      { name: 'AI Diet Plans', included: true },
-      { name: 'Priority Support', included: true },
-    ],
-  },
-];
+type BillingCycle = 'monthly' | 'yearly';
+type PaymentState =
+  | { kind: 'idle' }
+  | { kind: 'processing'; planId: string }
+  | { kind: 'success'; planTier: string; expiryDate: string | null }
+  | { kind: 'failed'; reason: string }
+  | { kind: 'cancelled' };
+
+interface ServerPlan {
+  id: string;
+  tier: 'free' | 'pro' | 'pro_plus';
+  name: string;
+  billingCycle: BillingCycle | null;
+  durationDays: number | null;
+  amountPaise: number;
+  displayPrice: string;
+  period: string;
+  currency: string;
+  badge: string | null;
+  isPopular: boolean;
+  discountPercent: number;
+  trialDays: number;
+  featureList: { name: string; included: boolean }[];
+}
+
+/* ---------- Screen ---------- */
 
 export default function UpgradeScreen() {
   const router = useRouter();
+  const subscription = useSubscription();
+
+  const [plans, setPlans] = useState<ServerPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [plans, setPlans] = useState<any[]>(FALLBACK_PLANS);
-  const [currentPlan, setCurrentPlan] = useState('free');
-  const [upgrading, setUpgrading] = useState('');
+  const [billing, setBilling] = useState<BillingCycle>('monthly');
+  const [user, setUser] = useState<{ name?: string; email?: string; phone?: string } | null>(null);
+  const [paymentState, setPaymentState] = useState<PaymentState>({ kind: 'idle' });
+  const [restoring, setRestoring] = useState(false);
+
+  /* ---------- Load ---------- */
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
       if (token) setAuthToken(token);
-      const res = await getSubscriptionPlans();
-      const fetched = res.data?.plans;
-      if (fetched && fetched.length > 0) setPlans(fetched);
-      setCurrentPlan(res.data?.currentPlan || 'free');
-    } catch (err) {
-      console.warn('Failed to fetch plans, using fallback', err);
+
+      const [plansRes, profileRes] = await Promise.all([
+        getPaymentPlans(),
+        getUserProfile().catch(() => ({ data: null })),
+      ]);
+      const fetched: ServerPlan[] = plansRes.data?.plans || [];
+      setPlans(fetched);
+      if (profileRes?.data) {
+        setUser({
+          name: profileRes.data.name,
+          email: profileRes.data.email,
+          phone: profileRes.data.phone,
+        });
+      }
+    } catch (err: any) {
+      console.warn('[upgrade] failed to load plans:', err?.message);
+    } finally {
+      setLoading(false);
     }
-    finally { setLoading(false); }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+      subscription.refresh();
+    }, [load]) // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
-  const handleUpgrade = async (planKey: string) => {
-    if (planKey === currentPlan) return;
-    const planRank: Record<string, number> = { free: 0, pro: 1, pro_plus: 2 };
-    if (planRank[planKey] <= planRank[currentPlan]) {
-      Alert.alert('Info', 'You already have this plan or a higher one.');
+  /* ---------- Derived: plans visible in this billing cycle ---------- */
+
+  const visiblePlans = useMemo(
+    () => plans.filter((p) => p.tier !== 'free' && p.billingCycle === billing),
+    [plans, billing]
+  );
+
+  /* ---------- Actions ---------- */
+
+  const handlePurchase = async (plan: ServerPlan) => {
+    if (Platform.OS === 'ios') {
+      Alert.alert(
+        'Coming soon on iOS',
+        'iOS purchases via Apple In-App Purchase will be enabled in the next update. Please use an Android device for now.'
+      );
       return;
     }
+
+    if (!RazorpayCheckoutService.isAvailable()) {
+      Alert.alert(
+        'Razorpay unavailable',
+        'The Razorpay native module is not bundled in this dev client. Run `npx expo prebuild` after installing react-native-razorpay, then rebuild the dev client.'
+      );
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setPaymentState({ kind: 'processing', planId: plan.id });
+
+    const result = await RazorpayCheckoutService.purchase(plan.id, user || {});
+
+    if (result.kind === 'success') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setPaymentState({
+        kind: 'success',
+        planTier: result.planTier,
+        expiryDate: result.expiryDate,
+      });
+      // Refresh entitlement everywhere.
+      await subscription.refresh();
+    } else if (result.kind === 'cancelled') {
+      setPaymentState({ kind: 'cancelled' });
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setPaymentState({ kind: 'failed', reason: result.reason });
+    }
+  };
+
+  const handleRestore = async () => {
+    setRestoring(true);
     try {
-      setUpgrading(planKey);
-      await upgradeSubscription(planKey);
-      setCurrentPlan(planKey);
-      Alert.alert('Success', 'Plan upgraded successfully!');
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Upgrade failed');
-    } finally { setUpgrading(''); }
+      const r = await subscription.restore();
+      Alert.alert(r.ok ? 'Subscription restored' : 'No active subscription', r.message);
+    } finally {
+      setRestoring(false);
+    }
   };
 
-  const getCardStyle = (key: string) => {
-    if (key === 'pro_plus') return { borderColor: '#FF7F00', bg: ['rgba(139,0,255,0.08)', 'rgba(255,0,0,0.04)'] as [string, string] };
-    if (key === 'pro') return { borderColor: C.purple, bg: ['rgba(106,13,173,0.08)', 'rgba(106,13,173,0.02)'] as [string, string] };
-    return { borderColor: C.cardBorder, bg: [C.card, C.card] as [string, string] };
-  };
+  /* ---------- Render ---------- */
 
-  if (loading) return <View style={{ flex: 1, backgroundColor: '#060D09', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#1FA463" /></View>;
+  if (loading) {
+    return (
+      <View style={[styles.center, { backgroundColor: C.bg }]}>
+        <ActivityIndicator size="large" color={C.accent} />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <View style={styles.glow} />
+
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingBottom: 16 }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-              <Ionicons name="chevron-back" size={20} color={C.white} />
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                router.back();
+              }}
+              style={styles.backBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={22} color={C.white} />
             </TouchableOpacity>
-            <View>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: C.white }}>Choose Your Plan</Text>
-              <Text style={{ fontSize: 12, color: C.label, marginTop: 2 }}>Unlock premium fitness features</Text>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.title}>Choose Your Plan</Text>
+              <Text style={styles.subtitle}>
+                Unlock premium features and reach your goals faster
+              </Text>
             </View>
           </View>
 
-          {/* Plans */}
-          {plans.map((plan) => {
-            const isCurrent = plan.key === currentPlan;
-            const style = getCardStyle(plan.key);
-            return (
-              <View key={plan.key} style={{ marginBottom: 16, borderRadius: 20, borderWidth: 1.5, borderColor: isCurrent ? C.accent : style.borderColor, overflow: 'hidden' }}>
-                <LinearGradient colors={style.bg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 20, borderRadius: 18 }}>
-                  {/* Badge */}
-                  {plan.badge && (
-                    <View style={{ alignSelf: 'flex-start', marginBottom: 12 }}>
-                      <LinearGradient
-                        colors={plan.key === 'pro_plus' ? VIBGYOR.slice(0, 3) as [string, string, ...string[]] : [C.purple, '#9B59B6']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 }}>
-                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{plan.badge}</Text>
-                      </LinearGradient>
-                    </View>
-                  )}
-
-                  {/* Title + Price */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
-                    <View>
-                      <Text style={{ color: C.white, fontSize: 20, fontWeight: '800' }}>{plan.name}</Text>
-                      {isCurrent && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
-                          <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '600' }}>Current Plan</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ color: C.white, fontSize: 28, fontWeight: '800' }}>{plan.price}</Text>
-                      <Text style={{ color: C.muted, fontSize: 11 }}>{plan.period}</Text>
-                    </View>
-                  </View>
-
-                  {/* Features */}
-                  {plan.features.map((feat: any, i: number) => (
-                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: feat.included ? 'rgba(31,164,99,0.12)' : 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                        <Ionicons name={feat.included ? 'checkmark' : 'close'} size={12} color={feat.included ? C.accent : 'rgba(255,255,255,0.15)'} />
-                      </View>
-                      <Text style={{ color: feat.included ? C.white : C.muted, fontSize: 13, fontWeight: feat.included ? '500' : '400' }}>{feat.name}</Text>
-                    </View>
-                  ))}
-
-                  {/* CTA */}
-                  {isCurrent ? (
-                    <View style={{ height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', marginTop: 8 }}>
-                      <Text style={{ color: C.muted, fontSize: 14, fontWeight: '600' }}>Current Plan</Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => handleUpgrade(plan.key)} disabled={!!upgrading} style={{ borderRadius: 14, overflow: 'hidden', marginTop: 8 }}>
-                      <LinearGradient
-                        colors={plan.key === 'pro_plus' ? ['#FF7F00', '#FF0000'] : plan.key === 'pro' ? [C.purple, '#9B59B6'] : [C.accent, '#178A52']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{ height: 46, justifyContent: 'center', alignItems: 'center', borderRadius: 14 }}>
-                        {upgrading === plan.key ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Upgrade to {plan.name}</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
-                </LinearGradient>
+          {/* Current plan banner */}
+          {subscription.isPremium && (
+            <View style={styles.currentBanner}>
+              <Ionicons name="shield-checkmark" size={18} color={C.accent} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.currentTitle}>
+                  You're on {subscription.tier === 'pro_plus' ? 'Pro+' : 'Pro'}
+                </Text>
+                {subscription.expiryDate && (
+                  <Text style={styles.currentSub}>
+                    Renews on {subscription.expiryDate.toLocaleDateString()}
+                  </Text>
+                )}
               </View>
-            );
-          })}
+            </View>
+          )}
+
+          {/* Billing toggle */}
+          <BillingToggle value={billing} onChange={setBilling} plans={plans} />
+
+          {/* Plan cards */}
+          {visiblePlans.length === 0 ? (
+            <View style={[styles.center, { paddingVertical: 40 }]}>
+              <Text style={{ color: C.muted, fontSize: 13 }}>No plans available right now.</Text>
+            </View>
+          ) : (
+            visiblePlans.map((plan) => {
+              const isCurrent =
+                subscription.planId === plan.id ||
+                (subscription.tier === plan.tier && subscription.billingCycle === plan.billingCycle);
+              return (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  isCurrent={isCurrent}
+                  onPurchase={() => handlePurchase(plan)}
+                />
+              );
+            })
+          )}
+
+          {/* Secure indicator */}
+          <View style={styles.secureRow}>
+            <Ionicons name="lock-closed" size={12} color={C.muted} />
+            <Text style={styles.secureText}>
+              Secure payments processed by Razorpay · 256-bit encryption
+            </Text>
+          </View>
+
+          {/* Restore */}
+          <TouchableOpacity
+            onPress={handleRestore}
+            disabled={restoring}
+            style={styles.restoreBtn}
+            activeOpacity={0.8}
+          >
+            {restoring ? (
+              <ActivityIndicator size="small" color={C.label} />
+            ) : (
+              <Text style={styles.restoreText}>Restore Purchases</Text>
+            )}
+          </TouchableOpacity>
+
+          <Text style={styles.legal}>
+            Subscriptions auto-renew at the displayed price unless cancelled at
+            least 24h before the renewal date. Manage in your account settings.
+          </Text>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Result modal */}
+      <PaymentResultModal
+        state={paymentState}
+        onClose={() => setPaymentState({ kind: 'idle' })}
+        onDone={() => {
+          setPaymentState({ kind: 'idle' });
+          router.back();
+        }}
+      />
     </View>
   );
 }
+
+/* ---------- Components ---------- */
+
+const BillingToggle: React.FC<{
+  value: BillingCycle;
+  onChange: (v: BillingCycle) => void;
+  plans: ServerPlan[];
+}> = ({ value, onChange, plans }) => {
+  // Compute % savings of yearly vs 12× monthly for the Pro tier (display hint).
+  const proMonthly = plans.find((p) => p.id === 'pro_monthly')?.amountPaise || 0;
+  const proYearly = plans.find((p) => p.id === 'pro_yearly')?.amountPaise || 0;
+  const savings =
+    proMonthly > 0 && proYearly > 0
+      ? Math.round(100 - (proYearly / (proMonthly * 12)) * 100)
+      : 0;
+
+  return (
+    <View style={styles.toggleWrap}>
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          onChange('monthly');
+        }}
+        style={[
+          styles.toggleSeg,
+          value === 'monthly' && { backgroundColor: C.accentSoft, borderColor: C.accent },
+        ]}
+      >
+        <Text
+          style={[
+            styles.toggleText,
+            value === 'monthly' && { color: '#fff' },
+          ]}
+        >
+          Monthly
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          onChange('yearly');
+        }}
+        style={[
+          styles.toggleSeg,
+          value === 'yearly' && { backgroundColor: C.accentSoft, borderColor: C.accent },
+        ]}
+      >
+        <Text
+          style={[
+            styles.toggleText,
+            value === 'yearly' && { color: '#fff' },
+          ]}
+        >
+          Yearly
+        </Text>
+        {savings > 0 && (
+          <View style={styles.saveBadge}>
+            <Text style={styles.saveText}>Save {savings}%</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const PlanCard: React.FC<{
+  plan: ServerPlan;
+  isCurrent: boolean;
+  onPurchase: () => void;
+}> = ({ plan, isCurrent, onPurchase }) => {
+  const isProPlus = plan.tier === 'pro_plus';
+  const accent = isProPlus ? '#FF7F00' : C.accent;
+  const gradientColors: [string, string] = isProPlus
+    ? ['rgba(255,127,0,0.10)', 'rgba(255,107,107,0.04)']
+    : ['rgba(31,164,99,0.10)', 'rgba(31,164,99,0.02)'];
+
+  return (
+    <View
+      style={[
+        styles.planCard,
+        {
+          borderColor: isCurrent ? C.accent : `${accent}40`,
+          borderWidth: plan.isPopular || isCurrent ? 1.5 : 1,
+        },
+      ]}
+    >
+      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 20 }}>
+        {/* Badge */}
+        {plan.badge && (
+          <View style={[styles.badge, { backgroundColor: `${accent}25`, borderColor: `${accent}80` }]}>
+            <Text style={[styles.badgeText, { color: accent }]}>{plan.badge}</Text>
+          </View>
+        )}
+
+        {/* Title + price */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, marginTop: plan.badge ? 0 : 4 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.planName}>{plan.name}</Text>
+            {isCurrent && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
+                <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>Current Plan</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.planPrice, { color: '#fff' }]}>{plan.displayPrice}</Text>
+            <Text style={styles.planPeriod}>{plan.period}</Text>
+          </View>
+        </View>
+
+        {/* Features */}
+        {plan.featureList.map((feat, i) => (
+          <View key={i} style={styles.featureRow}>
+            <View
+              style={[
+                styles.featureIcon,
+                { backgroundColor: feat.included ? `${accent}20` : 'rgba(255,255,255,0.04)' },
+              ]}
+            >
+              <Ionicons
+                name={feat.included ? 'checkmark' : 'close'}
+                size={12}
+                color={feat.included ? accent : 'rgba(255,255,255,0.20)'}
+              />
+            </View>
+            <Text
+              style={[
+                styles.featureText,
+                { color: feat.included ? C.white : C.muted },
+              ]}
+            >
+              {feat.name}
+            </Text>
+          </View>
+        ))}
+
+        {/* CTA */}
+        {isCurrent ? (
+          <View style={styles.ctaCurrent}>
+            <Text style={{ color: C.muted, fontSize: 14, fontWeight: '600' }}>Active</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onPurchase}
+            style={[styles.cta, { backgroundColor: accent }]}
+          >
+            <Ionicons name="flash" size={14} color="#fff" />
+            <Text style={styles.ctaText}>
+              Subscribe – {plan.displayPrice}
+              {plan.period}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </LinearGradient>
+    </View>
+  );
+};
+
+const PaymentResultModal: React.FC<{
+  state: PaymentState;
+  onClose: () => void;
+  onDone: () => void;
+}> = ({ state, onClose, onDone }) => {
+  const visible = state.kind !== 'idle';
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          {state.kind === 'processing' && (
+            <>
+              <ActivityIndicator size="large" color={C.accent} />
+              <Text style={styles.modalTitle}>Processing payment…</Text>
+              <Text style={styles.modalBody}>
+                Please don't close the app. We're verifying your payment securely.
+              </Text>
+            </>
+          )}
+
+          {state.kind === 'success' && (
+            <>
+              <View style={[styles.iconCircle, { backgroundColor: C.accentSoft, borderColor: C.accent }]}>
+                <Ionicons name="checkmark" size={36} color={C.accent} />
+              </View>
+              <Text style={styles.modalTitle}>Welcome to Premium!</Text>
+              <Text style={styles.modalBody}>
+                Your {state.planTier === 'pro_plus' ? 'Pro+' : 'Pro'} subscription is now active.
+                {state.expiryDate ? `\nValid until ${new Date(state.expiryDate).toLocaleDateString()}.` : ''}
+              </Text>
+              <TouchableOpacity onPress={onDone} style={[styles.modalBtn, { backgroundColor: C.accent }]}>
+                <Text style={styles.modalBtnText}>Start exploring</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {state.kind === 'failed' && (
+            <>
+              <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,107,107,0.14)', borderColor: C.burn }]}>
+                <Ionicons name="close" size={36} color={C.burn} />
+              </View>
+              <Text style={styles.modalTitle}>Payment failed</Text>
+              <Text style={styles.modalBody}>{state.reason}</Text>
+              <TouchableOpacity onPress={onClose} style={[styles.modalBtn, { backgroundColor: C.burn }]}>
+                <Text style={styles.modalBtnText}>Try again</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {state.kind === 'cancelled' && (
+            <>
+              <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.20)' }]}>
+                <Ionicons name="close-circle-outline" size={36} color={C.muted} />
+              </View>
+              <Text style={styles.modalTitle}>Payment cancelled</Text>
+              <Text style={styles.modalBody}>
+                You cancelled the payment. Your selection is preserved — try again anytime.
+              </Text>
+              <TouchableOpacity onPress={onClose} style={[styles.modalBtn, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+                <Text style={[styles.modalBtnText, { color: C.white }]}>Close</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+/* ---------- Styles ---------- */
+
+const styles = StyleSheet.create({
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  glow: {
+    position: 'absolute',
+    top: -120,
+    right: -120,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: 'rgba(31,164,99,0.06)',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 18,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: { fontSize: 22, fontWeight: '800', color: C.white, letterSpacing: -0.3 },
+  subtitle: { fontSize: 12, color: C.label, marginTop: 4 },
+
+  currentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.accentSoft,
+    borderColor: `${C.accent}55`,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+  },
+  currentTitle: { color: C.white, fontSize: 13, fontWeight: '700' },
+  currentSub: { color: C.label, fontSize: 11, marginTop: 2 },
+
+  toggleWrap: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  toggleSeg: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    gap: 8,
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.label,
+    letterSpacing: 0.2,
+  },
+  saveBadge: {
+    backgroundColor: C.accent,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  saveText: { color: '#0B0B0B', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+
+  planCard: {
+    marginBottom: 14,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: C.card,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 7,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  badgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  planName: { color: C.white, fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
+  planPrice: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  planPeriod: { color: C.muted, fontSize: 11, fontWeight: '500', marginTop: 2 },
+
+  featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  featureIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  featureText: { fontSize: 13, fontWeight: '500' },
+
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 14,
+    marginTop: 12,
+    gap: 8,
+  },
+  ctaText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
+  ctaCurrent: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+
+  secureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 22,
+    gap: 6,
+  },
+  secureText: { fontSize: 11, color: C.muted, fontWeight: '500' },
+
+  restoreBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  restoreText: {
+    color: C.label,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  legal: {
+    color: C.muted,
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 18,
+    paddingHorizontal: 20,
+    lineHeight: 15,
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#0F1116',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  iconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  modalTitle: {
+    color: C.white,
+    fontSize: 19,
+    fontWeight: '800',
+    marginTop: 6,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  modalBody: {
+    color: C.label,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 18,
+  },
+  modalBtn: {
+    width: '100%',
+    height: 46,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBtnText: { color: '#0B0B0B', fontSize: 14, fontWeight: '700' },
+});
