@@ -14,7 +14,9 @@
 
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { HealthKitService } from './HealthKitService';
+import { HealthConnectService } from './HealthConnectService';
 import { AndroidPedometerService } from './AndroidPedometerService';
+import { AndroidFitnessDiagnostics } from './AndroidFitnessDiagnostics';
 import { StepManager } from './StepManager';
 import { CalorieManager } from './CalorieManager';
 import { FitnessStore } from './FitnessStore';
@@ -70,7 +72,7 @@ class _FitnessService {
     if (Platform.OS === 'ios') {
       await this._initializeHealthKit();
     } else if (Platform.OS === 'android') {
-      await this._initializeAndroidPedometer();
+      await this._initializeAndroidFitness();
     }
 
     // Set up day boundary tracking
@@ -261,28 +263,108 @@ class _FitnessService {
   }
 
   /**
-   * Initialize Android Pedometer (TYPE_STEP_COUNTER via expo-sensors).
+   * Initialize Android fitness data pipeline.
+   * Priority: Health Connect → Pedometer watcher → BMR fallback.
+   * Runs a full capability probe first so logs explain the chosen path.
    */
-  private async _initializeAndroidPedometer(): Promise<void> {
+  private async _initializeAndroidFitness(): Promise<void> {
+    // Diagnostic probe — emits structured [AndroidFitness] logs explaining
+    // why a given device behaves the way it does. Cached for debug UIs.
+    const report = await AndroidFitnessDiagnostics.runFullProbe();
+
+    // ── 1. Try Health Connect first (preferred modern solution) ──
+    const hcAvailable = await HealthConnectService.isAvailable();
+    FitnessStore.update({ isHealthConnectAvailable: hcAvailable });
+
+    if (hcAvailable) {
+      const hcInitialized = await HealthConnectService.initialize();
+      if (hcInitialized) {
+        // Only CHECK existing permissions during init — never auto-prompt.
+        // The native HealthConnectPermissionDelegate's Activity result
+        // launcher (lateinit requestPermission) isn't registered until the
+        // Activity is fully created, so calling requestPermission() during
+        // early init crashes with UninitializedPropertyAccessException.
+        // The user can trigger the permission dialog via the
+        // AndroidActivityPermissionCard recovery UI.
+        const hcAuthorized = await HealthConnectService.getPermissionStatus();
+        FitnessStore.update({ isHealthConnectAuthorized: hcAuthorized });
+
+        if (hcAuthorized) {
+          console.log(
+            '[FitnessService] Health Connect ready — using as primary Android data source'
+          );
+          // HC provides persistent historical data, so we don't strictly
+          // need the pedometer watcher. But we start it anyway as a
+          // supplementary real-time signal for faster UI updates.
+          await this._initializeAndroidPedometerFallback(report);
+          return;
+        } else {
+          console.log(
+            '[FitnessService] Health Connect available but not authorized — ' +
+              'UI should show recovery card'
+          );
+        }
+      }
+    } else {
+      console.log(
+        '[FitnessService] Health Connect not available — trying pedometer'
+      );
+      FitnessStore.update({ isHealthConnectAuthorized: false });
+    }
+
+    // ── 2. Fall back to pedometer watcher ──
+    await this._initializeAndroidPedometerFallback(report);
+  }
+
+  /**
+   * Initialize Android Pedometer (TYPE_STEP_COUNTER via expo-sensors).
+   * Used as primary source when Health Connect is unavailable, or as a
+   * supplementary real-time signal alongside Health Connect.
+   */
+  private async _initializeAndroidPedometerFallback(
+    report: Awaited<ReturnType<typeof AndroidFitnessDiagnostics.runFullProbe>>
+  ): Promise<void> {
     const isAvailable = await AndroidPedometerService.isAvailable();
     FitnessStore.update({ isPedometerAvailable: isAvailable });
 
     if (!isAvailable) {
-      console.log('[FitnessService] Android pedometer not available on this device');
+      console.log(
+        '[FitnessService] Android pedometer not available — falling back to BMR estimation only'
+      );
       return;
     }
 
-    // Request ACTIVITY_RECOGNITION permission
-    const authorized = await AndroidPedometerService.requestPermissions();
+    // Request / re-check ACTIVITY_RECOGNITION runtime permission.
+    const previouslyGranted = await AndroidPedometerService.getPermissionStatus();
+    const authorized = previouslyGranted
+      ? true
+      : await AndroidPedometerService.requestPermissions();
     FitnessStore.update({ isPedometerAuthorized: authorized });
 
-    if (authorized) {
-      // Start real-time step watcher for live UI updates
-      this._startPedometerWatcher();
-      console.log('[FitnessService] Android pedometer initialized + watcher started');
-    } else {
-      console.log('[FitnessService] Android pedometer permission denied');
+    if (!authorized) {
+      console.log(
+        '[FitnessService] ACTIVITY_RECOGNITION denied — UI should show recovery card. ' +
+          `(diagnostic recommendation: ${report.recommendedAction})`
+      );
+      return;
     }
+
+    // Start the persisted-baseline watcher. Live updates land in
+    // FitnessStore via the callback → triggers a debounced refresh so
+    // the UI moves while the user walks.
+    await AndroidPedometerService.startWatcher((todayTotal) => {
+      const now = Date.now();
+      if (now - this._lastRefresh > 3000) {
+        this.refreshAll(true);
+      } else {
+        // Lightweight in-place update so the steps tile updates between
+        // resolver runs without paying the full refresh cost.
+        FitnessStore.update({ steps: todayTotal });
+      }
+    });
+    console.log(
+      `[FitnessService] Android pedometer ready (vendor-risk=${report.vendorRestrictionRisk})`
+    );
   }
 
   /* ── Internal ── */
@@ -302,15 +384,17 @@ class _FitnessService {
   }
 
   /**
-   * Start the Android real-time step watcher.
-   * Each step event triggers a debounced refresh so the UI updates live while walking.
+   * Start (or restart) the Android persisted-baseline step watcher.
+   * Each accepted event pushes today's running total into FitnessStore;
+   * after 3s of quiet we issue a full debounced refresh.
    */
   private _startPedometerWatcher(): void {
-    AndroidPedometerService.watchSteps((_steps: number) => {
-      // Step event received — trigger a refresh (debounced internally)
+    void AndroidPedometerService.startWatcher((todayTotal) => {
       const now = Date.now();
       if (now - this._lastRefresh > 3000) {
         this.refreshAll(true);
+      } else {
+        FitnessStore.update({ steps: todayTotal });
       }
     });
   }
@@ -321,8 +405,12 @@ class _FitnessService {
       this._checkDayBoundary();
 
       // Restart Android pedometer watcher on foreground return
-      if (Platform.OS === 'android' && AndroidPedometerService.authorized) {
-        this._startPedometerWatcher();
+      if (Platform.OS === 'android') {
+        if (AndroidPedometerService.authorized) {
+          this._startPedometerWatcher();
+        }
+        // Force a refresh to pull latest HC data (accumulated while backgrounded)
+        this.refreshAll(true);
       }
     } else if (state === 'background') {
       console.log('[FitnessService] App moved to background');

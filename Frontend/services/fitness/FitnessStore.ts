@@ -18,7 +18,7 @@ import {
 
 /* ---------- Types ---------- */
 
-export type FitnessSource = 'healthkit' | 'pedometer' | 'backend' | 'estimated' | 'none';
+export type FitnessSource = 'healthkit' | 'health_connect' | 'pedometer' | 'backend' | 'estimated' | 'none';
 
 export interface FitnessState {
   steps: number;
@@ -42,6 +42,8 @@ export interface FitnessState {
   lastUpdated: number;
   isHealthKitAvailable: boolean;
   isHealthKitAuthorized: boolean;
+  isHealthConnectAvailable: boolean;
+  isHealthConnectAuthorized: boolean;
   isPedometerAvailable: boolean;
   isPedometerAuthorized: boolean;
   isLoading: boolean;
@@ -70,6 +72,8 @@ const INITIAL_STATE: FitnessState = {
   lastUpdated: 0,
   isHealthKitAvailable: false,
   isHealthKitAuthorized: false,
+  isHealthConnectAvailable: false,
+  isHealthConnectAuthorized: false,
   isPedometerAvailable: false,
   isPedometerAuthorized: false,
   isLoading: true,
@@ -154,7 +158,7 @@ class _FitnessStore {
         `[FitnessStore] Day boundary detected: ${this._lastDayKey} → ${currentDay} — resetting`
       );
       this._lastDayKey = currentDay;
-      this._state = { ...INITIAL_STATE, isHealthKitAvailable: this._state.isHealthKitAvailable, isHealthKitAuthorized: this._state.isHealthKitAuthorized, isPedometerAvailable: this._state.isPedometerAvailable, isPedometerAuthorized: this._state.isPedometerAuthorized };
+      this._state = { ...INITIAL_STATE, isHealthKitAvailable: this._state.isHealthKitAvailable, isHealthKitAuthorized: this._state.isHealthKitAuthorized, isHealthConnectAvailable: this._state.isHealthConnectAvailable, isHealthConnectAuthorized: this._state.isHealthConnectAuthorized, isPedometerAvailable: this._state.isPedometerAvailable, isPedometerAuthorized: this._state.isPedometerAuthorized };
     }
 
     const next = { ...this._state };
@@ -254,6 +258,8 @@ class _FitnessStore {
     if (partial.permissionIssue !== undefined) next.permissionIssue = partial.permissionIssue;
     if (partial.isHealthKitAvailable !== undefined) next.isHealthKitAvailable = partial.isHealthKitAvailable;
     if (partial.isHealthKitAuthorized !== undefined) next.isHealthKitAuthorized = partial.isHealthKitAuthorized;
+    if (partial.isHealthConnectAvailable !== undefined) next.isHealthConnectAvailable = partial.isHealthConnectAvailable;
+    if (partial.isHealthConnectAuthorized !== undefined) next.isHealthConnectAuthorized = partial.isHealthConnectAuthorized;
     if (partial.isPedometerAvailable !== undefined) next.isPedometerAvailable = partial.isPedometerAvailable;
     if (partial.isPedometerAuthorized !== undefined) next.isPedometerAuthorized = partial.isPedometerAuthorized;
     if (partial.isLoading !== undefined) next.isLoading = partial.isLoading;

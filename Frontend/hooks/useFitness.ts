@@ -49,6 +49,10 @@ export interface UseFitnessResult {
   isPedometerAvailable: boolean;
   /** Whether ACTIVITY_RECOGNITION permission has been granted (Android) */
   isPedometerAuthorized: boolean;
+  /** Whether Health Connect is available on this device (Android) */
+  isHealthConnectAvailable: boolean;
+  /** Whether Health Connect permissions have been granted (Android) */
+  isHealthConnectAuthorized: boolean;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Timestamp of last successful data update */
@@ -104,6 +108,8 @@ export function useFitness(): UseFitnessResult {
     isHealthKitAuthorized: state.isHealthKitAuthorized,
     isPedometerAvailable: state.isPedometerAvailable,
     isPedometerAuthorized: state.isPedometerAuthorized,
+    isHealthConnectAvailable: state.isHealthConnectAvailable,
+    isHealthConnectAuthorized: state.isHealthConnectAuthorized,
     isLoading: state.isLoading,
     lastUpdated: state.lastUpdated,
     refresh,

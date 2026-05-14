@@ -88,6 +88,34 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
+    // ── Idempotency: reuse a recent pending order for the same plan ──
+    // If the user taps "Subscribe" multiple times within 30 minutes,
+    // return the existing Razorpay order instead of creating duplicates.
+    const PENDING_REUSE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+    const existingPending = await Subscription.findOne({
+      userId,
+      planId: plan.id,
+      status: 'pending',
+      createdAt: { $gte: new Date(Date.now() - PENDING_REUSE_WINDOW_MS) },
+    }).sort({ createdAt: -1 });
+
+    if (existingPending?.razorpayOrderId) {
+      console.log(
+        `[payments] reusing pending order ${existingPending.razorpayOrderId} for user ${userId} / plan ${plan.id}`
+      );
+      return res.status(200).json({
+        orderId: existingPending.razorpayOrderId,
+        amount: plan.amountPaise,
+        currency: plan.currency,
+        keyId: getPublicKeyId(),
+        planId: plan.id,
+        planName: plan.name,
+        displayPrice: plan.displayPrice,
+        period: plan.period,
+        reused: true,
+      });
+    }
+
     // Create a Razorpay order with server-resolved amount.
     const receipt = `gf_${Date.now()}_${userId.toString().slice(-6)}`;
     const order = await createOrder({

@@ -6,7 +6,9 @@
  */
 
 export { HealthKitService } from './HealthKitService';
+export { HealthConnectService } from './HealthConnectService';
 export { AndroidPedometerService } from './AndroidPedometerService';
+export { AndroidFitnessDiagnostics } from './AndroidFitnessDiagnostics';
 export { PedometerService } from './PedometerService';
 export { StepManager } from './StepManager';
 export { CalorieManager } from './CalorieManager';
@@ -39,8 +41,19 @@ export type {
 } from './HealthKitService';
 
 export type {
+  HealthConnectStepResult,
+  HealthConnectCalorieResult,
+  HealthConnectDistanceResult,
+} from './HealthConnectService';
+
+export type {
   PedometerStepResult,
 } from './AndroidPedometerService';
+
+export type {
+  AndroidFitnessReport,
+  ProbeStatus,
+} from './AndroidFitnessDiagnostics';
 
 export type {
   FitnessState,
@@ -50,4 +63,3 @@ export type {
 
 export type { StepResult } from './StepManager';
 export type { CalorieResult } from './CalorieManager';
-

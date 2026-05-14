@@ -13,6 +13,7 @@
 
 import { Platform } from 'react-native';
 import { Pedometer } from 'expo-sensors';
+import { AndroidPedometerService } from './AndroidPedometerService';
 
 export interface PedometerStepReading {
   steps: number;
@@ -54,6 +55,7 @@ class _PedometerService {
   /**
    * Probe current permission status without prompting (best effort).
    * iOS: NSMotionUsageDescription / Motion & Fitness toggle.
+   * Android: ACTIVITY_RECOGNITION runtime permission.
    */
   async getPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined' | 'unsupported'> {
     if (!(await this.isAvailable())) return 'unsupported';
@@ -70,8 +72,25 @@ class _PedometerService {
   /**
    * Total steps from local midnight to now. Returns null if unavailable
    * or permission denied.
+   *
+   * iOS path:   uses CMPedometer historical range query (accurate).
+   * Android path: delegates to AndroidPedometerService which reads the
+   *               persisted watcher baseline — getStepCountAsync is
+   *               broken on Android (TYPE_STEP_COUNTER has no range API).
    */
   async getStepsToday(): Promise<PedometerStepReading | null> {
+    // ── Android: use the baseline-tracking service ──
+    if (Platform.OS === 'android') {
+      const r = await AndroidPedometerService.getStepsToday();
+      if (!r) return null;
+      return {
+        steps: Math.max(0, Math.round(r.value)),
+        startDate: r.startDate,
+        endDate: r.endDate,
+      };
+    }
+
+    // ── iOS: CMPedometer range query ──
     if (!(await this.isAvailable())) return null;
 
     const start = startOfLocalDay();
@@ -87,7 +106,6 @@ class _PedometerService {
         endDate: end.toISOString(),
       };
     } catch (e: any) {
-      // Common failure: permission denied → expo-sensors throws
       console.warn('[Pedometer] getStepCountAsync failed:', e?.message || e);
       this._permissionGranted = false;
       return null;
@@ -95,10 +113,15 @@ class _PedometerService {
   }
 
   /**
-   * Steps over the trailing N days (used by Resolver as a sanity check
-   * to detect HealthKit denial: pedometer > 0 but HK = 0 ⇒ HK denied).
+   * Steps over the trailing N days. iOS only — used by the resolver
+   * to detect HealthKit permission denial.
+   *
+   * Android cannot answer historical range queries via TYPE_STEP_COUNTER
+   * and never participates in the iOS-only HK-denial heuristic, so we
+   * intentionally return null on Android instead of calling a broken API.
    */
   async getStepsTrailingDays(days: number): Promise<number | null> {
+    if (Platform.OS !== 'ios') return null;
     if (!(await this.isAvailable())) return null;
     const end = new Date();
     const start = new Date(end.getTime() - Math.max(1, days) * 24 * 60 * 60 * 1000);

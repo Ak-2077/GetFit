@@ -38,6 +38,7 @@ import {
 import { useFitness } from '../../hooks/useFitness';
 import { FitnessService } from '../../services/fitness';
 import { HealthKitPermissionCard } from '../../components/HealthKitPermissionCard';
+import { AndroidActivityPermissionCard } from '../../components/AndroidActivityPermissionCard';
 
 const BarcodeIcon: Record<string, any> = {
   barcode: require('../../assets/icons/calories/barcode.png'),
@@ -728,33 +729,13 @@ export default function CaloriesScreen() {
               </TouchableOpacity>
             </View>
           )}
-          {/* Android: Pedometer not authorized */}
-          {(Platform.OS === 'android' && fitness.isPedometerAvailable && !fitness.isPedometerAuthorized) && (
-            <View style={{
-              backgroundColor: C.card, borderRadius: 18, borderWidth: 1,
-              borderColor: 'rgba(255,170,50,0.2)', padding: 16, marginTop: 12,
-              flexDirection: 'row', alignItems: 'center',
-            }}>
-              <View style={{
-                width: 42, height: 42, borderRadius: 12,
-                backgroundColor: 'rgba(0,230,118,0.12)',
-                justifyContent: 'center', alignItems: 'center', marginRight: 14,
-              }}>
-                <FontAwesome name="heartbeat" size={18} color={C.accent} />
-              </View>
-              <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>Activity Tracking</Text>
-                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2, lineHeight: 15 }}>Enable step counter for accurate steps and calorie burn data</Text>
-              </View>
-              <TouchableOpacity onPress={handleRequestHealthKit} activeOpacity={0.8}
-                style={{
-                  backgroundColor: C.accent, borderRadius: 10,
-                  paddingHorizontal: 14, paddingVertical: 8,
-                }}>
-                <Text style={{ color: '#050505', fontSize: 12, fontWeight: '700' }}>Enable</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Android: Activity tracking recovery card (Health Connect / Pedometer) */}
+          <AndroidActivityPermissionCard
+            permissionIssue={fitness.permissionIssue}
+            isHealthConnectAvailable={fitness.isHealthConnectAvailable}
+            isHealthConnectAuthorized={fitness.isHealthConnectAuthorized}
+            onEnabled={() => loadData(true)}
+          />
 
           {/* ═══ BURN + STEPS CARDS ═══ */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
@@ -773,6 +754,11 @@ export default function CaloriesScreen() {
                 {fitness.source === 'healthkit' && (
                   <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                     <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>❤️ HK</Text>
+                  </View>
+                )}
+                {fitness.source === 'health_connect' && (
+                  <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>💚 HC</Text>
                   </View>
                 )}
                 {fitness.source === 'pedometer' && (

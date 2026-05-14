@@ -18,6 +18,7 @@
 
 import { Platform } from 'react-native';
 import { HealthKitService } from './HealthKitService';
+import { HealthConnectService } from './HealthConnectService';
 import { PedometerService } from './PedometerService';
 
 /* ---------- Types ---------- */
@@ -43,7 +44,7 @@ export interface HistorySeries {
   /** Index of the bucket with the maximum value (-1 if all zero). */
   bestIndex: number;
   /** Source of the underlying data. */
-  source: 'healthkit' | 'pedometer' | 'mixed' | 'none';
+  source: 'healthkit' | 'health_connect' | 'pedometer' | 'mixed' | 'none';
   /** Caption for the UI (e.g. "Tracked by Apple Health"). */
   sourceLabel: string;
 }
@@ -167,6 +168,10 @@ const sourceLabelFor = (
     return range === 'D'
       ? 'Tracked by Apple Health'
       : 'Synced from Apple Health';
+  if (source === 'health_connect')
+    return range === 'D'
+      ? 'Tracked by Health Connect'
+      : 'Synced from Health Connect';
   if (source === 'pedometer') return 'Motion tracking active';
   if (source === 'mixed') return 'Estimated from activity';
   return 'No data';
@@ -264,6 +269,16 @@ class _FitnessHistoryService {
 
     let daily: Array<{ date: Date; value: number }> | null = hkDaily;
     let source: HistorySeries['source'] = hkDaily ? 'healthkit' : 'none';
+
+    // Android: try Health Connect for historical data if HK is not available
+    if (!daily && Platform.OS === 'android' && HealthConnectService.initialized && HealthConnectService.authorized) {
+      const hcMetric = metric === 'steps' ? 'steps' as const : 'activeCalories' as const;
+      const hcDaily = await HealthConnectService.getDailyBuckets(hcMetric, days);
+      if (hcDaily && hcDaily.length > 0) {
+        daily = hcDaily;
+        source = 'health_connect';
+      }
+    }
 
     // Steps fallback to per-day pedometer queries if HK absent (iOS only).
     if (!daily && metric === 'steps' && Platform.OS === 'ios') {

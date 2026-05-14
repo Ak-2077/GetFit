@@ -99,9 +99,28 @@ export default function AuthScreen() {
   const normalizedEmail = useMemo(() => emailInput.trim().toLowerCase(), [emailInput]);
 
   // ─── GOOGLE AUTH ─────────────────────────────────────
+  // Only configure the platform-specific clientId we have. Otherwise
+  // expo-auth-session throws "Client Id property `androidClientId` must
+  // be defined" on Android builds without an Android OAuth client.
+  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+
+  const googleAuthAvailable =
+    Platform.OS === 'ios'
+      ? !!iosClientId
+      : Platform.OS === 'android'
+        ? !!androidClientId
+        : !!webClientId;
+
+  // Pass a harmless placeholder for any missing platform clientId so the
+  // hook's invariant check (`Client Id property X must be defined`) passes.
+  // The real sign-in call is gated by googleAuthAvailable below.
+  const PLACEHOLDER = 'unconfigured.apps.googleusercontent.com';
   const [googleRequest, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: iosClientId || PLACEHOLDER,
+    androidClientId: androidClientId || PLACEHOLDER,
+    webClientId: webClientId || PLACEHOLDER,
     redirectUri: 'host.exp.exponent:/oauth2redirect/google',
   });
 
@@ -805,8 +824,18 @@ export default function AuthScreen() {
             gap: 6,
             opacity: loading ? 0.5 : 1,
           }}
-          disabled={loading || !googleRequest}
-          onPress={() => googlePromptAsync()}
+          disabled={loading || !googleRequest || !googleAuthAvailable}
+          onPress={() => {
+            if (!googleAuthAvailable) {
+              setErrorText(
+                Platform.OS === 'android'
+                  ? 'Google sign-in is not configured for Android yet. Please use phone or email.'
+                  : 'Google sign-in is not configured. Please use phone or email.'
+              );
+              return;
+            }
+            googlePromptAsync();
+          }}
         >
           <Image
             source={require('../../assets/icons/google.png')}
