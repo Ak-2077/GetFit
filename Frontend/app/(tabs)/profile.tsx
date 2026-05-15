@@ -507,67 +507,10 @@ export default function ProfileScreen() {
             <WeeklyChart weeklyData={weeklyData} goalCalories={user?.goalCalories || 0} bmi={bmi} loading={chartLoading} />
           </DarkCard> */}
 
-          {/* ═══ SUBSCRIPTION ═══ */}
-          <Text style={{ fontSize: 13, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
-            Subscription
-          </Text>
+          {/* Subscription UI lives on the Profile Settings screen and the
+              /upgrade page. The Profile tab only shows the avatar border /
+              member badge in the header — see "USER CARD" above. */}
 
-          <DarkCard style={{ marginBottom: 14, overflow: 'hidden' }}>
-            {user?.subscriptionPlan === 'pro_plus' ? (
-              <LinearGradient colors={['rgba(139,0,255,0.12)', 'rgba(255,0,0,0.08)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18, borderRadius: 18 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                  <LinearGradient colors={VIBGYOR.slice(0, 3) as [string, string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-                    <FontAwesome name="diamond" size={16} color="#fff" />
-                  </LinearGradient>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>{formatSubscription(user?.subscriptionPlan)}</Text>
-                    <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>All features unlocked • Premium Elite</Text>
-                  </View>
-                </View>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' }} />
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#22C55E' }}>Active</Text>
-                </View>
-              </LinearGradient>
-            ) : user?.subscriptionPlan === 'pro' ? (
-              <LinearGradient colors={['rgba(106,13,173,0.15)', 'rgba(106,13,173,0.05)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18, borderRadius: 18 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(106,13,173,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-                    <FontAwesome name="star" size={16} color="#9B59B6" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>{formatSubscription(user?.subscriptionPlan)}</Text>
-                    <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>All features unlocked</Text>
-                  </View>
-                </View>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' }} />
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#22C55E' }}>Active</Text>
-                </View>
-              </LinearGradient>
-            ) : (
-              <View style={{ padding: 18 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(200,168,78,0.12)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-                    <FontAwesome name="star" size={16} color={C.gold} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>{formatSubscription(user?.subscriptionPlan)}</Text>
-                    <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>Basic features only</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          </DarkCard>
-
-          {user?.subscriptionPlan === 'free' && (
-            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/upgrade' as any)} style={{ marginBottom: 24, borderRadius: 14, overflow: 'hidden' }}>
-              <LinearGradient colors={['#6A0DAD', '#9B59B6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={{ height: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 14 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 }}>🚀 Upgrade to AI Pro</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
 
           {/* ═══ INCOMPLETE PROFILE BANNER ═══ */}
           {user?.onboardingCompleted === false && (

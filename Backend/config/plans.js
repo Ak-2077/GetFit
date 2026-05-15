@@ -60,6 +60,8 @@ const PLANS = [
     billingCycle: 'monthly',
     durationDays: 30,
     amountPaise: 19900, // ₹199
+    /** Apple App Store product identifier — must match App Store Connect. */
+    appleProductId: 'com.getfit.fitness.pro.monthly',
     displayPrice: '₹199',
     period: '/month',
     currency: 'INR',
@@ -86,6 +88,7 @@ const PLANS = [
     billingCycle: 'yearly',
     durationDays: 365,
     amountPaise: 199000, // ₹1,990 (≈ 2 months free vs monthly)
+    appleProductId: 'com.getfit.fitness.pro.yearly',
     displayPrice: '₹1,990',
     period: '/year',
     currency: 'INR',
@@ -113,6 +116,7 @@ const PLANS = [
     billingCycle: 'monthly',
     durationDays: 30,
     amountPaise: 39900, // ₹399
+    appleProductId: 'com.getfit.fitness.proplus.monthly',
     displayPrice: '₹399',
     period: '/month',
     currency: 'INR',
@@ -136,6 +140,7 @@ const PLANS = [
     billingCycle: 'yearly',
     durationDays: 365,
     amountPaise: 399000, // ₹3,990 (≈ 2 months free vs monthly)
+    appleProductId: 'com.getfit.fitness.proplus.yearly',
     displayPrice: '₹3,990',
     period: '/year',
     currency: 'INR',
@@ -158,11 +163,20 @@ const PLANS = [
 
 const PLAN_INDEX = Object.fromEntries(PLANS.map((p) => [p.id, p]));
 
+/** Reverse lookup: Apple product id → internal SKU. */
+const APPLE_PRODUCT_INDEX = Object.fromEntries(
+  PLANS.filter((p) => p.appleProductId).map((p) => [p.appleProductId, p])
+);
+
 export const getAllPlans = () => PLANS;
 
 export const getPaidPlans = () => PLANS.filter((p) => p.tier !== 'free');
 
 export const getPlanById = (planId) => PLAN_INDEX[planId] || null;
+
+/** Resolve a plan from its Apple App Store product identifier. */
+export const getPlanByAppleProductId = (productId) =>
+  APPLE_PRODUCT_INDEX[productId] || null;
 
 /** Returns the feature list for a plan tier ("pro", "pro_plus", "free"). */
 export const getFeaturesForTier = (tier) => {
@@ -182,6 +196,7 @@ export default {
   getAllPlans,
   getPaidPlans,
   getPlanById,
+  getPlanByAppleProductId,
   getFeaturesForTier,
   tierRank,
 };

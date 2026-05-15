@@ -649,6 +649,15 @@ export default function CaloriesScreen() {
             onEnabled={() => loadData(true)}
           />
 
+          {/* Android activity-tracking recovery (renders only when pedometer is unauthorized / unavailable) */}
+          <AndroidActivityPermissionCard
+            permissionIssue={
+              fitness.isPedometerAvailable === false ||
+              (fitness.isPedometerAvailable && !fitness.isPedometerAuthorized)
+            }
+            onEnabled={() => loadData(true)}
+          />
+
           {/* ═══ HERO CARD — Calorie Ring ═══ */}
           <View style={{
             backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.cardBorder,

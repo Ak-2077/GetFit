@@ -45,6 +45,11 @@ export const resolveActivePlan = async (userId) => {
       allowedFeatures: getFeaturesForTier(sub.planTier),
       isActive: true,
       verified: true,
+      // Cancellation lifecycle metadata. autoRenew=false + cancelledAt
+      // means the user has cancelled but premium remains until expiryDate.
+      autoRenew: !!sub.autoRenew,
+      cancelledAt: sub.cancelledAt || null,
+      status: sub.status, // 'active' even after cancel — cancel only flips autoRenew
     };
   }
 

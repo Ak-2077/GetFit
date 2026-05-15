@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   getSubscriptionStatus,
   restoreSubscription as restoreApi,
+  cancelSubscription as cancelApi,
 } from '../services/api';
 
 export type SubscriptionTier = 'free' | 'pro' | 'pro_plus';
@@ -34,10 +35,19 @@ export interface SubscriptionState {
   provider: 'razorpay' | 'apple' | null;
   platform: 'android' | 'ios' | 'web' | null;
   allowedFeatures: string[];
+  /** True when the user has cancelled but premium is still alive until expiryDate. */
+  cancelled: boolean;
+  /** Whether the subscription will auto-renew at expiry. */
+  autoRenew: boolean;
+  /** Timestamp of the cancellation, or null. */
+  cancelledAt: Date | null;
+  /** Date premium will be revoked (same as expiryDate when cancelled). */
+  willDowngradeOn: Date | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   restore: () => Promise<{ ok: boolean; message: string }>;
+  cancel: () => Promise<{ ok: boolean; message: string; willDowngradeOn: Date | null }>;
 }
 
 export function useSubscription(): SubscriptionState {
@@ -49,6 +59,10 @@ export function useSubscription(): SubscriptionState {
   const [provider, setProvider] = useState<'razorpay' | 'apple' | null>(null);
   const [platform, setPlatform] = useState<'android' | 'ios' | 'web' | null>(null);
   const [allowedFeatures, setAllowedFeatures] = useState<string[]>([]);
+  const [cancelled, setCancelled] = useState(false);
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [cancelledAt, setCancelledAt] = useState<Date | null>(null);
+  const [willDowngradeOn, setWillDowngradeOn] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +80,10 @@ export function useSubscription(): SubscriptionState {
       setProvider(d.provider || null);
       setPlatform(d.platform || null);
       setAllowedFeatures(Array.isArray(d.allowedFeatures) ? d.allowedFeatures : []);
+      setCancelled(Boolean(d.cancelled));
+      setAutoRenew(Boolean(d.autoRenew));
+      setCancelledAt(d.cancelledAt ? new Date(d.cancelledAt) : null);
+      setWillDowngradeOn(d.willDowngradeOn ? new Date(d.willDowngradeOn) : null);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Failed to load subscription');
     } finally {
@@ -89,6 +107,25 @@ export function useSubscription(): SubscriptionState {
     }
   }, [refresh]);
 
+  const cancel = useCallback(async () => {
+    try {
+      const res = await cancelApi();
+      const d = res.data || {};
+      await refresh();
+      return {
+        ok: Boolean(d.cancelled),
+        message: d.message || 'Subscription cancelled',
+        willDowngradeOn: d.willDowngradeOn ? new Date(d.willDowngradeOn) : null,
+      };
+    } catch (e: any) {
+      return {
+        ok: false,
+        message: e?.response?.data?.message || e?.message || 'Cancellation failed',
+        willDowngradeOn: null,
+      };
+    }
+  }, [refresh]);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -103,9 +140,14 @@ export function useSubscription(): SubscriptionState {
     provider,
     platform,
     allowedFeatures,
+    cancelled,
+    autoRenew,
+    cancelledAt,
+    willDowngradeOn,
     loading,
     error,
     refresh,
     restore,
+    cancel,
   };
 }

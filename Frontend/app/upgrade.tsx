@@ -46,6 +46,8 @@ import {
 } from '../services/api';
 import { useSubscription } from '../hooks/useSubscription';
 import RazorpayCheckoutService from '../services/payments/RazorpayCheckoutService';
+import IAPService from '../services/payments/IAPService';
+import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal';
 
 /* ---------- Theme ---------- */
 
@@ -101,6 +103,7 @@ export default function UpgradeScreen() {
   const [user, setUser] = useState<{ name?: string; email?: string; phone?: string } | null>(null);
   const [paymentState, setPaymentState] = useState<PaymentState>({ kind: 'idle' });
   const [restoring, setRestoring] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   /* ---------- Load ---------- */
 
@@ -147,24 +150,54 @@ export default function UpgradeScreen() {
   /* ---------- Actions ---------- */
 
   const handlePurchase = async (plan: ServerPlan) => {
-    if (Platform.OS === 'ios') {
-      Alert.alert(
-        'Coming soon on iOS',
-        'iOS purchases via Apple In-App Purchase will be enabled in the next update. Please use an Android device for now.'
-      );
-      return;
-    }
-
-    if (!RazorpayCheckoutService.isAvailable()) {
-      Alert.alert(
-        'Razorpay unavailable',
-        'The Razorpay native module is not bundled in this dev client. Run `npx expo prebuild` after installing react-native-razorpay, then rebuild the dev client.'
-      );
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPaymentState({ kind: 'processing', planId: plan.id });
+
+    /* ---------- iOS: Apple IAP via StoreKit ---------- */
+    if (Platform.OS === 'ios') {
+      if (!IAPService.isAvailable()) {
+        setPaymentState({
+          kind: 'failed',
+          reason:
+            'StoreKit not available. Install react-native-iap, run `npx expo prebuild --platform ios`, then rebuild the dev client.',
+        });
+        return;
+      }
+      // Backend resolves the Apple SKU from `appleProductId`.
+      // The plan list endpoint includes it; fall back to a derived id
+      // if the backend hasn't redeployed yet.
+      const appleSku =
+        (plan as any).appleProductId ||
+        `com.getfit.fitness.${plan.tier === 'pro_plus' ? 'proplus' : 'pro'}.${plan.billingCycle}`;
+
+      const result = await IAPService.purchase(appleSku);
+
+      if (result.kind === 'success') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setPaymentState({
+          kind: 'success',
+          planTier: result.planTier,
+          expiryDate: result.expiryDate,
+        });
+        await subscription.refresh();
+      } else if (result.kind === 'cancelled') {
+        setPaymentState({ kind: 'cancelled' });
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setPaymentState({ kind: 'failed', reason: result.reason });
+      }
+      return;
+    }
+
+    /* ---------- Android: Razorpay ---------- */
+    if (!RazorpayCheckoutService.isAvailable()) {
+      setPaymentState({
+        kind: 'failed',
+        reason:
+          'Razorpay not bundled. Run `npx expo prebuild` after installing react-native-razorpay, then rebuild the dev client.',
+      });
+      return;
+    }
 
     const result = await RazorpayCheckoutService.purchase(plan.id, user || {});
 
@@ -175,7 +208,6 @@ export default function UpgradeScreen() {
         planTier: result.planTier,
         expiryDate: result.expiryDate,
       });
-      // Refresh entitlement everywhere.
       await subscription.refresh();
     } else if (result.kind === 'cancelled') {
       setPaymentState({ kind: 'cancelled' });
@@ -188,11 +220,43 @@ export default function UpgradeScreen() {
   const handleRestore = async () => {
     setRestoring(true);
     try {
-      const r = await subscription.restore();
-      Alert.alert(r.ok ? 'Subscription restored' : 'No active subscription', r.message);
+      // On iOS, hit StoreKit first to fetch the latest receipt, then
+      // backend-verify it. On Android, the backend cache is the source
+      // of truth so a simple refresh is enough.
+      if (Platform.OS === 'ios' && IAPService.isAvailable()) {
+        const r = await IAPService.restore();
+        if (r.ok) await subscription.refresh();
+        Alert.alert(r.ok ? 'Subscription restored' : 'No active subscription', r.message);
+      } else {
+        const r = await subscription.restore();
+        Alert.alert(r.ok ? 'Subscription restored' : 'No active subscription', r.message);
+      }
     } finally {
       setRestoring(false);
     }
+  };
+
+  /**
+   * iOS users can ONLY cancel via Apple's subscriptions page
+   * (App Review explicitly forbids in-app cancellation for IAP).
+   * Android users see the in-app modal which calls our backend.
+   */
+  const handleCancelTap = () => {
+    if (Platform.OS === 'ios') {
+      Alert.alert(
+        'Manage your subscription',
+        "To cancel, you'll be taken to your Apple subscriptions page. Your premium access stays active until the end of the billing period.",
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => IAPService.openManageSubscriptions().catch(() => {}),
+          },
+        ]
+      );
+      return;
+    }
+    setCancelModalVisible(true);
   };
 
   /* ---------- Render ---------- */
@@ -234,17 +298,40 @@ export default function UpgradeScreen() {
             </View>
           </View>
 
-          {/* Current plan banner */}
+          {/* Current plan banner — reflects cancelled state when applicable */}
           {subscription.isPremium && (
-            <View style={styles.currentBanner}>
-              <Ionicons name="shield-checkmark" size={18} color={C.accent} />
+            <View
+              style={[
+                styles.currentBanner,
+                subscription.cancelled && {
+                  backgroundColor: 'rgba(255,159,10,0.10)',
+                  borderColor: 'rgba(255,159,10,0.30)',
+                },
+              ]}
+            >
+              <Ionicons
+                name={subscription.cancelled ? 'time-outline' : 'shield-checkmark'}
+                size={18}
+                color={subscription.cancelled ? '#FF9F0A' : C.accent}
+              />
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.currentTitle}>
-                  You're on {subscription.tier === 'pro_plus' ? 'Pro+' : 'Pro'}
+                <Text
+                  style={[
+                    styles.currentTitle,
+                    subscription.cancelled && { color: '#FFB84D' },
+                  ]}
+                >
+                  {subscription.cancelled
+                    ? `${subscription.tier === 'pro_plus' ? 'Pro+' : 'Pro'} — Cancelled`
+                    : `You're on ${subscription.tier === 'pro_plus' ? 'Pro+' : 'Pro'}`}
                 </Text>
                 {subscription.expiryDate && (
                   <Text style={styles.currentSub}>
-                    Renews on {subscription.expiryDate.toLocaleDateString()}
+                    {subscription.cancelled
+                      ? `Premium access until ${subscription.expiryDate.toLocaleDateString()}`
+                      : subscription.autoRenew
+                        ? `Renews on ${subscription.expiryDate.toLocaleDateString()}`
+                        : `Active until ${subscription.expiryDate.toLocaleDateString()}`}
                   </Text>
                 )}
               </View>
@@ -283,19 +370,45 @@ export default function UpgradeScreen() {
             </Text>
           </View>
 
-          {/* Restore */}
-          <TouchableOpacity
-            onPress={handleRestore}
-            disabled={restoring}
-            style={styles.restoreBtn}
-            activeOpacity={0.8}
-          >
-            {restoring ? (
-              <ActivityIndicator size="small" color={C.label} />
-            ) : (
-              <Text style={styles.restoreText}>Restore Purchases</Text>
+          {/* Restore + Cancel row — the two lifecycle CTAs */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <TouchableOpacity
+              onPress={handleRestore}
+              disabled={restoring}
+              style={[styles.restoreBtn, { flex: 1, marginTop: 0 }]}
+              activeOpacity={0.8}
+            >
+              {restoring ? (
+                <ActivityIndicator size="small" color={C.label} />
+              ) : (
+                <Text style={styles.restoreText}>
+                  {subscription.cancelled ? 'Restore Subscription' : 'Restore Purchases'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Cancel — only visible for active, non-cancelled premium users */}
+            {subscription.isPremium && !subscription.cancelled && (
+              <TouchableOpacity
+                onPress={handleCancelTap}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,69,58,0.10)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,69,58,0.30)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: '#FF453A', fontSize: 13, fontWeight: '700' }}>
+                  Cancel Subscription
+                </Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
 
           <Text style={styles.legal}>
             Subscriptions auto-renew at the displayed price unless cancelled at
@@ -303,6 +416,22 @@ export default function UpgradeScreen() {
           </Text>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Cancellation confirmation modal */}
+      <CancelSubscriptionModal
+        visible={cancelModalVisible}
+        planName={subscription.tier === 'pro_plus' ? 'AI Trainer Pro Plus' : 'AI Trainer Pro'}
+        expiryDate={subscription.expiryDate}
+        onConfirm={async () => {
+          const r = await subscription.cancel();
+          return { ok: r.ok, message: r.message };
+        }}
+        onClose={() => setCancelModalVisible(false)}
+        onCancelled={(msg) => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          Alert.alert('Subscription cancelled', msg);
+        }}
+      />
 
       {/* Result modal */}
       <PaymentResultModal
