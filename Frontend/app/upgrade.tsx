@@ -170,6 +170,26 @@ export default function UpgradeScreen() {
         (plan as any).appleProductId ||
         `com.getfit.fitness.${plan.tier === 'pro_plus' ? 'proplus' : 'pro'}.${plan.billingCycle}`;
 
+      // DIAGNOSTIC — log what Apple actually returns so we can debug
+      // E_SKU_NOT_FOUND vs "products not propagated yet".
+      try {
+        const allSkus = [
+          'com.getfit.fitness.pro.monthly',
+          'com.getfit.fitness.pro.yearly',
+          'com.getfit.fitness.proplus.monthly',
+          'com.getfit.fitness.proplus.yearly',
+        ];
+        const fetched = await IAPService.getProducts(allSkus);
+        console.log('[IAP] Requested SKU:', appleSku);
+        console.log('[IAP] Apple returned', fetched.length, 'products:');
+        fetched.forEach((p) => console.log('   -', p.productId, '|', p.localizedPrice));
+        if (!fetched.find((p) => p.productId === appleSku)) {
+          console.warn('[IAP] ⚠ Requested SKU not in Apple response!');
+        }
+      } catch (e) {
+        console.warn('[IAP] diagnostic fetch failed:', (e as Error).message);
+      }
+
       const result = await IAPService.purchase(appleSku);
 
       if (result.kind === 'success') {

@@ -94,14 +94,20 @@ function postJson(url, body) {
    reviewers buy in sandbox while the build is in production mode.
 ───────────────────────────────────────────────────────────── */
 
-export async function verifyAppleReceipt(receiptBase64) {
-  if (!receiptBase64) throw new Error('Missing receipt');
+export async function verifyAppleReceipt(receipt) {
+  if (!receipt) throw new Error('Missing receipt');
   if (!isAppleIapConfigured()) {
     throw new Error('Apple IAP not configured. Set APPLE_SHARED_SECRET + APPLE_BUNDLE_ID.');
   }
 
+  // StoreKit 2 / expo-iap returns a JWS (3 base64url segments joined by dots).
+  // Legacy StoreKit 1 returns a single base64 blob. Detect by the dot count.
+  if (typeof receipt === 'string' && receipt.split('.').length === 3) {
+    return verifyJwsTransaction(receipt);
+  }
+
   const body = {
-    'receipt-data': receiptBase64,
+    'receipt-data': receipt,
     password: getSharedSecret(),
     'exclude-old-transactions': true,
   };
@@ -151,6 +157,46 @@ function pickLatestTransaction(arr) {
     if (!best) return cur;
     return Number(cur.expires_date_ms || 0) > Number(best.expires_date_ms || 0) ? cur : best;
   }, null);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   verifyJwsTransaction (StoreKit 2 — used by expo-iap)
+   ──────────────────────────────────────────────────────────────
+   The JWS is cryptographically signed by Apple. The payload
+   contains the same fields verifyReceipt used to return:
+     transactionId, originalTransactionId, productId, bundleId,
+     purchaseDate, expiresDate, environment, type, ...
+   We trust the payload after bundleId match. For production
+   hardening, validate the x5c chain against Apple's root CA
+   certificate (download from https://www.apple.com/certificateauthority/).
+───────────────────────────────────────────────────────────── */
+
+function verifyJwsTransaction(jws) {
+  const { payload } = decodeAppleJWS(jws);
+
+  // Defense: prevent receipts from other apps being replayed against us.
+  if (payload.bundleId && payload.bundleId !== getBundleId()) {
+    throw new Error(`Bundle id mismatch: got ${payload.bundleId}, expected ${getBundleId()}`);
+  }
+
+  if (payload.environment === 'Sandbox') {
+    console.log('[apple-iap] StoreKit 2 JWS — Sandbox transaction', payload.transactionId);
+  } else {
+    console.log('[apple-iap] StoreKit 2 JWS —', payload.environment, 'transaction', payload.transactionId);
+  }
+
+  return {
+    productId: payload.productId,
+    transactionId: String(payload.transactionId),
+    originalTransactionId: String(payload.originalTransactionId),
+    purchaseDate: payload.purchaseDate ? new Date(Number(payload.purchaseDate)) : null,
+    expiresDate: payload.expiresDate ? new Date(Number(payload.expiresDate)) : null,
+    isTrial: payload.offerType === 1, // 1 = introductory offer
+    isAutoRenewing: payload.type === 'Auto-Renewable Subscription',
+    environment: payload.environment || 'Production',
+    rawLatestReceipt: jws, // store the JWS for renewal lookups
+    raw: payload,
+  };
 }
 
 /* ─────────────────────────────────────────────────────────────

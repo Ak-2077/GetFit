@@ -98,12 +98,7 @@
       "expo-apple-authentication",
       "expo-asset",
       "react-native-health-connect",
-      [
-        "react-native-iap",
-        {
-          "paymentProvider": "applestore"
-        }
-      ],
+      "expo-iap",
       [
         "expo-build-properties",
         {

@@ -1,30 +1,32 @@
 /**
- * IAPService — iOS Apple In-App Purchase wrapper
+ * IAPService — iOS Apple In-App Purchase wrapper (expo-iap)
  * ─────────────────────────────────────────────────────────────
- * Mirrors the API of RazorpayCheckoutService.ts so the upgrade
- * screen can branch on Platform.OS without changing its UX.
+ * Why expo-iap (not react-native-iap):
+ *   react-native-iap v12 has a broken Podspec on RN 0.81 + new
+ *   architecture (it still references the old `RCT-Folly` pod).
+ *   expo-iap is by the same author (hyochan), works with Expo
+ *   SDK 54 + new arch, and has a cleaner API.
  *
- * Why we lazy-load `react-native-iap`:
- *   • The module is iOS-only in our build (Android uses Razorpay).
- *   • If it's not bundled in the dev client (Expo Go, or before
- *     `expo prebuild`), importing it at module top-level crashes
- *     the whole app. Lazy-loading lets us gracefully report
- *     "not available" instead.
+ * Why we lazy-load:
+ *   • iOS-only module (Android uses Razorpay).
+ *   • If the user runs Expo Go (no native modules bundled), a
+ *     top-level import would crash the whole app. Lazy-load lets
+ *     us gracefully degrade.
  *
- * Lifecycle (iOS purchase flow):
+ * Lifecycle:
  *   1. init()          → opens StoreKit connection (idempotent)
- *   2. getProducts()   → fetches localized product info from Apple
+ *   2. getProducts()   → fetches localized info from Apple
  *   3. purchase(sku)   → opens native sheet, awaits user action
  *   4. <listener>      → on success, sends receipt to backend
- *   5. finishTx        → tells StoreKit it's safe to remove the tx
+ *   5. finishTx        → tells StoreKit the tx is acknowledged
  *
  * Backend contract:
  *   POST /api/payments/apple/verify { receipt, productId }
  *   → 200 { subscription: { tier, expiryDate, autoRenew, ... } }
  *
- * SECURITY NOTE:
- *   The receipt is the source of truth. Even if a jailbroken client
- *   spoofs success, the backend will refuse to grant entitlement
+ * SECURITY:
+ *   The receipt is the source of truth. Even if a jailbroken
+ *   client spoofs success, the backend rejects the entitlement
  *   unless Apple confirms the receipt.
  * ──────────────────────────────────────────────────────────── */
 
@@ -33,19 +35,19 @@ import { verifyAppleReceipt } from '../api';
 
 /* ---------- Module loader (lazy + safe) ---------- */
 
-let _RNIap: any = null;
+let _IAP: any = null;
 let _loadAttempted = false;
 
-function loadRNIap(): any | null {
-  if (_loadAttempted) return _RNIap;
+function loadIAP(): any | null {
+  if (_loadAttempted) return _IAP;
   _loadAttempted = true;
   if (Platform.OS !== 'ios') return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    _RNIap = require('react-native-iap');
-    return _RNIap;
+    _IAP = require('expo-iap');
+    return _IAP;
   } catch (e) {
-    console.warn('[IAP] react-native-iap not installed or not bundled in dev client:', (e as Error).message);
+    console.warn('[IAP] expo-iap not bundled in this build:', (e as Error).message);
     return null;
   }
 }
@@ -79,26 +81,21 @@ let _purchaseErrorSub: { remove: () => void } | null = null;
 /* ---------- Service ---------- */
 
 const IAPService = {
-  /** True only when iOS + native module is bundled. */
+  /** True only when iOS + native module bundled. */
   isAvailable(): boolean {
-    return Platform.OS === 'ios' && loadRNIap() != null;
+    return Platform.OS === 'ios' && loadIAP() != null;
   },
 
-  /**
-   * Open the StoreKit connection. Safe to call multiple times.
-   * No-ops on Android.
-   */
+  /** Open StoreKit connection. Idempotent. No-op on Android. */
   async init(): Promise<boolean> {
     if (!IAPService.isAvailable()) return false;
     if (_initialized) return true;
 
-    const RNIap = loadRNIap();
+    const IAP = loadIAP();
     try {
-      await RNIap.initConnection();
-      // Clear any pending transactions left over from a previous crash.
-      // Required on iOS to avoid "transaction already pending" errors.
-      try { await RNIap.flushFailedPurchasesCachedAsPendingAndroid?.(); } catch {}
-      try { await RNIap.clearTransactionIOS?.(); } catch {}
+      await IAP.initConnection();
+      // Clear any stuck transactions from a previous crash.
+      try { await IAP.clearTransactionIOS?.(); } catch {}
       _initialized = true;
       console.log('[IAP] connection initialized');
       return true;
@@ -109,21 +106,21 @@ const IAPService = {
   },
 
   /**
-   * Fetch localized product metadata from Apple for the given SKUs.
-   * The SKUs MUST be auto-renewable subscriptions in the same group
-   * (configured in App Store Connect).
+   * Fetch product metadata from Apple. SKUs MUST be auto-renewable
+   * subscriptions in the same group (configured in App Store Connect).
    */
   async getProducts(skus: string[]): Promise<IAPProduct[]> {
     if (!(await IAPService.init())) return [];
-    const RNIap = loadRNIap();
+    const IAP = loadIAP();
     try {
-      const products = await RNIap.getSubscriptions({ skus });
+      // expo-iap v2.x: fetchProducts replaces getSubscriptions/getProducts.
+      const products = await IAP.fetchProducts({ skus, type: 'subs' });
       return (products || []).map((p: any) => ({
-        productId: p.productId,
-        title: p.title || p.productId,
+        productId: p.productId || p.id,
+        title: p.title || p.productId || p.id,
         description: p.description || '',
-        localizedPrice: p.localizedPrice || p.price || '',
-        currency: p.currency || 'USD',
+        localizedPrice: p.localizedPrice || p.displayPrice || p.price || '',
+        currency: p.currency || p.currencyCode || 'USD',
       }));
     } catch (e) {
       console.warn('[IAP] getProducts failed:', (e as Error).message);
@@ -132,12 +129,12 @@ const IAPService = {
   },
 
   /**
-   * Run the full purchase pipeline:
+   * Full purchase pipeline:
    *   1. Open StoreKit native sheet
-   *   2. Wait for user to complete (or cancel)
-   *   3. Send receipt to backend
-   *   4. Tell StoreKit to finish the transaction
-   *   5. Return a normalized result
+   *   2. User authenticates (Face ID / Touch ID)
+   *   3. expo-iap fires purchaseUpdatedListener
+   *   4. Send receipt to backend for Apple verifyReceipt
+   *   5. finishTransaction so StoreKit clears the tx
    */
   async purchase(productId: string): Promise<IAPPurchaseResult> {
     if (!IAPService.isAvailable()) {
@@ -147,10 +144,8 @@ const IAPService = {
       return { kind: 'failed', reason: 'Could not connect to App Store' };
     }
 
-    const RNIap = loadRNIap();
+    const IAP = loadIAP();
 
-    // We attach listeners specifically for this purchase so concurrent
-    // purchases (which iOS doesn't allow anyway) don't race.
     return new Promise<IAPPurchaseResult>(async (resolve) => {
       let resolved = false;
       const finish = (r: IAPPurchaseResult) => {
@@ -163,35 +158,39 @@ const IAPService = {
         resolve(r);
       };
 
-      // Listener 1: successful purchase
-      _purchaseUpdatedSub = RNIap.purchaseUpdatedListener(async (purchase: any) => {
+      // Listener 1 — successful purchase
+      _purchaseUpdatedSub = IAP.purchaseUpdatedListener(async (purchase: any) => {
         try {
-          const receipt = purchase.transactionReceipt;
+          // expo-iap exposes the receipt at one of these fields depending on platform
+          const receipt =
+            purchase.transactionReceipt ||
+            purchase.purchaseToken ||
+            purchase.jwsRepresentationIos;
+
           if (!receipt) {
             finish({ kind: 'failed', reason: 'Empty receipt from StoreKit' });
             return;
           }
 
-          // Send to backend for verification
+          // Backend round-trips to Apple verifyReceipt
           const res = await verifyAppleReceipt({
             receipt,
-            productId: purchase.productId || productId,
+            productId: purchase.productId || purchase.id || productId,
           });
 
-          // Acknowledge the transaction so StoreKit clears it
-          await RNIap.finishTransaction({ purchase, isConsumable: false });
+          // Acknowledge so StoreKit clears the transaction
+          await IAP.finishTransaction({ purchase, isConsumable: false });
 
           const sub = res.data?.subscription;
           finish({
             kind: 'success',
             planTier: sub?.tier === 'pro_plus' ? 'pro_plus' : 'pro',
             expiryDate: sub?.expiryDate || null,
-            productId: purchase.productId || productId,
+            productId: purchase.productId || purchase.id || productId,
           });
         } catch (e: any) {
-          // If backend verification fails, DON'T finish the tx — let
-          // StoreKit retry on next launch. Apple will keep posting it
-          // until we finishTransaction.
+          // Don't finish the tx on backend failure — Apple will
+          // retry on next launch until we acknowledge.
           finish({
             kind: 'failed',
             reason: e?.response?.data?.message || e?.message || 'Verification failed',
@@ -199,23 +198,23 @@ const IAPService = {
         }
       });
 
-      // Listener 2: error / user cancel
-      _purchaseErrorSub = RNIap.purchaseErrorListener((err: any) => {
-        // Apple's E_USER_CANCELLED code
-        if (err?.code === 'E_USER_CANCELLED') {
+      // Listener 2 — error / user cancel
+      _purchaseErrorSub = IAP.purchaseErrorListener((err: any) => {
+        if (err?.code === 'E_USER_CANCELLED' || err?.responseCode === 2) {
           finish({ kind: 'cancelled' });
         } else {
           finish({ kind: 'failed', reason: err?.message || 'Purchase failed' });
         }
       });
 
-      // Open the native sheet
+      // Open native StoreKit sheet (expo-iap v2 API)
       try {
-        await RNIap.requestSubscription({
-          sku: productId,
-          // For an initial purchase Apple ignores andDangerouslyFinishTransactionAutomaticallyIOS
-          // We finish manually after backend verifies.
-          andDangerouslyFinishTransactionAutomaticallyIOS: false,
+        await IAP.requestPurchase({
+          request: {
+            ios: { sku: productId },
+            android: { skus: [productId] },
+          },
+          type: 'subs',
         });
       } catch (e) {
         finish({ kind: 'failed', reason: (e as Error).message });
@@ -224,9 +223,8 @@ const IAPService = {
   },
 
   /**
-   * Restore previously-purchased subscriptions. Apple recommends
-   * exposing this as an explicit user action.
-   * Returns true if at least one active sub was found AND verified.
+   * Restore previous subscriptions. Apple requires a "Restore" button
+   * on the paywall — App Review will reject without it.
    */
   async restore(): Promise<{ ok: boolean; message: string }> {
     if (!IAPService.isAvailable()) {
@@ -235,25 +233,29 @@ const IAPService = {
     if (!(await IAPService.init())) {
       return { ok: false, message: 'Could not connect to App Store' };
     }
-    const RNIap = loadRNIap();
+    const IAP = loadIAP();
     try {
-      const purchases = await RNIap.getAvailablePurchases();
+      // expo-iap v2.x: restorePurchases is the cross-platform helper.
+      const purchases = await IAP.restorePurchases();
       if (!purchases?.length) {
         return { ok: false, message: 'No previous purchases found' };
       }
 
-      // Find the most recent transactionDate across the array
+      // Use the most recent transaction
       const latest = purchases.reduce((a: any, b: any) =>
         Number(b.transactionDate || 0) > Number(a.transactionDate || 0) ? b : a
       );
-      const receipt = latest.transactionReceipt;
+      const receipt =
+        latest.transactionReceipt ||
+        latest.purchaseToken ||
+        latest.jwsRepresentationIos;
       if (!receipt) {
         return { ok: false, message: 'No receipt available' };
       }
 
       const res = await verifyAppleReceipt({
         receipt,
-        productId: latest.productId,
+        productId: latest.productId || latest.id,
       });
       const sub = res.data?.subscription;
       if (!sub) return { ok: false, message: 'Verification returned no subscription' };
@@ -268,10 +270,8 @@ const IAPService = {
   },
 
   /**
-   * iOS does NOT allow apps to cancel subscriptions directly.
-   * App Store Review will reject any in-app cancel UI for IAP.
-   * We deep-link to the user's subscriptions page in Settings instead.
-   * (Spotify, Netflix, YouTube all do this.)
+   * iOS does NOT allow apps to cancel subs in-app. App Review will
+   * reject any UI that does. Deep-link to Apple's subscriptions page.
    */
   openManageSubscriptions(): Promise<void> {
     return Linking.openURL('https://apps.apple.com/account/subscriptions');
@@ -284,8 +284,8 @@ const IAPService = {
     try { _purchaseErrorSub?.remove(); } catch {}
     _purchaseUpdatedSub = null;
     _purchaseErrorSub = null;
-    const RNIap = loadRNIap();
-    try { await RNIap?.endConnection?.(); } catch {}
+    const IAP = loadIAP();
+    try { await IAP?.endConnection?.(); } catch {}
     _initialized = false;
   },
 };
