@@ -160,6 +160,18 @@ export const getSubscriptionStatus = () =>
   API.get('/api/payments/subscription/status');
 export const restoreSubscription = () =>
   API.post('/api/payments/subscription/restore');
+export const cancelSubscription = () =>
+  API.post('/api/payments/subscription/cancel');
+
+// ─── Payments (Apple IAP / iOS) ───────────────────────────────
+/**
+ * Send a StoreKit receipt to the backend for verification.
+ * @param {{ receipt: string, productId: string }} payload
+ *        receipt: base64 string from RNIap.getReceiptIOS() / transaction.transactionReceipt
+ *        productId: the Apple SKU (com.getfit.fitness.pro.monthly etc.)
+ */
+export const verifyAppleReceipt = (payload) =>
+  API.post('/api/payments/apple/verify', payload);
 
 // Exercise endpoints (muscle-group specific)
 export const getExercisesByMuscle = (muscleGroup) => API.get(`/api/exercises/${muscleGroup}`);

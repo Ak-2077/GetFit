@@ -19,9 +19,9 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { saveOnboarding, setAuthToken } from '../../services/api';
+import { HealthKitService } from '../../services/fitness/HealthKitService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TOTAL_STEPS = 8;
 
 // ─── Step Definitions ──────────────────────────────────
 
@@ -29,7 +29,7 @@ interface StepConfig {
   key: string;
   title: string;
   subtitle: string;
-  type: 'text' | 'number' | 'select';
+  type: 'text' | 'number' | 'select' | 'health';
   placeholder?: string;
   options?: { label: string; value: string; icon: string }[];
   keyboardType?: 'default' | 'numeric';
@@ -117,6 +117,20 @@ const STEPS: StepConfig[] = [
   },
 ];
 
+// Append a final iOS-only HealthKit authorization step.
+// Android users don't see it (Health Connect onboarding lives elsewhere).
+if (Platform.OS === 'ios') {
+  STEPS.push({
+    key: 'healthkit',
+    title: 'Connect Apple Health',
+    subtitle:
+      'Connect your health data to GetFit for seamless syncing and personalized insights.',
+    type: 'health',
+  });
+}
+
+const TOTAL_STEPS = STEPS.length;
+
 // ─── Main Component ────────────────────────────────────
 
 export default function OnboardingScreen() {
@@ -156,6 +170,12 @@ export default function OnboardingScreen() {
 
     if (s.type === 'select') {
       return val.length > 0;
+    }
+
+    if (s.type === 'health') {
+      // Health step has its own action buttons — Next button is hidden,
+      // so the validity check is irrelevant. Treat as always valid.
+      return true;
     }
 
     return false;
@@ -265,6 +285,30 @@ export default function OnboardingScreen() {
     }
   };
 
+  /**
+   * iOS-only: trigger the native HealthKit authorization sheet, then
+   * proceed to submit the onboarding answers regardless of the user's
+   * choice (granting permission is optional). We don't block submission
+   * on the result because Apple's API doesn't reliably return whether
+   * the user accepted or declined.
+   */
+  const handleAuthorizeHealth = async () => {
+    setLoading(true);
+    try {
+      // This call triggers the iOS HealthKit permissions popup.
+      await HealthKitService.initialize();
+    } catch (e) {
+      // Even if HK throws, continue submitting — onboarding shouldn't
+      // fail because of an optional integration.
+      console.warn('[Onboarding] HealthKit initialize failed:', e);
+    }
+    await handleSubmit();
+  };
+
+  const handleSkipHealth = () => {
+    handleSubmit();
+  };
+
   const updateAnswer = (value: string) => {
     setAnswers((prev) => ({ ...prev, [step.key]: value }));
   };
@@ -287,6 +331,28 @@ export default function OnboardingScreen() {
           {step.suffix ? (
             <Text style={styles.suffixText}>{step.suffix}</Text>
           ) : null}
+        </View>
+      );
+    }
+
+    if (step.type === 'health') {
+      return (
+        <View style={styles.healthScreen}>
+          {/* Two-icon hero — your app logo + Apple Health heart */}
+          <View style={styles.healthIconRow}>
+            <View style={styles.healthIconBox}>
+              <FontAwesome name="bolt" size={36} color="#fff" />
+            </View>
+            <FontAwesome
+              name="exchange"
+              size={22}
+              color="rgba(255,255,255,0.5)"
+              style={styles.healthIconArrow}
+            />
+            <View style={[styles.healthIconBox, styles.healthIconBoxLight]}>
+              <FontAwesome name="heart" size={36} color="#fb6675" />
+            </View>
+          </View>
         </View>
       );
     }
@@ -402,32 +468,62 @@ export default function OnboardingScreen() {
 
           {/* ─── BOTTOM ACTIONS ─── */}
           <View style={styles.bottomActions}>
-            {/* Skip & connect Health App */}
-            {currentStep === 0 && (
-              <TouchableOpacity onPress={handleSkip} style={styles.healthAppLink}>
-                <FontAwesome name="heartbeat" size={16} color="#888" style={{ marginRight: 8 }} />
-                <Text style={styles.healthAppText}>Skip and connect Health App</Text>
-              </TouchableOpacity>
-            )}
+            {step.type === 'health' ? (
+              <>
+                {/* Authorize — triggers iOS HealthKit permission sheet */}
+                <TouchableOpacity
+                  onPress={handleAuthorizeHealth}
+                  disabled={loading}
+                  style={[styles.authorizeButton, loading && styles.nextButtonDisabled]}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.authorizeButtonText}>Authorize</Text>
+                  )}
+                </TouchableOpacity>
 
-            {/* Next / Complete Button */}
-            <TouchableOpacity
-              onPress={handleNext}
-              disabled={!isStepValid() || loading}
-              style={[
-                styles.nextButton,
-                (!isStepValid() || loading) && styles.nextButtonDisabled,
-              ]}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <Text style={styles.nextButtonText}>
-                  {currentStep === TOTAL_STEPS - 1 ? 'Complete' : 'Next'}
-                </Text>
-              )}
-            </TouchableOpacity>
+                {/* Not now — skip without authorizing */}
+                <TouchableOpacity
+                  onPress={handleSkipHealth}
+                  disabled={loading}
+                  style={styles.notNowLink}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.notNowText}>Not now</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* Skip & connect Health App */}
+                {currentStep === 0 && (
+                  <TouchableOpacity onPress={handleSkip} style={styles.healthAppLink}>
+                    <FontAwesome name="heartbeat" size={16} color="#888" style={{ marginRight: 8 }} />
+                    <Text style={styles.healthAppText}>Skip and connect Health App</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Next / Complete Button */}
+                <TouchableOpacity
+                  onPress={handleNext}
+                  disabled={!isStepValid() || loading}
+                  style={[
+                    styles.nextButton,
+                    (!isStepValid() || loading) && styles.nextButtonDisabled,
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.nextButtonText}>
+                      {currentStep === TOTAL_STEPS - 1 ? 'Complete' : 'Next'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -618,5 +714,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 8,
+  },
+
+  // ─── HealthKit Step ───────────────────────────────
+  healthScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 40,
+  },
+  healthIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  healthIconBox: {
+    width: 88,
+    height: 88,
+    borderRadius: 22,
+    backgroundColor: '#3a2c4a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  healthIconBoxLight: {
+    backgroundColor: '#fff',
+  },
+  healthIconArrow: {
+    marginHorizontal: 4,
+  },
+  authorizeButton: {
+    height: 56,
+    backgroundColor: '#e9d8ff',
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  authorizeButtonText: {
+    color: '#1a1a1a',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  notNowLink: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  notNowText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });

@@ -14,6 +14,9 @@ import {
   razorpayWebhook,
   getSubscriptionStatus,
   restoreSubscription,
+  cancelSubscription,
+  verifyAppleReceipt,
+  appleWebhook,
 } from '../controllers/paymentsController.js';
 
 const router = express.Router();
@@ -27,6 +30,11 @@ router.post('/razorpay/create-order', auth, createRazorpayOrder);
 router.post('/razorpay/verify', auth, verifyRazorpayPayment);
 router.get('/subscription/status', auth, getSubscriptionStatus);
 router.post('/subscription/restore', auth, restoreSubscription);
+router.post('/subscription/cancel', auth, cancelSubscription);
 
-export { razorpayWebhook };
+/* ── Apple IAP (iOS) ───────────────────────────────────────── */
+router.post('/apple/verify', auth, verifyAppleReceipt);
+
+/* Webhooks are mounted in index.js with raw body parsers. */
+export { razorpayWebhook, appleWebhook };
 export default router;

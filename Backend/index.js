@@ -12,11 +12,19 @@ app.use(cors());
 // ⚠ Razorpay webhook needs the *raw* request body for HMAC validation.
 //   This route MUST be registered BEFORE express.json(), otherwise
 //   bodyParser will mutate req.body and the signature check fails.
-import { razorpayWebhook } from './routes/paymentsRoute.js';
+import { razorpayWebhook, appleWebhook } from './routes/paymentsRoute.js';
 app.post(
   '/api/payments/razorpay/webhook',
   express.raw({ type: '*/*', limit: '1mb' }),
   razorpayWebhook
+);
+// Apple App Store Server Notifications v2 — Apple posts JWS-signed JSON.
+// We use raw to keep parity, even though signature is over the JWS itself
+// (not the request body).
+app.post(
+  '/api/payments/apple/webhook',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  appleWebhook
 );
 
 app.use(express.json({ limit: '10mb' }));
@@ -45,6 +53,7 @@ import workoutPlanRoute from './routes/workoutPlanRoute.js';
 import subscriptionRoute from './routes/subscriptionRoute.js';
 import exerciseRoute from './routes/exerciseRoute.js';
 import paymentsRoute from './routes/paymentsRoute.js';
+import { startSubscriptionSweeper } from './services/subscriptionSweeper.js';
 
 app.use('/api/auth', authRoute);
 app.use('/api/food', foodRoute);
@@ -73,4 +82,7 @@ const port = process.env.PORT || 5000;
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
+    // Background subscription expiry sweeper. Disabled when
+    // SUBSCRIPTION_SWEEPER_ENABLED=false (e.g. on non-leader workers).
+    startSubscriptionSweeper();
 });

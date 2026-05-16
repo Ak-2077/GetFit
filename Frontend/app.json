@@ -98,6 +98,7 @@
       "expo-apple-authentication",
       "expo-asset",
       "react-native-health-connect",
+      "expo-iap",
       [
         "expo-build-properties",
         {
