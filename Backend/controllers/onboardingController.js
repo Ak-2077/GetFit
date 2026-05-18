@@ -139,7 +139,7 @@ export async function saveOnboarding(req, res) {
         dailyProteinTarget,
         onboardingCompleted: true,
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password');
 
     if (!user) {
@@ -235,7 +235,7 @@ export async function updateUserProfile(req, res) {
       }
     }
 
-    const user = await User.findByIdAndUpdate(userId, update, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(userId, update, { returnDocument: 'after' }).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

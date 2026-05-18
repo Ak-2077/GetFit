@@ -221,38 +221,88 @@ export function decodeAppleJWS(jws) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Parse a v2 App Store Server Notification body.
+    Parse an App Store Server Notification body — supports V1 and V2.
    ──────────────────────────────────────────────────────────────
-   The webhook body is:
-   {
-     signedPayload: "<JWS>"
-   }
-   The decoded payload's `data.signedTransactionInfo` and
-   `data.signedRenewalInfo` are themselves JWS strings.
+   V2 body: { signedPayload: "<JWS>" }
+   V1 body: { notification_type, auto_renew_status, bid,
+              unified_receipt: { latest_receipt_info: [...] }, ... }
+
+   We auto-detect by presence of `signedPayload`. Both branches
+   return the same shape so the controller doesn't care which is
+   which:
+     { notificationType, subtype, bundleId, environment,
+       transactionInfo: { transactionId, originalTransactionId,
+                          productId, expiresDate, ... },
+       renewalInfo: { autoRenewStatus, ... }, raw }
 ───────────────────────────────────────────────────────────── */
 
 export function parseS2SNotification(rawBodyBuffer) {
   const body = JSON.parse(rawBodyBuffer.toString('utf8'));
-  if (!body.signedPayload) throw new Error('Missing signedPayload in notification');
-  const { payload } = decodeAppleJWS(body.signedPayload);
-  // payload.data may have nested signedTransactionInfo / signedRenewalInfo
-  const data = payload.data || {};
-  const transactionInfo = data.signedTransactionInfo
-    ? decodeAppleJWS(data.signedTransactionInfo).payload
-    : null;
-  const renewalInfo = data.signedRenewalInfo
-    ? decodeAppleJWS(data.signedRenewalInfo).payload
-    : null;
-  return {
-    notificationType: payload.notificationType, // DID_RENEW, REFUND, EXPIRED, ...
-    subtype: payload.subtype || null,
-    notificationUUID: payload.notificationUUID,
-    bundleId: data.bundleId,
-    environment: payload.environment, // 'Production' | 'Sandbox'
-    transactionInfo,
-    renewalInfo,
-    raw: payload,
-  };
+
+  // ── Version 2 (JWS-signed) ──────────────────────────────
+  if (body.signedPayload) {
+    const { payload } = decodeAppleJWS(body.signedPayload);
+    const data = payload.data || {};
+    const transactionInfo = data.signedTransactionInfo
+      ? decodeAppleJWS(data.signedTransactionInfo).payload
+      : null;
+    const renewalInfo = data.signedRenewalInfo
+      ? decodeAppleJWS(data.signedRenewalInfo).payload
+      : null;
+    return {
+      version: 'v2',
+      notificationType: payload.notificationType,
+      subtype: payload.subtype || null,
+      notificationUUID: payload.notificationUUID,
+      bundleId: data.bundleId,
+      environment: payload.environment,
+      transactionInfo,
+      renewalInfo,
+      raw: payload,
+    };
+  }
+
+  // ── Version 1 (plain JSON) ──────────────────────────────
+  if (body.notification_type) {
+    const ur = body.unified_receipt || {};
+    const latest = pickLatestTransaction(ur.latest_receipt_info || []);
+    const renewal = (ur.pending_renewal_info || [])[0] || {};
+
+    return {
+      version: 'v1',
+      notificationType: body.notification_type, // INITIAL_BUY, DID_RENEW, CANCEL, ...
+      // V1 has no `subtype` field per se, but auto_renew_status flips signal cancellation
+      subtype:
+        body.notification_type === 'DID_CHANGE_RENEWAL_STATUS'
+          ? body.auto_renew_status === 'true'
+            ? 'AUTO_RENEW_ENABLED'
+            : 'AUTO_RENEW_DISABLED'
+          : null,
+      notificationUUID: null,
+      bundleId: body.bid || latest?.bundle_id,
+      environment: body.environment || ur.environment || 'Production',
+      transactionInfo: latest
+        ? {
+            transactionId: String(latest.transaction_id),
+            originalTransactionId: String(latest.original_transaction_id),
+            productId: latest.product_id,
+            purchaseDate: latest.purchase_date_ms ? Number(latest.purchase_date_ms) : null,
+            expiresDate: latest.expires_date_ms ? Number(latest.expires_date_ms) : null,
+            isTrial: latest.is_trial_period === 'true',
+          }
+        : null,
+      renewalInfo: {
+        autoRenewStatus: Number(renewal.auto_renew_status ?? body.auto_renew_status ?? 0),
+        autoRenewProductId: renewal.auto_renew_product_id || body.auto_renew_product_id,
+        expirationIntent: renewal.expiration_intent
+          ? Number(renewal.expiration_intent)
+          : null,
+      },
+      raw: body,
+    };
+  }
+
+  throw new Error('Unrecognized notification format (neither V1 nor V2)');
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -263,23 +313,35 @@ export function parseS2SNotification(rawBodyBuffer) {
 export function notificationToAction(notif) {
   const t = notif.notificationType;
   switch (t) {
+    // V2: SUBSCRIBED / DID_RENEW    │  V1: INITIAL_BUY / DID_RENEW / INTERACTIVE_RENEWAL / DID_RECOVER / RENEWAL
     case 'SUBSCRIBED':
     case 'DID_RENEW':
+    case 'INITIAL_BUY':
+    case 'INTERACTIVE_RENEWAL':
+    case 'DID_RECOVER':
+    case 'RENEWAL':
       return { kind: 'renew' };
+
+    // V2 + V1 share the name; subtype handling done in parser
     case 'DID_CHANGE_RENEWAL_STATUS':
-      // subtype: AUTO_RENEW_ENABLED | AUTO_RENEW_DISABLED
       return {
         kind: 'autoRenewChange',
         autoRenew: notif.subtype === 'AUTO_RENEW_ENABLED',
       };
-    case 'EXPIRED':
-      return { kind: 'expired' };
+
+    // V1: CANCEL = user cancelled (refund or sub revoked by Apple support)
+    case 'CANCEL':
     case 'REFUND':
     case 'REVOKE':
       return { kind: 'refund' };
+
+    case 'EXPIRED':
+      return { kind: 'expired' };
+
     case 'GRACE_PERIOD_EXPIRED':
     case 'DID_FAIL_TO_RENEW':
       return { kind: 'failToRenew' };
+
     default:
       return { kind: 'noop', reason: t };
   }

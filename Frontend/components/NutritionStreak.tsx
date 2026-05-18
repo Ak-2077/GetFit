@@ -379,7 +379,7 @@ export default function NutritionStreak({ onStreakUpdate }: Props) {
                           color: selectedDay.streakQualified ? C.accent : C.burn,
                           fontSize: 11, fontWeight: '700', textAlign: 'center',
                         }}>
-                          {selectedDay.streakQualified ? '✓ Streak Qualified' : '✕ Not Qualified'}
+                          {selectedDay.streakQualified ? '✓ Streak Qualified' : 'Not Qualified'}
                         </Text>
                       </View>
 
