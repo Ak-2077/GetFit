@@ -410,53 +410,85 @@ export default function ProfileSettingsScreen() {
               </View>
             </DarkCard>
 
-            {/* SUBSCRIPTION PLAN */}
-            <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>Subscription Plan</Text>
+            {/* ── SUBSCRIPTION (single tappable row → /upgrade) ── */}
+            {/* This is the ONE place users manage subscriptions. Tapping opens
+                the Upgrade screen where they can buy, cancel, or restore. */}
+            <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>Subscription</Text>
             <DarkCard style={{ marginBottom: 20, overflow: 'hidden' }}>
-              {user?.subscriptionPlan === 'pro_plus' ? (
-                <LinearGradient colors={['rgba(139,0,255,0.12)', 'rgba(255,0,0,0.06)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              {(() => {
+                const plan = user?.subscriptionPlan || 'free';
+                const isProPlus = plan === 'pro_plus';
+                const isPro = plan === 'pro';
+                const isPremium = isPro || isProPlus;
+
+                // Sub-line: "Manage plan" for premium, "Unlock all features" for free.
+                const subLine = isPremium ? 'Tap to manage, upgrade or cancel' : 'Unlock all premium features';
+
+                // Right-side CTA pill
+                const ctaLabel = isProPlus ? 'Manage' : isPro ? 'Manage' : 'Upgrade';
+                const ctaBg = isPremium ? 'rgba(255,255,255,0.06)' : '#6A0DAD';
+                const ctaColor = isPremium ? C.white : '#fff';
+
+                const Inner = (
                   <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
-                    <LinearGradient colors={VIBGYOR.slice(0, 3) as [string, string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
-                      <FontAwesome name="diamond" size={14} color="#fff" />
-                    </LinearGradient>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(user.subscriptionPlan)}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
-                        <Text style={{ fontSize: 11, color: '#22C55E', fontWeight: '600' }}>Active</Text>
+                    {/* Icon — varies by tier */}
+                    {isProPlus ? (
+                      <LinearGradient
+                        colors={VIBGYOR.slice(0, 3) as [string, string, ...string[]]}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
+                      >
+                        <FontAwesome name="diamond" size={14} color="#fff" />
+                      </LinearGradient>
+                    ) : isPro ? (
+                      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(106,13,173,0.20)', justifyContent: 'center', alignItems: 'center' }}>
+                        <FontAwesome name="star" size={14} color="#9B59B6" />
                       </View>
-                    </View>
-                  </View>
-                </LinearGradient>
-              ) : user?.subscriptionPlan === 'pro' ? (
-                <LinearGradient colors={['rgba(106,13,173,0.12)', 'rgba(106,13,173,0.04)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(106,13,173,0.2)', justifyContent: 'center', alignItems: 'center' }}>
-                      <FontAwesome name="star" size={14} color="#9B59B6" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(user.subscriptionPlan)}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
-                        <Text style={{ fontSize: 11, color: '#22C55E', fontWeight: '600' }}>Active</Text>
+                    ) : (
+                      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(200,168,78,0.12)', justifyContent: 'center', alignItems: 'center' }}>
+                        <FontAwesome name="star-o" size={14} color={C.gold} />
                       </View>
+                    )}
+
+                    {/* Plan label + sub-line */}
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(plan)}</Text>
+                      <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>{subLine}</Text>
+                    </View>
+
+                    {/* Right-side pill */}
+                    <View style={{ backgroundColor: ctaBg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 }}>
+                      <Text style={{ color: ctaColor, fontSize: 11, fontWeight: '700' }}>{ctaLabel}</Text>
                     </View>
                   </View>
-                </LinearGradient>
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(200,168,78,0.12)', justifyContent: 'center', alignItems: 'center' }}>
-                    <FontAwesome name="star-o" size={14} color={C.gold} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: C.white }}>{getSubLabel(user?.subscriptionPlan)}</Text>
-                    <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>Basic features</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => router.push('/upgrade' as any)} style={{ backgroundColor: '#6A0DAD', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 }}>
-                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Upgrade</Text>
+                );
+
+                // Pro+ gets the soft VIBGYOR background; Pro gets purple tint;
+                // Free is plain.
+                if (isProPlus) {
+                  return (
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/upgrade' as any)}>
+                      <LinearGradient colors={['rgba(139,0,255,0.12)', 'rgba(255,0,0,0.06)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                        {Inner}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                }
+                if (isPro) {
+                  return (
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/upgrade' as any)}>
+                      <LinearGradient colors={['rgba(106,13,173,0.12)', 'rgba(106,13,173,0.04)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                        {Inner}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                }
+                return (
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/upgrade' as any)}>
+                    {Inner}
                   </TouchableOpacity>
-                </View>
-              )}
+                );
+              })()}
             </DarkCard>
 
             {/* APP */}

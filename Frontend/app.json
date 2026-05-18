@@ -42,7 +42,15 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+
+        "android.permission.RECORD_AUDIO",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.READ_EXERCISE"
+
+        
+
       ]
     },
     "web": {
@@ -83,8 +91,30 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to update your profile picture"
         }
       ],
-      "react-native-health",
-      "expo-apple-authentication"
+
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "GetFit reads your step count and active energy burned to display accurate fitness data",
+          "NSHealthUpdateUsageDescription": "GetFit does not write health data",
+          "background": false
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-asset",
+      "react-native-health-connect",
+      "expo-iap",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          }
+        }
+      ]
+
     ],
     "experiments": {
       "typedRoutes": true,

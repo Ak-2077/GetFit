@@ -115,6 +115,8 @@ export default function RootLayout() {
         <Stack.Screen name="workout-player" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="upgrade" options={{ headerShown: false }} />
+        <Stack.Screen name="analytics/steps" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="analytics/calories" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>

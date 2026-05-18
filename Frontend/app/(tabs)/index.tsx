@@ -193,19 +193,34 @@ export default function HomeScreen() {
           {/* ═══ TODAY'S SUMMARY ═══ */}
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Summary</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-            {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', image: require('../../assets/icons/calories/food.png'), color: C.accent },
-              { label: 'Burned', value: `${Math.round(fitness.caloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn },
-              { label: 'Steps', value: `${Math.round(fitness.steps).toLocaleString()}`, sub: `${fitness.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA' },
-            ].map((item) => (
-              <View key={item.label} style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 14, alignItems: 'center' }}>
-                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: `${item.color}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
-                  <Image source={item.image} style={{ width: 40, height: 40 }} resizeMode="contain" />
+            {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', image: require('../../assets/icons/calories/food.png'), color: C.accent, route: null as string | null },
+              { label: 'Burned', value: `${Math.round(fitness.caloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn, route: '/analytics/calories' as string },
+              { label: 'Steps', value: `${Math.round(fitness.steps).toLocaleString()}`, sub: `${fitness.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA', route: '/analytics/steps' as string },
+            ].map((item) => {
+              const cardContent = (
+                <>
+                  <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: `${item.color}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
+                    <Image source={item.image} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: C.white }}>{item.value}</Text>
+                  <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{item.sub}</Text>
+                  <Text style={{ fontSize: 9, color: C.label, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>{item.label}</Text>
+                </>
+              );
+              const cardStyle = { flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 14, alignItems: 'center' as const };
+              if (item.route) {
+                return (
+                  <TouchableOpacity key={item.label} activeOpacity={0.75} onPress={() => router.push(item.route as any)} style={cardStyle}>
+                    {cardContent}
+                  </TouchableOpacity>
+                );
+              }
+              return (
+                <View key={item.label} style={cardStyle}>
+                  {cardContent}
                 </View>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: C.white }}>{item.value}</Text>
-                <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{item.sub}</Text>
-                <Text style={{ fontSize: 9, color: C.label, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.4 }}>{item.label}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
 
           {/* ═══ TODAY'S WORKOUT ═══ */}

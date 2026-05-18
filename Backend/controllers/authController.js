@@ -652,7 +652,13 @@ export async function appleLogin(req, res) {
 
     // Verify the identityToken with Apple's servers
     // Only requires bundle identifier for native iOS flow
-    const BUNDLE_ID = process.env.APPLE_BUNDLE_ID || 'com.getfit.fitness';
+
+    const BUNDLE_ID = process.env.APPLE_BUNDLE_ID;
+    if (!BUNDLE_ID) {
+      console.error('[Apple Login] APPLE_BUNDLE_ID is not configured in environment');
+      return res.status(500).json({ message: 'Apple Sign-In is not configured on server' });
+    }
+
 
     let applePayload;
     try {

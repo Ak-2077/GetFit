@@ -145,9 +145,33 @@ export const getDietPlan = () => API.get('/api/diet/plan');
 // Workout Plan endpoints
 export const getWorkoutPlan = () => API.get('/api/workout-plan/plan');
 
-// Subscription endpoints
+// Subscription endpoints (legacy — maps to monthly SKUs; UI should prefer /api/payments/plans)
 export const getSubscriptionPlans = () => API.get('/api/subscription/plans');
+/** @deprecated Use createRazorpayOrder + verifyRazorpayPayment instead. Returns 410. */
 export const upgradeSubscription = (plan) => API.post('/api/subscription/upgrade', { plan });
+
+// ─── Payments (Razorpay) ──────────────────────────────────────
+export const getPaymentPlans = () => API.get('/api/payments/plans');
+export const createRazorpayOrder = (planId) =>
+  API.post('/api/payments/razorpay/create-order', { planId });
+export const verifyRazorpayPayment = (payload) =>
+  API.post('/api/payments/razorpay/verify', payload);
+export const getSubscriptionStatus = () =>
+  API.get('/api/payments/subscription/status');
+export const restoreSubscription = () =>
+  API.post('/api/payments/subscription/restore');
+export const cancelSubscription = () =>
+  API.post('/api/payments/subscription/cancel');
+
+// ─── Payments (Apple IAP / iOS) ───────────────────────────────
+/**
+ * Send a StoreKit receipt to the backend for verification.
+ * @param {{ receipt: string, productId: string }} payload
+ *        receipt: base64 string from RNIap.getReceiptIOS() / transaction.transactionReceipt
+ *        productId: the Apple SKU (com.getfit.fitness.pro.monthly etc.)
+ */
+export const verifyAppleReceipt = (payload) =>
+  API.post('/api/payments/apple/verify', payload);
 
 // Exercise endpoints (muscle-group specific)
 export const getExercisesByMuscle = (muscleGroup) => API.get(`/api/exercises/${muscleGroup}`);

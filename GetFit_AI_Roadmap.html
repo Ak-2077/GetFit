@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GetFit AI — Complete Engineering Roadmap</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: #0a0a14;
+  color: #e4e4e7;
+  line-height: 1.7;
+  font-size: 14px;
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 {
+  font-size: 28px; font-weight: 800;
+  background: linear-gradient(135deg, #6C5CE7, #00CEC9);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  border-bottom: 3px solid #6C5CE7;
+  padding-bottom: 12px; margin: 48px 0 20px;
+}
+h2 {
+  font-size: 22px; font-weight: 700; color: #A29BFE;
+  border-bottom: 2px solid #2D2D44;
+  padding-bottom: 8px; margin: 36px 0 16px;
+}
+h3 { font-size: 17px; font-weight: 600; color: #00CEC9; margin: 24px 0 12px; }
+h4 { font-size: 14px; font-weight: 600; color: #fff; margin: 16px 0 8px; }
+p { margin: 8px 0; }
+strong { color: #fff; }
+a { color: #A29BFE; text-decoration: none; }
+hr {
+  border: none; height: 2px; margin: 32px 0;
+  background: linear-gradient(90deg, #6C5CE7, #00CEC9, transparent);
+}
+code {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  background: #16213E; padding: 2px 6px; border-radius: 4px; color: #00CEC9;
+}
+pre {
+  background: #1A1A2E; border: 1px solid #2D2D44; border-radius: 8px;
+  padding: 16px; overflow-x: auto; margin: 12px 0;
+}
+pre code { background: none; padding: 0; color: #e4e4e7; font-size: 12px; }
+table {
+  width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px;
+}
+th {
+  padding: 10px 12px; text-align: left; font-weight: 600; color: #A29BFE;
+  border-bottom: 2px solid #6C5CE7; background: #16213E;
+}
+td { padding: 8px 12px; border-bottom: 1px solid #2D2D44; }
+tr:nth-child(even) { background: rgba(108,92,231,0.05); }
+blockquote {
+  border-left: 4px solid #6C5CE7; background: #1A1A2E;
+  padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0;
+}
+ul, ol { padding-left: 20px; margin: 8px 0; }
+li { margin: 4px 0; }
+.alert {
+  border-radius: 8px; padding: 14px 18px; margin: 14px 0;
+  border-left: 4px solid;
+}
+.alert-tip { background: #0a2618; border-color: #00B894; }
+.alert-important { background: #1a1030; border-color: #6C5CE7; }
+.alert-warning { background: #1a1808; border-color: #FDCB6E; }
+.alert-caution { background: #1a0808; border-color: #FF6B6B; }
+.alert-note { background: #081a2a; border-color: #74B9FF; }
+.mermaid {
+  background: #1A1A2E; border-radius: 8px;
+  padding: 20px; margin: 14px 0; text-align: center;
+}
+@media print {
+  body { background: #fff; color: #222; padding: 0; }
+  h1 { -webkit-text-fill-color: #6C5CE7; }
+  h2 { color: #4a3db5; }
+  h3 { color: #008b87; }
+  pre, .mermaid { background: #f5f5f5; border-color: #ddd; }
+  pre code, code { color: #333; }
+  th { background: #f0f0f0; color: #333; }
+  td { border-color: #ddd; }
+  .alert { background: #f8f8f8; }
+}
+</style>
+</head>
+<body>
+<h1>GetFit — Complete AI Engineering Roadmap</h1>
+
+<blockquote><strong>Master Index</strong> — The full roadmap is split across 4 documents for readability.</blockquote>
+<h2>Your Current State</h2>
+
+<table><thead><tr><th>Layer</th><th>What Exists</th><th>What's Missing</th></tr></thead><tbody><tr><td><strong>Frontend</strong></td><td>Expo 54 + React Native, NativeWind, Expo Router, HealthKit/Health Connect, Razorpay</td><td>AI inference, camera pipeline, pose detection, chatbot UI</td></tr>
+<tr><td><strong>Backend</strong></td><td>Express 5, MongoDB/Mongoose, JWT auth, Razorpay webhooks, 19 route files</td><td>AI microservices, WebSocket, queues, GPU serving, video pipeline</td></tr>
+<tr><td><strong>AI</strong></td><td>Rule-based diet/workout plans, OpenAI fallback for activity goals</td><td>All custom models, training pipelines, inference servers, datasets</td></tr>
+<tr><td><strong>Infra</strong></td><td>Single Node.js server</td><td>Docker, K8s, CI/CD, GPU instances, CDN, monitoring</td></tr></tbody></table>
+<h2>Document Map</h2>
+
+<table><thead><tr><th>Part</th><th>Sections</th><th>Link</th></tr></thead><tbody><tr><td><strong>Part 1</strong></td><td>§1 System Architecture · §2 AI Model Roadmap</td><td><a href="file:///C:/Users/RENTKAR/.gemini/antigravity/brain/e792e725-959c-4a30-b71e-fc33757131f0/roadmap_part1.md">roadmap_part1.md</a></td></tr>
+<tr><td><strong>Part 2</strong></td><td>§3 Dataset Engineering · §4 Training Pipeline · §5 Real-Time Video AI</td><td><a href="file:///C:/Users/RENTKAR/.gemini/antigravity/brain/e792e725-959c-4a30-b71e-fc33757131f0/roadmap_part2.md">roadmap_part2.md</a></td></tr>
+<tr><td><strong>Part 3</strong></td><td>§6 Chatbot AI · §7 Deployment & DevOps · §8 Mobile AI · §9 Security</td><td><a href="file:///C:/Users/RENTKAR/.gemini/antigravity/brain/e792e725-959c-4a30-b71e-fc33757131f0/roadmap_part3.md">roadmap_part3.md</a></td></tr>
+<tr><td><strong>Part 4</strong></td><td>§10 Development Roadmap · §11 Tech Stack · §12 Startup Best Practices</td><td><a href="file:///C:/Users/RENTKAR/.gemini/antigravity/brain/e792e725-959c-4a30-b71e-fc33757131f0/roadmap_part4.md">roadmap_part4.md</a></td></tr></tbody></table>
+
+<hr>
+
+<h1>Part 1 — System Architecture & AI Model Roadmap</h1>
+
+<hr>
+
+<h1>SECTION 1 — COMPLETE SYSTEM ARCHITECTURE</h1>
+
+<h2>1.1 High-Level Architecture</h2>
+
+<div class="mermaid">graph TB
+<p>    subgraph ClientLayer["📱 Client Layer"]</p>
+<p>        RN["React Native / Expo App"]</p>
+<p>        TFLite["TFLite On-Device Models"]</p>
+<p>        Camera["Camera Pipeline"]</p>
+<p>    end</p>
+
+<p>    subgraph EdgeAI["🧠 On-Device AI"]</p>
+<p>        PoseModel["Pose Detection Model"]</p>
+<p>        RepCounter["Rep Counter"]</p>
+<p>        AngleCalc["Joint Angle Calculator"]</p>
+<p>    end</p>
+
+<p>    subgraph Gateway["🌐 API Gateway"]</p>
+<p>        NGINX["NGINX / Kong"]</p>
+<p>        RateLimit["Rate Limiter"]</p>
+<p>        AuthMW["JWT Auth Middleware"]</p>
+<p>    end</p>
+
+<p>    subgraph BackendServices["⚙️ Backend Microservices"]</p>
+<p>        AuthSvc["Auth Service"]</p>
+<p>        UserSvc["User Service"]</p>
+<p>        WorkoutSvc["Workout Service"]</p>
+<p>        DietSvc["Diet Service"]</p>
+<p>        SubSvc["Subscription Service"]</p>
+<p>        VideoSvc["Video Upload Service"]</p>
+<p>        ChatSvc["Chat Service"]</p>
+<p>        NotifSvc["Notification Service"]</p>
+<p>    end</p>
+
+<p>    subgraph AIServices["🤖 AI Inference Services"]</p>
+<p>        PoseServer["Pose Analysis Server - GPU"]</p>
+<p>        FormServer["Form Correction Engine"]</p>
+<p>        LLMServer["LLM Serving - vLLM"]</p>
+<p>        RecEngine["Recommendation Engine"]</p>
+<p>        VideoAnalyzer["Video Analyzer - GPU"]</p>
+<p>    end</p>
+
+<p>    subgraph DataLayer["💾 Data Layer"]</p>
+<p>        Postgres["PostgreSQL - Users, Plans"]</p>
+<p>        MongoDB["MongoDB - Logs, Food, Exercises"]</p>
+<p>        Redis["Redis - Cache, Sessions, Queues"]</p>
+<p>        VectorDB["Qdrant - Embeddings"]</p>
+<p>        S3["S3 / MinIO - Videos, Media"]</p>
+<p>    end</p>
+
+<p>    subgraph MLPlatform["🔬 ML Platform"]</p>
+<p>        Training["Training Pipeline - PyTorch"]</p>
+<p>        MLflow["MLflow - Experiment Tracking"]</p>
+<p>        Registry["Model Registry"]</p>
+<p>        ONNX["ONNX Converter"]</p>
+<p>    end</p>
+
+<p>    RN --> Camera --> PoseModel</p>
+<p>    PoseModel --> RepCounter</p>
+<p>    PoseModel --> AngleCalc</p>
+<p>    RN --> NGINX</p>
+<p>    NGINX --> RateLimit --> AuthMW</p>
+<p>    AuthMW --> BackendServices</p>
+<p>    BackendServices --> AIServices</p>
+<p>    BackendServices --> DataLayer</p>
+<p>    AIServices --> DataLayer</p>
+<p>    MLPlatform --> Registry --> AIServices</div></p>
+
+<h2>1.2 MVP vs Production Architecture</h2>
+
+<h3>MVP Architecture (Month 1–4) — Modular Monolith</h3>
+
+<div class="alert alert-tip"><strong>TIP</strong><br>Start with a modular monolith. Premature microservices will kill your velocity as a solo/small team.</div>
+<pre><code class="language-text">GetFit-MVP/
+<p>├── apps/</p>
+<p>│   └── mobile/          # Expo/React Native (your current Frontend/)</p>
+<p>├── server/              # Single Express server (evolve your current Backend/)</p>
+<p>│   ├── modules/</p>
+<p>│   │   ├── auth/        # Controllers + routes + validators</p>
+<p>│   │   ├── user/</p>
+<p>│   │   ├── workout/</p>
+<p>│   │   ├── diet/</p>
+<p>│   │   ├── ai/          # AI endpoint handlers</p>
+<p>│   │   ├── video/       # Upload + processing triggers</p>
+<p>│   │   ├── chat/        # Chatbot endpoints</p>
+<p>│   │   └── subscription/</p>
+<p>│   ├── ai-workers/      # Background AI processing (Bull queue workers)</p>
+<p>│   │   ├── pose-analyzer.js</p>
+<p>│   │   ├── video-processor.js</p>
+<p>│   │   └── llm-handler.js</p>
+<p>│   └── shared/          # DB connections, auth middleware, utils</p>
+<p>├── ai/                  # Python AI services</p>
+<p>│   ├── pose-service/    # FastAPI pose estimation server</p>
+<p>│   ├── llm-service/     # vLLM or Ollama wrapper</p>
+<p>│   └── models/          # Trained model artifacts</p>
+<p>└── infra/</p>
+<p>    ├── docker-compose.yml</p>
+<p>    └── nginx.conf</p>
+</code></pre>
+
+<strong>Key MVP decisions:</strong>
+<ul><li>Express monolith handles all API routes (extend your existing <code>Backend/</code>)</li>
+<li>Single Python FastAPI server handles ALL AI inference behind internal HTTP</li>
+<li>Bull + Redis for async jobs (video processing, batch recommendations)</li>
+<li>MongoDB stays as your primary DB (you already have Mongoose schemas)</li>
+<li>On-device pose detection via TFLite (zero server cost for real-time)</li>
+</ul>
+<h3>Production Architecture (Month 6–12) — Microservices</h3>
+
+<p>Split only when a module has independent scaling needs:</p>
+
+<table><thead><tr><th>Service</th><th>Why Split</th><th>Scaling Pattern</th></tr></thead><tbody><tr><td><code>auth-service</code></td><td>Security isolation</td><td>Horizontal, stateless</td></tr>
+<tr><td><code>ai-pose-service</code></td><td>GPU-bound, bursty</td><td>GPU autoscaling</td></tr>
+<tr><td><code>ai-llm-service</code></td><td>GPU-bound, high memory</td><td>Dedicated GPU nodes</td></tr>
+<tr><td><code>video-service</code></td><td>CPU+storage intensive</td><td>Worker pool</td></tr>
+<tr><td><code>api-gateway</code></td><td>Rate limiting, routing</td><td>Horizontal</td></tr>
+<tr><td><code>core-api</code></td><td>Remaining business logic</td><td>Horizontal</td></tr></tbody></table>
+<h2>1.3 Mobile Frontend Architecture</h2>
+
+<div class="mermaid">graph LR
+<p>    subgraph ExpoApp["Expo App - React Native"]</p>
+<p>        Router["Expo Router - File-based"]</p>
+<p>        Screens["Screen Layer"]</p>
+<p>        Hooks["Custom Hooks"]</p>
+<p>        Services["Service Layer"]</p>
+<p>        State["State Management - Zustand"]</p>
+<p>        Native["Native Modules"]</p>
+<p>    end</p>
+
+<p>    subgraph OnDeviceAI["On-Device AI Layer"]</p>
+<p>        TFL["TFLite Runtime"]</p>
+<p>        CamPipe["Camera Frame Pipeline"]</p>
+<p>        PoseProc["Pose Processor"]</p>
+<p>        RepCount["Rep Counter Logic"]</p>
+<p>        TTS["Text-to-Speech - Voice"]</p>
+<p>    end</p>
+
+<p>    Router --> Screens --> Hooks --> Services</p>
+<p>    Services --> State</p>
+<p>    Services --> Native</p>
+<p>    Native --> OnDeviceAI</div></p>
+
+<strong>Your current frontend</strong> already has the right foundation (Expo 54, expo-camera, expo-av). Key additions:
+
+<table><thead><tr><th>New Module</th><th>Purpose</th><th>Package</th></tr></thead><tbody><tr><td><code>services/ai/PoseDetectionService.ts</code></td><td>On-device pose estimation</td><td><code>react-native-tflite</code> or custom native module</td></tr>
+<tr><td><code>services/ai/RepCounterService.ts</code></td><td>Joint angle → rep counting logic</td><td>Pure TS math</td></tr>
+<tr><td><code>services/ai/FormAnalyzerService.ts</code></td><td>Compare pose vs ideal form</td><td>Pure TS + model</td></tr>
+<tr><td><code>services/ai/VoiceCoachService.ts</code></td><td>TTS feedback</td><td><code>expo-speech</code></td></tr>
+<tr><td><code>services/chat/ChatService.ts</code></td><td>LLM chat interface</td><td>WebSocket + REST</td></tr>
+<tr><td><code>hooks/useCamera.ts</code></td><td>Optimized camera frames</td><td>expo-camera + native bridge</td></tr>
+<tr><td><code>stores/workoutStore.ts</code></td><td>Real-time workout state</td><td>Zustand</td></tr></tbody></table>
+<h2>1.4 Backend Microservices Design</h2>
+
+<h3>Evolving Your Current Backend</h3>
+
+<p>Your existing <code>Backend/index.js</code> registers 17 route groups. Here's the migration path:</p>
+
+<strong>Phase 1 — Add AI module to monolith:</strong>
+<pre><code class="language-text">Backend/
+<p>├── modules/</p>
+<p>│   └── ai/</p>
+<p>│       ├── routes/</p>
+<p>│       │   ├── poseRoute.js        # POST /ai/analyze-pose</p>
+<p>│       │   ├── chatRoute.js        # WebSocket /ai/chat</p>
+<p>│       │   └── videoRoute.js       # POST /ai/analyze-video</p>
+<p>│       ├── controllers/</p>
+<p>│       │   ├── poseController.js   # Proxy to Python AI service</p>
+<p>│       │   ├── chatController.js   # Manages chat sessions</p>
+<p>│       │   └── videoController.js  # Upload + queue job</p>
+<p>│       └── services/</p>
+<p>│           ├── aiClient.js         # HTTP client to Python services</p>
+<p>│           └── queueManager.js     # Bull queue setup</p>
+</code></pre>
+
+<strong>Phase 2 — Python AI service (separate process):</strong>
+<pre><code class="language-text">ai-service/
+<p>├── app/</p>
+<p>│   ├── main.py               # FastAPI entrypoint</p>
+<p>│   ├── routers/</p>
+<p>│   │   ├── pose.py            # /pose/analyze, /pose/stream</p>
+<p>│   │   ├── video.py           # /video/analyze</p>
+<p>│   │   └── chat.py            # /chat/completions</p>
+<p>│   ├── models/</p>
+<p>│   │   ├── pose_estimator.py  # RTMPose / MoveNet wrapper</p>
+<p>│   │   ├── form_analyzer.py   # Rule engine + ML classifier</p>
+<p>│   │   ├── exercise_classifier.py</p>
+<p>│   │   └── rep_counter.py</p>
+<p>│   ├── llm/</p>
+<p>│   │   ├── engine.py          # vLLM / Ollama integration</p>
+<p>│   │   ├── rag.py             # RAG pipeline</p>
+<p>│   │   └── memory.py          # Conversation memory</p>
+<p>│   └── core/</p>
+<p>│       ├── config.py</p>
+<p>│       └── gpu_manager.py</p>
+<p>├── Dockerfile.gpu</p>
+<p>└── requirements.txt</p>
+</code></pre>
+
+<h2>1.5 Real-Time Streaming Pipeline</h2>
+
+<div class="mermaid">sequenceDiagram
+<p>    participant Phone as 📱 Phone Camera</p>
+<p>    participant TFLite as 🧠 On-Device Model</p>
+<p>    participant UI as 📊 Overlay UI</p>
+<p>    participant WS as 🌐 WebSocket</p>
+<p>    participant Server as ⚙️ AI Server</p>
+
+<p>    Note over Phone,UI: PRIMARY PATH - On-Device (< 50ms)</p>
+<p>    Phone->>TFLite: Camera frame (30fps)</p>
+<p>    TFLite->>TFLite: Pose detection (15-25ms)</p>
+<p>    TFLite->>UI: 17 keypoints + confidence</p>
+<p>    UI->>UI: Angle calculation (< 1ms)</p>
+<p>    UI->>UI: Rep counting (< 1ms)</p>
+<p>    UI->>UI: Draw skeleton overlay</p>
+
+<p>    Note over Phone,Server: SECONDARY PATH - Server (for complex analysis)</p>
+<p>    Phone->>WS: Keypoints every 500ms</p>
+<p>    WS->>Server: Batch keypoint analysis</p>
+<p>    Server->>WS: Form correction feedback</p>
+<p>    WS->>UI: Display correction tips</div></p>
+
+<strong>Design principle:</strong> Real-time feedback happens 100% on-device. Server is only for complex analysis, progress tracking, and personalized coaching that can tolerate 200–500ms latency.
+
+<h2>1.6 Database Architecture</h2>
+
+<h3>Current State (MongoDB — keep for MVP)</h3>
+
+<p>Your existing Mongoose models (<code>User</code>, <code>Food</code>, <code>Exercise</code>, <code>Workout</code>, <code>Subscription</code>, <code>FoodLog</code>, <code>BurnLog</code>) are solid. Extend with:</p>
+
+<pre><code class="language-javascript">// NEW: models/workoutSession.js — stores real-time workout data
+<p>const workoutSessionSchema = new mongoose.Schema({</p>
+<p>  userId: { type: ObjectId, ref: 'User', required: true, index: true },</p>
+<p>  exerciseType: String,           // 'squat', 'pushup', etc.</p>
+<p>  reps: Number,</p>
+<p>  sets: [{ </p>
+<p>    repCount: Number, </p>
+<p>    avgFormScore: Number,         // 0-100</p>
+<p>    duration: Number,             // seconds</p>
+<p>    jointAngles: mongoose.Schema.Types.Mixed  // per-rep angle data</p>
+<p>  }],</p>
+<p>  formIssues: [String],           // ['knees_caving', 'back_rounding']</p>
+<p>  overallScore: Number,</p>
+<p>  startedAt: Date,</p>
+<p>  endedAt: Date,</p>
+<p>  source: { type: String, enum: ['live', 'video_upload'] }</p>
+<p>}, { timestamps: true });</p>
+
+<p>// NEW: models/chatSession.js — stores chatbot conversations</p>
+<p>const chatSessionSchema = new mongoose.Schema({</p>
+<p>  userId: { type: ObjectId, ref: 'User', required: true, index: true },</p>
+<p>  messages: [{</p>
+<p>    role: { type: String, enum: ['user', 'assistant', 'system'] },</p>
+<p>    content: String,</p>
+<p>    timestamp: { type: Date, default: Date.now }</p>
+<p>  }],</p>
+<p>  context: mongoose.Schema.Types.Mixed,  // RAG context used</p>
+<p>  tokenCount: Number</p>
+<p>}, { timestamps: true });</p>
+
+<p>// NEW: models/videoAnalysis.js — stores uploaded video analysis results</p>
+<p>const videoAnalysisSchema = new mongoose.Schema({</p>
+<p>  userId: { type: ObjectId, ref: 'User', required: true, index: true },</p>
+<p>  videoUrl: String,               // S3 URL</p>
+<p>  status: { type: String, enum: ['queued','processing','done','failed'] },</p>
+<p>  exerciseDetected: String,</p>
+<p>  totalReps: Number,</p>
+<p>  formScore: Number,</p>
+<p>  frameAnnotations: [{</p>
+<p>    timestamp: Number,            // seconds</p>
+<p>    keypoints: mongoose.Schema.Types.Mixed,</p>
+<p>    issues: [String],</p>
+<p>    score: Number</p>
+<p>  }],</p>
+<p>  feedback: {</p>
+<p>    summary: String,</p>
+<p>    corrections: [String],</p>
+<p>    muscleActivation: mongoose.Schema.Types.Mixed</p>
+<p>  },</p>
+<p>  annotatedVideoUrl: String       // Output video with overlays</p>
+<p>}, { timestamps: true });</p>
+</code></pre>
+
+<h3>Production DB Split Strategy</h3>
+
+<table><thead><tr><th>Data Type</th><th>Database</th><th>Why</th></tr></thead><tbody><tr><td>Users, subscriptions, payments</td><td><strong>PostgreSQL</strong></td><td>ACID, relational integrity</td></tr>
+<tr><td>Food logs, exercises, workouts</td><td><strong>MongoDB</strong></td><td>Flexible schema, your existing models</td></tr>
+<tr><td>Chat sessions, AI logs</td><td><strong>MongoDB</strong></td><td>Document-oriented, variable structure</td></tr>
+<tr><td>Real-time session cache</td><td><strong>Redis</strong></td><td>Sub-ms reads, TTL expiry</td></tr>
+<tr><td>AI embeddings (RAG)</td><td><strong>Qdrant</strong></td><td>Vector similarity search</td></tr>
+<tr><td>Videos, model artifacts</td><td><strong>S3 / MinIO</strong></td><td>Object storage</td></tr></tbody></table>
+<h2>1.7 Video Upload Pipeline</h2>
+
+<div class="mermaid">graph LR
+<p>    Upload["📱 User Upload"] --> Presigned["Get Presigned URL"]</p>
+<p>    Presigned --> S3["Upload to S3"]</p>
+<p>    S3 --> Webhook["S3 Event → SNS"]</p>
+<p>    Webhook --> Queue["Bull/SQS Queue"]</p>
+<p>    Queue --> Worker["GPU Worker"]</p>
+<p>    Worker --> Extract["Extract Frames"]</p>
+<p>    Extract --> Pose["Run Pose Detection"]</p>
+<p>    Pose --> Analyze["Form Analysis"]</p>
+<p>    Analyze --> Annotate["Generate Annotated Video"]</p>
+<p>    Annotate --> Save["Save Results to DB"]</p>
+<p>    Save --> Notify["Push Notification"]</div></p>
+
+<h2>1.8 Authentication & Subscription Architecture</h2>
+
+<p>Your existing auth (<code>authController.js</code> — phone, email, Google, Apple) and subscription (<code>subscription.js</code> model with Razorpay + Apple IAP) are production-ready. Add:</p>
+
+<table><thead><tr><th>Addition</th><th>Purpose</th></tr></thead><tbody><tr><td><strong>Feature flags per tier</strong></td><td>Gate AI features: <code>{ free: ['basic_tracking'], pro: ['live_pose', 'video_upload'], pro_plus: ['ai_chat', 'unlimited'] }</code></td></tr>
+<tr><td><strong>Usage metering</strong></td><td>Track AI API calls per user per day for cost control</td></tr>
+<tr><td><strong>Rate limiting per tier</strong></td><td>Free: 5 AI calls/day, Pro: 50, Pro+: unlimited</td></tr></tbody></table>
+<hr>
+
+<h1>SECTION 2 — AI MODEL ROADMAP</h1>
+
+<h2>2.1 Complete AI Model Map</h2>
+
+<div class="mermaid">graph TB
+<p>    subgraph PoseStack["Pose Estimation Stack"]</p>
+<p>        PE["Pose Estimator<br/>MoveNet / RTMPose"]</p>
+<p>        EC["Exercise Classifier<br/>LSTM / Transformer"]</p>
+<p>        RC["Rep Counter<br/>Peak Detection"]</p>
+<p>        FA["Form Analyzer<br/>Rule Engine + MLP"]</p>
+<p>        AE["Angle Estimator<br/>Trigonometric"]</p>
+<p>    end</p>
+
+<p>    subgraph NLPStack["NLP / Recommendation Stack"]</p>
+<p>        LLM["Fitness LLM<br/>Fine-tuned Llama 3"]</p>
+<p>        RAG["RAG Pipeline<br/>Qdrant + Embeddings"]</p>
+<p>        WG["Workout Generator<br/>Constraint Solver + LLM"]</p>
+<p>        DG["Diet Generator<br/>Optimization + LLM"]</p>
+<p>        RE["Recommendation Engine<br/>Collaborative Filtering"]</p>
+<p>    end</p>
+
+<p>    subgraph VideoStack["Video Analysis Stack"]</p>
+<p>        VD["Video Decoder<br/>FFmpeg"]</p>
+<p>        VP["Video Pose Pipeline<br/>Batch Inference"]</p>
+<p>        VA["Video Annotator<br/>OpenCV"]</p>
+<p>        FG["Feedback Generator<br/>LLM Summarizer"]</p>
+<p>    end</p>
+
+<p>    PE --> EC --> RC</p>
+<p>    PE --> AE --> FA</p>
+<p>    FA --> FG</p>
+<p>    VP --> FA</p>
+<p>    VD --> VP --> VA</div></p>
+
+<h2>2.2 Model-by-Model Breakdown</h2>
+
+<h3>Model 1: Pose Estimation (Core Foundation)</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Detect 17 body keypoints from camera frames</td></tr>
+<tr><td><strong>Architecture</strong></td><td>MoveNet Lightning (mobile) / RTMPose-m (server)</td></tr>
+<tr><td><strong>Input</strong></td><td>RGB image 192×192 (mobile) or 256×256 (server)</td></tr>
+<tr><td><strong>Output</strong></td><td>17 keypoints × (x, y, confidence) = 51 float values</td></tr>
+<tr><td><strong>Latency</strong></td><td>Mobile: 15–25ms, Server: 8–15ms</td></tr>
+<tr><td><strong>Training</strong></td><td>Pre-trained on COCO + fine-tune on fitness-specific poses</td></tr>
+<tr><td><strong>Deployment</strong></td><td>TFLite (mobile), ONNX Runtime (server)</td></tr></tbody></table>
+<h3>Model 2: Exercise Classifier</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Classify which exercise is being performed</td></tr>
+<tr><td><strong>Architecture</strong></td><td>Temporal CNN or LSTM over pose sequences</td></tr>
+<tr><td><strong>Input</strong></td><td>Sequence of 30 pose frames (1 second at 30fps) → shape <code>(30, 34)</code> (17 keypoints × 2 coords)</td></tr>
+<tr><td><strong>Output</strong></td><td>Softmax over N exercise classes (start with 15–20 exercises)</td></tr>
+<tr><td><strong>Training</strong></td><td>Custom dataset: record yourself + friends doing each exercise, extract poses, train classifier</td></tr>
+<tr><td><strong>Latency</strong></td><td>< 10ms (lightweight model, runs on CPU)</td></tr>
+<tr><td><strong>Deployment</strong></td><td>TFLite (mobile), ONNX (server)</td></tr></tbody></table>
+<strong>Exercise classes for MVP:</strong>
+<code>squat, pushup, pullup, deadlift, bicep_curl, shoulder_press, lunge, plank, bench_press, lateral_raise, tricep_extension, leg_raise, crunch, jumping_jack, burpee</code>
+
+<h3>Model 3: Rep Counter</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Count repetitions of detected exercise</td></tr>
+<tr><td><strong>Architecture</strong></td><td>NOT a neural network — signal processing algorithm</td></tr>
+<tr><td><strong>Input</strong></td><td>Time series of joint angles (e.g., knee angle for squats)</td></tr>
+<tr><td><strong>Algorithm</strong></td><td>1. Track primary joint angle over time<br/>2. Apply smoothing (exponential moving average)<br/>3. Peak/valley detection with hysteresis thresholds<br/>4. Count transitions: extended → contracted → extended = 1 rep</td></tr>
+<tr><td><strong>Latency</strong></td><td>< 1ms (pure math)</td></tr>
+<tr><td><strong>Deployment</strong></td><td>Pure TypeScript on mobile</td></tr></tbody></table>
+<pre><code class="language-typescript">// Simplified rep counter logic
+<p>class RepCounter {</p>
+<p>  private angleHistory: number[] = [];</p>
+<p>  private state: 'up' | 'down' = 'up';</p>
+<p>  private repCount = 0;</p>
+<p>  private readonly upThreshold: number;    // e.g., 160° for squat standing</p>
+<p>  private readonly downThreshold: number;  // e.g., 90° for squat bottom</p>
+
+<p>  addAngle(angle: number): { reps: number; phase: string } {</p>
+<p>    this.angleHistory.push(angle);</p>
+<p>    const smoothed = this.ema(angle);</p>
+    
+<p>    if (this.state === 'up' &amp;&amp; smoothed &lt; this.downThreshold) {</p>
+<p>      this.state = 'down';</p>
+<p>    } else if (this.state === 'down' &amp;&amp; smoothed &gt; this.upThreshold) {</p>
+<p>      this.state = 'up';</p>
+<p>      this.repCount++;</p>
+<p>    }</p>
+<p>    return { reps: this.repCount, phase: this.state };</p>
+<p>  }</p>
+<p>}</p>
+</code></pre>
+
+<h3>Model 4: Form Analyzer</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Detect form mistakes and provide corrections</td></tr>
+<tr><td><strong>Architecture</strong></td><td>Hybrid: Rule engine (primary) + MLP classifier (secondary)</td></tr>
+<tr><td><strong>Input</strong></td><td>Current keypoints + exercise type + joint angles</td></tr>
+<tr><td><strong>Output</strong></td><td><code>{ isCorrect: bool, issues: string[], score: 0-100 }</code></td></tr>
+<tr><td><strong>Rule examples</strong></td><td>Squat: knee_angle < 70° → "Going too deep", knee_x > toe_x → "Knees past toes", hip_shoulder_angle > 30° → "Lean forward"</td></tr>
+<tr><td><strong>Training</strong></td><td>MLP trained on labeled form data: correct vs incorrect poses per exercise</td></tr>
+<tr><td><strong>Latency</strong></td><td>< 5ms</td></tr></tbody></table>
+<h3>Model 5: Angle Estimator</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Calculate joint angles from keypoints</td></tr>
+<tr><td><strong>Architecture</strong></td><td>Pure trigonometry — NOT a model</td></tr>
+<tr><td><strong>Input</strong></td><td>3 keypoints forming a joint (e.g., hip-knee-ankle)</td></tr>
+<tr><td><strong>Formula</strong></td><td><code>angle = atan2(c.y-b.y, c.x-b.x) - atan2(a.y-b.y, a.x-b.x)</code></td></tr>
+<tr><td><strong>Key joints</strong></td><td>Knee (hip-knee-ankle), Elbow (shoulder-elbow-wrist), Hip (shoulder-hip-knee), Shoulder (elbow-shoulder-hip)</td></tr></tbody></table>
+<h3>Model 6: Workout Feedback Generator</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Generate natural language feedback from form analysis</td></tr>
+<tr><td><strong>Architecture</strong></td><td>Template engine (MVP) → Fine-tuned LLM (production)</td></tr>
+<tr><td><strong>Input</strong></td><td>Form analysis results + user history</td></tr>
+<tr><td><strong>Output</strong></td><td>Spoken/written feedback string</td></tr>
+<tr><td><strong>MVP approach</strong></td><td>Template: <code>"Good squat! ${reps} reps completed. Watch your ${issue}."</code></td></tr>
+<tr><td><strong>Production</strong></td><td>Small fine-tuned model (Phi-3-mini) generating contextual coaching</td></tr></tbody></table>
+<h3>Model 7: Diet Recommendation Engine</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Generate personalized diet plans</td></tr>
+<tr><td><strong>Architecture</strong></td><td>Constraint optimization + LLM generation</td></tr>
+<tr><td><strong>Input</strong></td><td>User profile (weight, goal, diet pref, allergies, calorie target)</td></tr>
+<tr><td><strong>Algorithm</strong></td><td>1. Calculate TDEE using Mifflin-St Jeor<br/>2. Set macro ratios per goal<br/>3. Constraint solver picks foods from DB meeting macros<br/>4. LLM formats into readable meal plan</td></tr>
+<tr><td><strong>Your current state</strong></td><td>Static <code>DIET_PLANS</code> object in <code>dietController.js</code> — replace with dynamic generation</td></tr></tbody></table>
+<h3>Model 8: Conversational AI Trainer</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Answer fitness questions, provide coaching</td></tr>
+<tr><td><strong>Architecture</strong></td><td>RAG + fine-tuned LLM (Llama 3.1 8B or Mistral 7B)</td></tr>
+<tr><td><strong>Input</strong></td><td>User message + conversation history + user profile + RAG context</td></tr>
+<tr><td><strong>Output</strong></td><td>Coaching response</td></tr>
+<tr><td><strong>Details</strong></td><td>Covered in depth in Section 6 (Part 3)</td></tr></tbody></table>
+<h3>Model 9: Personalized Recommendation Engine</h3>
+
+<table><thead><tr><th>Attribute</th><th>Details</th></tr></thead><tbody><tr><td><strong>Purpose</strong></td><td>Recommend exercises, adjust plans based on progress</td></tr>
+<tr><td><strong>Architecture</strong></td><td>Content-based filtering + collaborative filtering hybrid</td></tr>
+<tr><td><strong>Input</strong></td><td>User workout history, form scores, preferences, similar user data</td></tr>
+<tr><td><strong>Output</strong></td><td>Ranked exercise/plan recommendations</td></tr>
+<tr><td><strong>Training</strong></td><td>Requires accumulated user data (Month 8+)</td></tr></tbody></table>
+<h2>2.3 Pose Model Comparison</h2>
+
+<table><thead><tr><th>Model</th><th>FPS (Mobile)</th><th>FPS (Server)</th><th>Keypoints</th><th>Accuracy (AP)</th><th>Model Size</th><th>Best For</th></tr></thead><tbody><tr><td><strong>MoveNet Lightning</strong></td><td>30+</td><td>100+</td><td>17</td><td>70.7</td><td>3.5 MB</td><td>✅ Mobile real-time</td></tr>
+<tr><td><strong>MoveNet Thunder</strong></td><td>15–20</td><td>60+</td><td>17</td><td>75.6</td><td>12 MB</td><td>Mobile quality</td></tr>
+<tr><td><strong>BlazePose</strong></td><td>25–30</td><td>80+</td><td>33</td><td>68.1</td><td>6.5 MB</td><td>Full body (extra points)</td></tr>
+<tr><td><strong>MediaPipe Pose</strong></td><td>25+</td><td>N/A</td><td>33</td><td>~68</td><td>8 MB</td><td>Quick prototyping</td></tr>
+<tr><td><strong>YOLO v8 Pose</strong></td><td>10–15</td><td>90+</td><td>17</td><td>74.5</td><td>25 MB</td><td>Multi-person server</td></tr>
+<tr><td><strong>RTMPose-m</strong></td><td>5–8</td><td>120+</td><td>17</td><td>75.3</td><td>14 MB</td><td>✅ Server production</td></tr>
+<tr><td><strong>RTMPose-l</strong></td><td>3–5</td><td>80+</td><td>17</td><td>76.3</td><td>28 MB</td><td>Server high accuracy</td></tr>
+<tr><td><strong>ViTPose-B</strong></td><td>1–2</td><td>40+</td><td>17</td><td>75.8</td><td>86 MB</td><td>Research, best accuracy</td></tr>
+<tr><td><strong>OpenPose</strong></td><td>N/A</td><td>15–25</td><td>25</td><td>65.3</td><td>200+ MB</td><td>❌ Legacy, too heavy</td></tr></tbody></table>
+<h2>2.4 Recommended Model Selection</h2>
+
+<pre><code class="language-text">┌─────────────────────────────────────────────────────────┐
+<p>│                   RECOMMENDED STACK                      │</p>
+<p>├─────────────────────────────────────────────────────────┤</p>
+<p>│                                                         │</p>
+<p>│  📱 MOBILE (On-Device, Real-Time):                      │</p>
+<p>│     Pose Detection:  MoveNet Lightning (TFLite)         │</p>
+<p>│     Exercise Class:  Custom LSTM (TFLite, ~500KB)       │</p>
+<p>│     Rep Counting:    Pure TypeScript (no model)         │</p>
+<p>│     Angle Calc:      Pure TypeScript (no model)         │</p>
+<p>│     Form Rules:      Pure TypeScript (no model)         │</p>
+<p>│                                                         │</p>
+<p>│  ☁️ SERVER (Cloud, Async/Batch):                        │</p>
+<p>│     Pose Detection:  RTMPose-m (ONNX Runtime)           │</p>
+<p>│     Video Analysis:  RTMPose-m + batch pipeline         │</p>
+<p>│     Form ML:         Custom MLP (PyTorch → ONNX)        │</p>
+<p>│     LLM:             Llama 3.1 8B (vLLM, 4-bit quant)  │</p>
+<p>│     Embeddings:      all-MiniLM-L6-v2 (384-dim)        │</p>
+<p>│                                                         │</p>
+<p>│  🎯 WHY THIS COMBINATION:                               │</p>
+<p>│     • MoveNet Lightning = fastest on mobile (30fps+)    │</p>
+<p>│     • RTMPose-m = best accuracy/speed on server GPU     │</p>
+<p>│     • Llama 3.1 8B = best open LLM at 8B scale         │</p>
+<p>│     • Total on-device model size: ~4.5 MB               │</p>
+<p>│     • Total server GPU needed: 1× T4 or L4 (16GB)      │</p>
+<p>│                                                         │</p>
+<p>└─────────────────────────────────────────────────────────┘</p>
+</code></pre>
+
+<h2>2.5 Edge vs Cloud Inference Decision Matrix</h2>
+
+<table><thead><tr><th>Feature</th><th>Edge (On-Device)</th><th>Cloud (Server)</th></tr></thead><tbody><tr><td>Real-time pose detection</td><td>✅ Primary</td><td>❌ Too much latency</td></tr>
+<tr><td>Rep counting</td><td>✅ Primary</td><td>❌ Not needed</td></tr>
+<tr><td>Angle calculation</td><td>✅ Primary</td><td>❌ Not needed</td></tr>
+<tr><td>Basic form rules</td><td>✅ Primary</td><td>Backup</td></tr>
+<tr><td>Exercise classification</td><td>✅ Primary</td><td>Backup</td></tr>
+<tr><td>Video analysis</td><td>❌ Too slow</td><td>✅ Primary</td></tr>
+<tr><td>Advanced form ML</td><td>❌ Model too large</td><td>✅ Primary</td></tr>
+<tr><td>LLM chatbot</td><td>❌ Too large for mobile</td><td>✅ Primary</td></tr>
+<tr><td>Diet/workout generation</td><td>❌ Needs DB access</td><td>✅ Primary</td></tr>
+<tr><td>Voice guidance</td><td>✅ TTS on device</td><td>❌ Latency</td></tr></tbody></table>
+
+<hr>
+
+<h1>Part 2 — Dataset Engineering, Training Pipeline & Real-Time Video AI</h1>
+
+<hr>
+
+<h1>SECTION 3 — DATASET ENGINEERING</h1>
+
+<h2>3.1 Public Datasets for Fitness AI</h2>
+
+<table><thead><tr><th>Dataset</th><th>Size</th><th>Contents</th><th>Use Case</th></tr></thead><tbody><tr><td><strong>COCO Keypoints</strong></td><td>200K images</td><td>17 keypoints, multi-person</td><td>Pose model pre-training</td></tr>
+<tr><td><strong>MPII Human Pose</strong></td><td>25K images</td><td>16 joints, activity labels</td><td>Pose fine-tuning</td></tr>
+<tr><td><strong>Fitness-AQA</strong></td><td>1.2K videos</td><td>Diving/gym quality scores</td><td>Form scoring reference</td></tr>
+<tr><td><strong>UCF101</strong></td><td>13K videos</td><td>101 action classes</td><td>Exercise classification</td></tr>
+<tr><td><strong>Kinetics-700</strong></td><td>650K videos</td><td>700 human actions</td><td>Action recognition pre-training</td></tr>
+<tr><td><strong>NTU RGB+D</strong></td><td>57K videos</td><td>60 action classes, skeleton</td><td>Skeleton-based exercise</td></tr>
+<tr><td><strong>Penn Action</strong></td><td>2.3K videos</td><td>15 actions with joint labels</td><td>Exercise classification</td></tr>
+<tr><td><strong>InfiniteRep</strong></td><td>1K+ videos</td><td>Gym exercises, rep-annotated</td><td>Rep counting ground truth</td></tr>
+<tr><td><strong>RepCount</strong></td><td>1.4K videos</td><td>Repetitive action counting</td><td>Rep counter training</td></tr>
+<tr><td><strong>USDA FoodData Central</strong></td><td>380K foods</td><td>Full nutrition data</td><td>Diet recommendation</td></tr>
+<tr><td><strong>Open Food Facts</strong></td><td>3M products</td><td>Barcodes + nutrition</td><td>Food scanning (you already import this)</td></tr>
+<tr><td><strong>Indian Food Composition</strong></td><td>600+ foods</td><td>Indian diet data</td><td>Indian diet plans</td></tr></tbody></table>
+<h2>3.2 Building Your Own Fitness Dataset</h2>
+
+<h3>Step 1: Recording Protocol</h3>
+
+<pre><code class="language-text">Equipment needed:
+<ul><li>Smartphone on tripod (multiple angles: front, 45°, side)</li>
+<li>Consistent lighting</li>
+<li>Plain background preferred</li>
+</ul>
+<p>Recording plan:</p>
+<ul><li>15-20 exercise types</li>
+<li>Per exercise: 20 correct + 10 intentionally incorrect reps</li>
+<li>5-10 subjects of varying body types</li>
+<li>Record at 30fps, 1080p minimum</li>
+<li>Total: ~300-500 short clips</li>
+</ul></code></pre>
+
+<h3>Step 2: Annotation Pipeline</h3>
+
+<div class="mermaid">graph LR
+<p>    Raw["Raw Videos"] --> Extract["Extract Frames<br/>FFmpeg 5fps"]</p>
+<p>    Extract --> AutoPose["Auto Pose<br/>RTMPose batch"]</p>
+<p>    AutoPose --> CVAT["Manual Review<br/>CVAT / Label Studio"]</p>
+<p>    CVAT --> Labels["Labels JSON"]</p>
+<p>    Labels --> QA["Quality Check"]</p>
+<p>    QA --> Dataset["Final Dataset"]</div></p>
+
+<strong>Labeling schema per frame:</strong>
+<pre><code class="language-json">{
+<p>  "video_id": "squat_correct_001",</p>
+<p>  "frame": 45,</p>
+<p>  "exercise": "squat",</p>
+<p>  "phase": "descent",</p>
+<p>  "rep_number": 3,</p>
+<p>  "form_correct": true,</p>
+<p>  "issues": [],</p>
+<p>  "keypoints_17": [[x,y,conf], ...],</p>
+<p>  "joint_angles": {"knee_left": 92.3, "hip_left": 78.5}</p>
+<p>}</p>
+</code></pre>
+
+<strong>Labeling tools (free):</strong>
+<ul><li><strong>CVAT</strong> — best for video annotation, supports keypoints</li>
+<li><strong>Label Studio</strong> — flexible, good for multi-modal</li>
+<li><strong>VIA (VGG)</strong> — lightweight browser-based tool</li>
+</ul>
+<h3>Step 3: Synthetic Data Generation</h3>
+
+<pre><code class="language-python"># Augmentation pipeline using Albumentations
+<p>import albumentations as A</p>
+
+<p>transform = A.Compose([</p>
+<p>    A.HorizontalFlip(p=0.5),</p>
+<p>    A.RandomBrightnessContrast(p=0.3),</p>
+<p>    A.GaussNoise(var_limit=(10, 50), p=0.2),</p>
+<p>    A.Rotate(limit=15, p=0.3),</p>
+<p>    A.RandomScale(scale_limit=0.2, p=0.3),</p>
+<p>    A.MotionBlur(blur_limit=5, p=0.1),</p>
+<p>], keypoint_params=A.KeypointParams(format='xy', remove_invisible=False))</p>
+
+<h1>Skeleton-level augmentations (custom):</h1>
+<h1>- Add Gaussian noise to keypoints (simulate detection jitter)</h1>
+<h1>- Interpolate between correct/incorrect poses</h1>
+<h1>- Time-warp sequences (speed up/slow down reps)</h1>
+</code></pre>
+
+<h3>Step 4: Dataset Balancing</h3>
+
+<table><thead><tr><th>Strategy</th><th>When to Use</th></tr></thead><tbody><tr><td>Oversample minority class</td><td>Fewer "incorrect" form examples</td></tr>
+<tr><td>SMOTE on keypoint features</td><td>Balanced exercise classes</td></tr>
+<tr><td>Stratified splits</td><td>Ensure all exercises in train/val/test</td></tr>
+<tr><td>Per-subject splits</td><td>Prevent data leakage (same person in train+test)</td></tr></tbody></table>
+<h2>3.3 How Startups Build Proprietary Datasets</h2>
+
+<li><strong>Seed with public data</strong> — COCO + UCF101 for pre-training</li>
+<li><strong>Record in-house</strong> — Founders/team record 500+ clips</li>
+<li><strong>User-contributed (with consent)</strong> — Premium users opt-in to share anonymized data</li>
+<li><strong>Synthetic augmentation</strong> — 10× data through augmentation</li>
+<li><strong>Active learning loop</strong> — Flag low-confidence predictions → human review → retrain</li>
+<li><strong>Hire annotators</strong> — Scale-AI, Labelbox, or local interns for labeling sprints</li>
+
+<hr>
+
+<h1>SECTION 4 — TRAINING PIPELINE</h1>
+
+<h2>4.1 Complete ML Training Pipeline Architecture</h2>
+
+<div class="mermaid">graph TB
+<p>    subgraph DataPrep["1. Data Preparation"]</p>
+<p>        Raw["Raw Videos"] --> Frames["Frame Extraction"]</p>
+<p>        Frames --> PoseExt["Pose Extraction<br/>RTMPose batch"]</p>
+<p>        PoseExt --> Features["Feature Engineering"]</p>
+<p>        Features --> Split["Train/Val/Test Split"]</p>
+<p>    end</p>
+
+<p>    subgraph Training["2. Training"]</p>
+<p>        Split --> DataLoader["PyTorch DataLoader"]</p>
+<p>        DataLoader --> Model["Model Training"]</p>
+<p>        Model --> Eval["Validation"]</p>
+<p>        Eval -->|"Not converged"| Model</p>
+<p>        Eval -->|"Converged"| Best["Best Checkpoint"]</p>
+<p>    end</p>
+
+<p>    subgraph Optimization["3. Optimization"]</p>
+<p>        Best --> ONNX["Export to ONNX"]</p>
+<p>        ONNX --> Quant["Quantization<br/>INT8 / FP16"]</p>
+<p>        Quant --> TFLite["Convert to TFLite"]</p>
+<p>        TFLite --> Bench["Benchmark<br/>Latency + Accuracy"]</p>
+<p>    end</p>
+
+<p>    subgraph Tracking["4. Experiment Tracking"]</p>
+<p>        Model -.-> MLflow["MLflow / W&B"]</p>
+<p>        Eval -.-> MLflow</p>
+<p>        Bench -.-> MLflow</p>
+<p>    end</p>
+
+<p>    subgraph Deploy["5. Deploy"]</p>
+<p>        Bench --> Registry["Model Registry"]</p>
+<p>        Registry --> Mobile["TFLite → Mobile"]</p>
+<p>        Registry --> Server["ONNX → Server"]</p>
+<p>    end</div></p>
+
+<h2>4.2 Feature Engineering for Pose Data</h2>
+
+<pre><code class="language-python">import numpy as np
+
+<p>def extract_features(keypoints_sequence):</p>
+<p>    """</p>
+<p>    Input: (T, 17, 2) array — T frames of 17 keypoints</p>
+<p>    Output: feature vector for classifier</p>
+<p>    """</p>
+<p>    features = []</p>
+<p>    for frame_kps in keypoints_sequence:</p>
+<p>        # 1. Joint angles (8 key angles)</p>
+<p>        angles = [</p>
+<p>            calc_angle(frame_kps[5], frame_kps[7], frame_kps[9]),   # left elbow</p>
+<p>            calc_angle(frame_kps[6], frame_kps[8], frame_kps[10]),  # right elbow</p>
+<p>            calc_angle(frame_kps[11], frame_kps[13], frame_kps[15]),# left knee</p>
+<p>            calc_angle(frame_kps[12], frame_kps[14], frame_kps[16]),# right knee</p>
+<p>            calc_angle(frame_kps[5], frame_kps[11], frame_kps[13]), # left hip</p>
+<p>            calc_angle(frame_kps[6], frame_kps[12], frame_kps[14]), # right hip</p>
+<p>            calc_angle(frame_kps[7], frame_kps[5], frame_kps[11]),  # left shoulder</p>
+<p>            calc_angle(frame_kps[8], frame_kps[6], frame_kps[12]),  # right shoulder</p>
+<p>        ]</p>
+        
+<p>        # 2. Normalize keypoints (hip-centered, scale-invariant)</p>
+<p>        hip_center = (frame_kps[11] + frame_kps[12]) / 2</p>
+<p>        torso_len = np.linalg.norm(frame_kps[5] - frame_kps[11])  # shoulder-hip</p>
+<p>        normalized = (frame_kps - hip_center) / (torso_len + 1e-6)</p>
+        
+<p>        # 3. Velocities (frame-to-frame displacement)</p>
+<p>        # computed across sequence</p>
+        
+<p>        features.append(np.concatenate([angles, normalized.flatten()]))</p>
+    
+<p>    return np.array(features)  # shape: (T, 42)</p>
+
+<p>def calc_angle(a, b, c):</p>
+<p>    """Angle at point b formed by points a-b-c, in degrees."""</p>
+<p>    ba = a - b</p>
+<p>    bc = c - b</p>
+<p>    cosine = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)</p>
+<p>    return np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))</p>
+</code></pre>
+
+<h2>4.3 Exercise Classifier Training</h2>
+
+<pre><code class="language-python">import torch
+<p>import torch.nn as nn</p>
+
+<p>class ExerciseClassifier(nn.Module):</p>
+<p>    """LSTM classifier for exercise type from pose sequences."""</p>
+<p>    def __init__(self, input_dim=42, hidden_dim=128, num_classes=15, num_layers=2):</p>
+<p>        super().__init__()</p>
+<p>        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, </p>
+<p>                           batch_first=True, dropout=0.3)</p>
+<p>        self.classifier = nn.Sequential(</p>
+<p>            nn.Linear(hidden_dim, 64),</p>
+<p>            nn.ReLU(),</p>
+<p>            nn.Dropout(0.3),</p>
+<p>            nn.Linear(64, num_classes)</p>
+<p>        )</p>
+    
+<p>    def forward(self, x):  # x: (batch, seq_len, 42)</p>
+<p>        _, (hidden, _) = self.lstm(x)</p>
+<p>        return self.classifier(hidden[-1])</p>
+
+<h1>Training config</h1>
+<p>config = {</p>
+<p>    'batch_size': 32,</p>
+<p>    'lr': 1e-3,</p>
+<p>    'epochs': 100,</p>
+<p>    'optimizer': 'AdamW',</p>
+<p>    'scheduler': 'CosineAnnealingLR',</p>
+<p>    'seq_length': 30,  # 1 second at 30fps</p>
+<p>    'early_stopping_patience': 10,</p>
+<p>}</p>
+</code></pre>
+
+<h2>4.4 Form Correction MLP Training</h2>
+
+<pre><code class="language-python">class FormCorrector(nn.Module):
+<p>    """Per-exercise form quality predictor."""</p>
+<p>    def __init__(self, input_dim=42, num_issues=8):</p>
+<p>        super().__init__()</p>
+<p>        self.net = nn.Sequential(</p>
+<p>            nn.Linear(input_dim, 128),</p>
+<p>            nn.ReLU(),</p>
+<p>            nn.BatchNorm1d(128),</p>
+<p>            nn.Dropout(0.3),</p>
+<p>            nn.Linear(128, 64),</p>
+<p>            nn.ReLU(),</p>
+<p>            nn.Linear(64, num_issues),  # multi-label: each issue is sigmoid</p>
+<p>        )</p>
+<p>        self.score_head = nn.Sequential(</p>
+<p>            nn.Linear(64, 1),</p>
+<p>            nn.Sigmoid()  # 0-1 form score</p>
+<p>        )</p>
+    
+<p>    def forward(self, x):</p>
+<p>        h = self.net<a href="x">:-1</a>  # features before last layer</p>
+<p>        issues = torch.sigmoid(self.net<a href="h">-1</a>)</p>
+<p>        score = self.score_head(h)</p>
+<p>        return issues, score</p>
+</code></pre>
+
+<h2>4.5 PyTorch vs TensorFlow Decision</h2>
+
+<table><thead><tr><th>Factor</th><th>PyTorch ✅</th><th>TensorFlow</th></tr></thead><tbody><tr><td>Research flexibility</td><td>✅ Dynamic graphs, easier debugging</td><td>Static graphs</td></tr>
+<tr><td>Mobile deployment</td><td>Via ONNX → TFLite conversion</td><td>✅ Native TFLite</td></tr>
+<tr><td>Community & papers</td><td>✅ 80%+ of new research</td><td>Declining</td></tr>
+<tr><td>Production serving</td><td>TorchServe / Triton</td><td>TF Serving</td></tr>
+<tr><td>Your learning curve</td><td>✅ More intuitive for AIML students</td><td>More boilerplate</td></tr></tbody></table>
+<div class="alert alert-important"><strong>IMPORTANT</strong><br><strong>Recommendation:</strong> Train in PyTorch → Export to ONNX → Convert to TFLite for mobile. This gives you the best of both worlds.</div>
+<h2>4.6 Model Optimization Pipeline</h2>
+
+<pre><code class="language-text">PyTorch Model (.pt)
+<p>    │</p>
+<p>    ├── torch.onnx.export() ──→ ONNX Model (.onnx)</p>
+<p>    │                               │</p>
+<p>    │                               ├── onnxruntime (server inference)</p>
+<p>    │                               │</p>
+<p>    │                               ├── onnx-tf ──→ TensorFlow SavedModel</p>
+<p>    │                               │                    │</p>
+<p>    │                               │                    └── tf.lite.TFLiteConverter</p>
+<p>    │                               │                         │</p>
+<p>    │                               │                         ├── FP16 quantization (2× smaller)</p>
+<p>    │                               │                         ├── INT8 quantization (4× smaller)</p>
+<p>    │                               │                         └── .tflite (mobile deploy)</p>
+<p>    │                               │</p>
+<p>    │                               └── TensorRT (NVIDIA GPU optimization)</p>
+<p>    │                                    └── 2-5× faster on GPU servers</p>
+<p>    │</p>
+<p>    └── torch.quantization (alternative path)</p>
+<p>         └── Dynamic/Static quantization</p>
+</code></pre>
+
+<strong>Size & speed impact:</strong>
+
+<table><thead><tr><th>Optimization</th><th>Size Reduction</th><th>Speed Gain</th><th>Accuracy Loss</th></tr></thead><tbody><tr><td>FP16 quantization</td><td>2× smaller</td><td>1.5–2× faster</td><td>< 0.5%</td></tr>
+<tr><td>INT8 quantization</td><td>4× smaller</td><td>2–3× faster</td><td>1–2%</td></tr>
+<tr><td>Pruning (50%)</td><td>2× smaller</td><td>1.5× faster</td><td>1–3%</td></tr>
+<tr><td>Knowledge distillation</td><td>Teacher → student</td><td>3–5× faster</td><td>2–5%</td></tr>
+<tr><td>TensorRT (server)</td><td>Same</td><td>2–5× faster</td><td>< 0.1%</td></tr></tbody></table>
+<h2>4.7 GPU Requirements</h2>
+
+<table><thead><tr><th>Task</th><th>GPU Needed</th><th>Time Estimate</th><th>Cost</th></tr></thead><tbody><tr><td>Exercise classifier training</td><td>1× T4 (16GB)</td><td>2–4 hours</td><td>~$2</td></tr>
+<tr><td>Form corrector training</td><td>1× T4</td><td>1–2 hours</td><td>~$1</td></tr>
+<tr><td>Pose model fine-tuning</td><td>1× A10G (24GB)</td><td>6–12 hours</td><td>~$15</td></tr>
+<tr><td>LLM fine-tuning (8B, LoRA)</td><td>1× A100 (40GB)</td><td>4–8 hours</td><td>~$30</td></tr>
+<tr><td>LLM fine-tuning (8B, QLoRA)</td><td>1× A10G (24GB)</td><td>6–12 hours</td><td>~$15</td></tr></tbody></table>
+<div class="alert alert-tip"><strong>TIP</strong><br>Use <strong>Google Colab Pro</strong> ($10/mo) for all training except LLM fine-tuning. Use <strong>RunPod</strong> or <strong>Lambda Labs</strong> ($1-2/hr for A100) for LLM training.</div>
+<hr>
+
+<h1>SECTION 5 — REAL-TIME VIDEO AI</h1>
+
+<h2>5.1 On-Device Camera Pipeline Architecture</h2>
+
+<div class="mermaid">sequenceDiagram
+<p>    participant Cam as Camera (30fps)</p>
+<p>    participant NM as Native Module</p>
+<p>    participant TFL as TFLite Runtime</p>
+<p>    participant JS as JS Thread</p>
+<p>    participant UI as React Native UI</p>
+<p>    participant TTS as Voice Coach</p>
+
+<p>    Cam->>NM: YUV frame (native thread)</p>
+<p>    NM->>NM: Resize to 192×192 RGB</p>
+<p>    NM->>TFL: Run MoveNet inference</p>
+<p>    Note over TFL: ~15-25ms on-device</p>
+<p>    TFL->>NM: 17 keypoints</p>
+<p>    NM->>JS: Bridge keypoints (JSI)</p>
+<p>    JS->>JS: Calculate angles (< 1ms)</p>
+<p>    JS->>JS: Count reps (< 1ms)</p>
+<p>    JS->>JS: Check form rules (< 1ms)</p>
+<p>    JS->>UI: Update overlay + stats</p>
+<p>    JS->>TTS: Voice feedback (every 5s)</div></p>
+
+<strong>Key architecture decisions:</strong>
+<li><strong>Frame processing happens in native thread</strong> — never send raw frames to JS</li>
+<li><strong>Use JSI (JavaScript Interface)</strong> — not the old bridge, for near-zero overhead</li>
+<li><strong>Process every 2nd frame</strong> — 15fps inference is sufficient, saves battery</li>
+<li><strong>Keypoints-only cross-thread</strong> — only 51 floats cross native→JS boundary</li>
+
+<h2>5.2 Implementation Strategy</h2>
+
+<h3>Native Module Architecture (React Native)</h3>
+
+<pre><code class="language-text">mobile/native-modules/
+<p>├── android/</p>
+<p>│   └── PoseDetectorModule.kt     # CameraX + TFLite</p>
+<p>│       ├── setupCamera()          # CameraX preview + ImageAnalysis</p>
+<p>│       ├── processFrame()         # YUV→RGB→resize→infer</p>
+<p>│       └── emitKeypoints()        # Send to JS via JSI</p>
+<p>├── ios/</p>
+<p>│   └── PoseDetectorModule.swift   # AVCaptureSession + CoreML/TFLite</p>
+<p>└── shared/</p>
+<p>    └── pose-types.ts              # TypeScript interfaces</p>
+</code></pre>
+
+<h3>Frame Processing Pipeline</h3>
+
+<pre><code class="language-kotlin">// Android: PoseDetectorModule.kt (simplified)
+<p>class PoseAnalyzer(private val interpreter: Interpreter) : ImageAnalysis.Analyzer {</p>
+    
+<p>    override fun analyze(imageProxy: ImageProxy) {</p>
+<p>        // 1. Convert YUV → RGB bitmap</p>
+<p>        val bitmap = imageProxy.toBitmap()</p>
+        
+<p>        // 2. Resize to model input (192×192)</p>
+<p>        val resized = Bitmap.createScaledBitmap(bitmap, 192, 192, true)</p>
+        
+<p>        // 3. Normalize to [0, 1] float array</p>
+<p>        val inputBuffer = ByteBuffer.allocateDirect(192 <em> 192 </em> 3 * 4)</p>
+<p>        // ... fill buffer</p>
+        
+<p>        // 4. Run inference (~15-25ms)</p>
+<p>        val outputBuffer = Array(1) { Array(17) { FloatArray(3) } }</p>
+<p>        interpreter.run(inputBuffer, outputBuffer)</p>
+        
+<p>        // 5. Send keypoints to JS via JSI</p>
+<p>        emitKeypoints(outputBuffer[0])</p>
+        
+<p>        imageProxy.close()</p>
+<p>    }</p>
+<p>}</p>
+</code></pre>
+
+<h2>5.3 Latency Budget</h2>
+
+<pre><code class="language-text">Target: &lt; 100ms total feedback loop
+
+<p>┌──────────────────────────────────────────────────┐</p>
+<p>│ Camera capture           │  5 ms                 │</p>
+<p>│ Frame preprocessing      │  3 ms                 │</p>
+<p>│ Pose inference (TFLite)  │ 20 ms                 │</p>
+<p>│ Native → JS bridge       │  2 ms                 │</p>
+<p>│ Angle + rep calculation  │  1 ms                 │</p>
+<p>│ Form rule checking       │  2 ms                 │</p>
+<p>│ UI re-render             │ 16 ms (60fps target)  │</p>
+<p>│──────────────────────────│───────────────────────│</p>
+<p>│ TOTAL                    │ ~49 ms ✅              │</p>
+<p>└──────────────────────────────────────────────────┘</p>
+</code></pre>
+
+<h2>5.4 Edge vs Cloud Processing Decision</h2>
+
+<table><thead><tr><th>Scenario</th><th>Where</th><th>Why</th></tr></thead><tbody><tr><td>Live workout coaching</td><td>100% on-device</td><td>Latency critical, privacy</td></tr>
+<tr><td>Real-time rep counting</td><td>100% on-device</td><td>Must be instant</td></tr>
+<tr><td>Basic form checking</td><td>100% on-device</td><td>Rule-based, no GPU needed</td></tr>
+<tr><td>Advanced form analysis</td><td>Hybrid: on-device + periodic server</td><td>ML model too large for phone</td></tr>
+<tr><td>Video upload analysis</td><td>100% server</td><td>Not real-time, needs GPU</td></tr>
+<tr><td>Post-workout summary</td><td>Server</td><td>LLM generation</td></tr></tbody></table>
+<h2>5.5 How Production Fitness Apps Achieve Low Latency</h2>
+
+<li><strong>On-device inference only</strong> — Apps like Tempo, Tonal, and Apple Fitness+ run pose detection on-device</li>
+<li><strong>Quantized models</strong> — INT8 models run 3–4× faster than FP32</li>
+<li><strong>GPU delegates</strong> — TFLite GPU delegate (Android) / CoreML delegate (iOS) for hardware acceleration</li>
+<li><strong>Frame skipping</strong> — Process 15fps, render at 60fps with interpolation</li>
+<li><strong>Async rendering</strong> — Skeleton overlay updates don't block camera preview</li>
+<li><strong>Memory-mapped models</strong> — Load model file directly from disk without copying</li>
+<li><strong>Warm-up inference</strong> — Run 1 dummy inference on app start to initialize GPU</li>
+
+<h2>5.6 Mobile GPU Optimization</h2>
+
+<pre><code class="language-typescript">// TFLite interpreter options for maximum speed
+<p>const interpreterOptions = {</p>
+<p>  // Android: use GPU delegate</p>
+<p>  android: {</p>
+<p>    delegate: 'GPU',           // Use OpenCL/Vulkan GPU</p>
+<p>    numThreads: 4,             // CPU fallback threads</p>
+<p>    useNNAPI: true,            // Android Neural Networks API</p>
+<p>    allowFp16: true,           // Half-precision on GPU</p>
+<p>  },</p>
+<p>  // iOS: use CoreML delegate</p>
+<p>  ios: {</p>
+<p>    delegate: 'CoreML',        // Apple Neural Engine</p>
+<p>    numThreads: 2,</p>
+<p>    enableCoreMLQuantization: true,</p>
+<p>  }</p>
+<p>};</p>
+</code></pre>
+
+<h2>5.7 WebRTC Pipeline (for Server-Assisted Analysis)</h2>
+
+<p>Only needed when you want server-side analysis during live workouts (premium feature):</p>
+
+<pre><code class="language-text">Phone Camera → WebRTC → Media Server (Janus/mediasoup)
+<p>                              ↓</p>
+<p>                    Extract keyframes every 500ms</p>
+<p>                              ↓</p>
+<p>                    GPU: RTMPose + Form Analyzer</p>
+<p>                              ↓</p>
+<p>                    WebSocket → Phone (correction tips)</p>
+</code></pre>
+
+<div class="alert alert-warning"><strong>WARNING</strong><br>WebRTC adds significant complexity and server cost. For MVP, keep everything on-device. Only add server-assisted analysis as a Pro+ feature in Month 8+.</div>
+
+<hr>
+
+<h1>Part 3 — Chatbot AI, Deployment & DevOps, Mobile AI, Security</h1>
+
+<hr>
+
+<h1>SECTION 6 — CHATBOT AI</h1>
+
+<h2>6.1 Architecture Overview</h2>
+
+<div class="mermaid">graph TB
+<p>    User["User Message"] --> Router["Intent Router"]</p>
+<p>    Router --> RAG["RAG Pipeline"]</p>
+<p>    Router --> Direct["Direct LLM"]</p>
+    
+<p>    RAG --> Embed["Embed Query<br/>all-MiniLM-L6-v2"]</p>
+<p>    Embed --> Search["Vector Search<br/>Qdrant"]</p>
+<p>    Search --> Context["Relevant Documents"]</p>
+<p>    Context --> LLM["LLM<br/>Llama 3.1 8B"]</p>
+<p>    Direct --> LLM</p>
+    
+<p>    Profile["User Profile"] --> LLM</p>
+<p>    History["Chat History<br/>last 10 msgs"] --> LLM</p>
+<p>    SystemPrompt["System Prompt<br/>Fitness Coach Persona"] --> LLM</p>
+    
+<p>    LLM --> Response["Response"]</p>
+<p>    Response --> Memory["Save to Memory"]</p>
+<p>    Response --> Client["Send to Client"]</div></p>
+
+<h2>6.2 LLM Selection Comparison</h2>
+
+<table><thead><tr><th>Model</th><th>Size</th><th>VRAM Needed</th><th>Quality</th><th>Speed</th><th>License</th><th>Best For</th></tr></thead><tbody><tr><td><strong>Llama 3.1 8B</strong></td><td>8B</td><td>6GB (4-bit)</td><td>✅ Best at 8B</td><td>40 tok/s</td><td>Open</td><td>✅ Production chatbot</td></tr>
+<tr><td><strong>Mistral 7B v0.3</strong></td><td>7B</td><td>5GB (4-bit)</td><td>Good</td><td>45 tok/s</td><td>Apache</td><td>Fast responses</td></tr>
+<tr><td><strong>Gemma 2 9B</strong></td><td>9B</td><td>7GB (4-bit)</td><td>Very good</td><td>35 tok/s</td><td>Open</td><td>Google ecosystem</td></tr>
+<tr><td><strong>Phi-3 Mini</strong></td><td>3.8B</td><td>3GB (4-bit)</td><td>Good for size</td><td>60 tok/s</td><td>MIT</td><td>✅ Budget/edge</td></tr>
+<tr><td><strong>Qwen 2.5 7B</strong></td><td>7B</td><td>5GB (4-bit)</td><td>Very good</td><td>42 tok/s</td><td>Apache</td><td>Multilingual</td></tr>
+<tr><td><strong>Llama 3.1 70B</strong></td><td>70B</td><td>40GB (4-bit)</td><td>Excellent</td><td>10 tok/s</td><td>Open</td><td>Premium tier</td></tr></tbody></table>
+<div class="alert alert-important"><strong>IMPORTANT</strong><br><strong>Recommendation:</strong> Start with <strong>Llama 3.1 8B</strong> (4-bit quantized via vLLM). It runs on a single T4 GPU ($0.50/hr), produces high quality fitness coaching, and has excellent instruction following.</div>
+<h2>6.3 RAG Pipeline for Fitness Knowledge</h2>
+
+<h3>Knowledge Base Structure</h3>
+
+<pre><code class="language-text">knowledge-base/
+<p>├── exercises/           # 500+ exercise descriptions</p>
+<p>│   ├── squat.md        # Form cues, muscles, variations</p>
+<p>│   ├── deadlift.md</p>
+<p>│   └── ...</p>
+<p>├── nutrition/           # Nutrition science</p>
+<p>│   ├── macros.md</p>
+<p>│   ├── indian_diet.md</p>
+<p>│   └── supplements.md</p>
+<p>├── programs/            # Training programs</p>
+<p>│   ├── ppl.md          # Push/Pull/Legs</p>
+<p>│   ├── upper_lower.md</p>
+<p>│   └── full_body.md</p>
+<p>├── injuries/            # Common injuries &amp; modifications</p>
+<p>│   ├── lower_back.md</p>
+<p>│   ├── knee.md</p>
+<p>│   └── shoulder.md</p>
+<p>└── science/             # Exercise science</p>
+<p>    ├── progressive_overload.md</p>
+<p>    ├── recovery.md</p>
+<p>    └── periodization.md</p>
+</code></pre>
+
+<h3>Embedding & Retrieval Pipeline</h3>
+
+<pre><code class="language-python">from sentence_transformers import SentenceTransformer
+<p>from qdrant_client import QdrantClient</p>
+
+<h1>1. Embed documents (one-time)</h1>
+<p>embedder = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dim, 22MB</p>
+<p>chunks = chunk_documents(knowledge_base, chunk_size=512, overlap=50)</p>
+<p>vectors = embedder.encode(chunks)</p>
+
+<h1>2. Store in Qdrant</h1>
+<p>qdrant = QdrantClient(host="localhost", port=6333)</p>
+<p>qdrant.upsert(collection_name="fitness_kb", points=[</p>
+<p>    {"id": i, "vector": v.tolist(), "payload": {"text": c, "source": s}}</p>
+<p>    for i, (v, c, s) in enumerate(zip(vectors, chunks, sources))</p>
+<p>])</p>
+
+<h1>3. At query time</h1>
+<p>def retrieve_context(query: str, top_k: int = 5) -&gt; str:</p>
+<p>    q_vector = embedder.encode(query)</p>
+<p>    results = qdrant.search("fitness_kb", q_vector, limit=top_k)</p>
+<p>    return "\n---\n".join([r.payload["text"] for r in results])</p>
+</code></pre>
+
+<h2>6.4 Conversation Memory System</h2>
+
+<pre><code class="language-python"># Memory architecture: Short-term (in-context) + Long-term (DB)
+<p>class ConversationMemory:</p>
+<p>    def __init__(self, user_id: str, max_context_messages: int = 10):</p>
+<p>        self.user_id = user_id</p>
+<p>        self.max_context = max_context_messages</p>
+    
+<p>    def get_context(self) -&gt; list:</p>
+<p>        """Short-term: last N messages for LLM context window."""</p>
+<p>        session = db.chat_sessions.find_one(</p>
+<p>            {"userId": self.user_id}, sort=[("updatedAt", -1)]</p>
+<p>        )</p>
+<p>        if not session:</p>
+<p>            return []</p>
+<p>        return session["messages"][-self.max_context:]</p>
+    
+<p>    def get_user_summary(self) -&gt; str:</p>
+<p>        """Long-term: persistent user facts extracted from conversations."""</p>
+<p>        # Periodically run LLM to extract key facts:</p>
+<p>        # "User prefers vegetarian diet, has knee injury, </p>
+<p>        #  trains 4x/week, goal is muscle gain"</p>
+<p>        profile = db.user_ai_profiles.find_one({"userId": self.user_id})</p>
+<p>        return profile.get("summary", "")</p>
+</code></pre>
+
+<h2>6.5 System Prompt Design</h2>
+
+<pre><code class="language-python">SYSTEM_PROMPT = """You are FitCoach, an expert AI fitness trainer inside the GetFit app.
+
+<p>PERSONALITY:</p>
+<ul><li>Motivating but realistic. Never overpromise results.</li>
+<li>Speak like a knowledgeable gym buddy, not a doctor.</li>
+<li>Use simple language. Avoid jargon unless user is advanced.</li>
+<li>Be concise. Max 3-4 sentences per response unless user asks for detail.</li>
+</ul>
+<p>USER PROFILE:</p>
+<p>{user_profile}</p>
+
+<p>USER FITNESS SUMMARY:</p>
+<p>{long_term_memory}</p>
+
+<p>RELEVANT KNOWLEDGE:</p>
+<p>{rag_context}</p>
+
+<p>RULES:</p>
+<li>Never give medical advice. Redirect to doctor for injuries/pain.</li>
+<li>Always consider user's injuries and limitations.</li>
+<li>Base nutrition advice on their diet preference (veg/non-veg).</li>
+<li>Reference Indian foods when user's diet preference indicates.</li>
+<li>If unsure, say so honestly. Don't hallucinate exercise names or nutrition data.</li>
+<li>Track and reference past conversations when relevant.</li>
+<p>"""</p>
+</code></pre>
+
+<h2>6.6 LLM Serving Architecture</h2>
+
+<pre><code class="language-text">┌─────────────────────────────────────────────┐
+<p>│              vLLM Server                     │</p>
+<p>│  ┌─────────────────────────────────────┐    │</p>
+<p>│  │  Llama 3.1 8B (AWQ 4-bit)          │    │</p>
+<p>│  │  - PagedAttention                   │    │</p>
+<p>│  │  - Continuous batching              │    │</p>
+<p>│  │  - 40+ tokens/sec per request       │    │</p>
+<p>│  │  - Handles 10+ concurrent users     │    │</p>
+<p>│  └─────────────────────────────────────┘    │</p>
+<p>│  GPU: 1× T4 16GB ($0.50/hr)                │</p>
+<p>│  Framework: vLLM 0.5+                       │</p>
+<p>│  API: OpenAI-compatible /v1/chat/completions│</p>
+<p>└─────────────────────────────────────────────┘</p>
+</code></pre>
+
+<strong>Alternative for MVP:</strong> Use <strong>Ollama</strong> locally or on a VPS for simplicity:
+<pre><code class="language-bash"># Deploy in 2 commands
+<p>ollama pull llama3.1:8b-instruct-q4_K_M</p>
+<p>ollama serve  # Exposes OpenAI-compatible API on :11434</p>
+</code></pre>
+
+<h2>6.7 Fine-Tuning Strategy</h2>
+
+<pre><code class="language-python"># LoRA/QLoRA fine-tuning with Unsloth (2× faster, 60% less memory)
+<p>from unsloth import FastLanguageModel</p>
+
+<p>model, tokenizer = FastLanguageModel.from_pretrained(</p>
+<p>    model_name="unsloth/Meta-Llama-3.1-8B-Instruct",</p>
+<p>    max_seq_length=2048,</p>
+<p>    load_in_4bit=True,  # QLoRA</p>
+<p>)</p>
+
+<p>model = FastLanguageModel.get_peft_model(</p>
+<p>    model,</p>
+<p>    r=16,              # LoRA rank</p>
+<p>    lora_alpha=16,</p>
+<p>    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],</p>
+<p>    lora_dropout=0.05,</p>
+<p>)</p>
+
+<h1>Training data: 5K-10K fitness Q&amp;A pairs</h1>
+<h1>Sources: curate from Reddit r/fitness, bodybuilding.com forums,</h1>
+<h1>         exercise science textbooks, your own expert answers</h1>
+</code></pre>
+
+<hr>
+
+<h1>SECTION 7 — DEPLOYMENT & DEVOPS</h1>
+
+<h2>7.1 AWS Architecture</h2>
+
+<div class="mermaid">graph TB
+<p>    subgraph VPC["AWS VPC"]</p>
+<p>        subgraph Public["Public Subnet"]</p>
+<p>            ALB["Application Load Balancer"]</p>
+<p>            NAT["NAT Gateway"]</p>
+<p>        end</p>
+        
+<p>        subgraph Private["Private Subnet"]</p>
+<p>            ECS["ECS Fargate<br/>Node.js API"]</p>
+<p>            GPU["EC2 g4dn.xlarge<br/>AI Services"]</p>
+<p>            Workers["ECS Fargate<br/>Background Workers"]</p>
+<p>        end</p>
+        
+<p>        subgraph Data["Data Subnet"]</p>
+<p>            RDS["RDS PostgreSQL<br/>(future)"]</p>
+<p>            DocDB["DocumentDB / MongoDB Atlas"]</p>
+<p>            ElastiCache["ElastiCache Redis"]</p>
+<p>            Qdrant["Qdrant on EC2"]</p>
+<p>        end</p>
+<p>    end</p>
+    
+<p>    subgraph External["External"]</p>
+<p>        S3["S3 - Videos/Models"]</p>
+<p>        CloudFront["CloudFront CDN"]</p>
+<p>        ECR["ECR - Docker Images"]</p>
+<p>        CloudWatch["CloudWatch Monitoring"]</p>
+<p>        SES["SES - Email"]</p>
+<p>    end</p>
+    
+<p>    ALB --> ECS</p>
+<p>    ALB --> GPU</p>
+<p>    ECS --> DocDB</p>
+<p>    ECS --> ElastiCache</p>
+<p>    ECS --> S3</p>
+<p>    GPU --> ElastiCache</p>
+<p>    GPU --> Qdrant</p>
+<p>    Workers --> DocDB</p>
+<p>    Workers --> S3</p>
+<p>    CloudFront --> S3</div></p>
+
+<h2>7.2 Docker Setup</h2>
+
+<pre><code class="language-yaml"># docker-compose.yml (development)
+<p>version: '3.8'</p>
+<p>services:</p>
+<p>  api:</p>
+<p>    build: ./Backend</p>
+<p>    ports: ['5000:5000']</p>
+<p>    environment:</p>
+<p>      <ul><li>MONGODB_URI=mongodb://mongo:27017/getfit</li></p>
+</ul>      <ul><li>REDIS_URL=redis://redis:6379</li>
+</ul>      <ul><li>AI_SERVICE_URL=http://ai-service:8000</li>
+</ul>    depends_on: [mongo, redis]
+
+<p>  ai-service:</p>
+<p>    build:</p>
+<p>      context: ./ai-service</p>
+<p>      dockerfile: Dockerfile.gpu</p>
+<p>    ports: ['8000:8000']</p>
+<p>    deploy:</p>
+<p>      resources:</p>
+<p>        reservations:</p>
+<p>          devices:</p>
+<p>            <ul><li>driver: nvidia</li></p>
+</ul>              count: 1
+<p>              capabilities: [gpu]</p>
+<p>    environment:</p>
+<p>      <ul><li>MODEL_PATH=/models</li></p>
+</ul>      <ul><li>QDRANT_HOST=qdrant</li>
+</ul>    volumes:
+<p>      <ul><li>./models:/models</li></p>
+</ul>
+<p>  mongo:</p>
+<p>    image: mongo:7</p>
+<p>    ports: ['27017:27017']</p>
+<p>    volumes: ['mongo_data:/data/db']</p>
+
+<p>  redis:</p>
+<p>    image: redis:7-alpine</p>
+<p>    ports: ['6379:6379']</p>
+
+<p>  qdrant:</p>
+<p>    image: qdrant/qdrant:latest</p>
+<p>    ports: ['6333:6333']</p>
+<p>    volumes: ['qdrant_data:/qdrant/storage']</p>
+
+<p>volumes:</p>
+<p>  mongo_data:</p>
+<p>  qdrant_data:</p>
+</code></pre>
+
+<h2>7.3 CI/CD Pipeline</h2>
+
+<div class="mermaid">graph LR
+<p>    Push["Git Push"] --> GHA["GitHub Actions"]</p>
+<p>    GHA --> Lint["Lint + Type Check"]</p>
+<p>    Lint --> Test["Run Tests"]</p>
+<p>    Test --> Build["Docker Build"]</p>
+<p>    Build --> Push2["Push to ECR"]</p>
+<p>    Push2 --> Deploy["Deploy to ECS"]</p>
+<p>    Deploy --> Smoke["Smoke Tests"]</p>
+<p>    Smoke --> Monitor["Monitor 15min"]</p>
+<p>    Monitor -->|"Errors spike"| Rollback["Auto Rollback"]</div></p>
+
+<h2>7.4 Cost-Optimized Startup Architecture</h2>
+
+<table><thead><tr><th>Resource</th><th>MVP (Month 1-4)</th><th>Growth (Month 5-8)</th><th>Scale (Month 9-12)</th></tr></thead><tbody><tr><td><strong>API Server</strong></td><td>1× Railway/Render free</td><td>1× ECS Fargate (0.5vCPU)</td><td>2-4× ECS Fargate</td></tr>
+<tr><td><strong>AI GPU</strong></td><td>Google Colab (dev only)</td><td>1× g4dn.xlarge spot ($0.16/hr)</td><td>1-2× g4dn.xlarge on-demand</td></tr>
+<tr><td><strong>Database</strong></td><td>MongoDB Atlas free (512MB)</td><td>Atlas M10 ($57/mo)</td><td>Atlas M30 or DocumentDB</td></tr>
+<tr><td><strong>Redis</strong></td><td>Upstash free tier</td><td>ElastiCache t3.micro ($13/mo)</td><td>ElastiCache r6g.large</td></tr>
+<tr><td><strong>Vector DB</strong></td><td>Qdrant on same EC2</td><td>Qdrant Cloud free tier</td><td>Dedicated Qdrant</td></tr>
+<tr><td><strong>Storage</strong></td><td>S3 (pay per use)</td><td>S3 + CloudFront</td><td>S3 + CloudFront</td></tr>
+<tr><td><strong>Monthly Cost</strong></td><td><strong>~$0-20</strong></td><td><strong>~$150-300</strong></td><td><strong>~$500-1500</strong></td></tr></tbody></table>
+<div class="alert alert-tip"><strong>TIP</strong><br><strong>Startup hack:</strong> Use <strong>Railway.app</strong> or <strong>Render</strong> for the Node.js API initially (free tier). Only move to AWS when you have paying users. Use <strong>spot instances</strong> for GPU — 70% cheaper.</div>
+<h2>7.5 Monitoring Stack</h2>
+
+<table><thead><tr><th>Tool</th><th>Purpose</th><th>Cost</th></tr></thead><tbody><tr><td><strong>Grafana Cloud</strong> (free tier)</td><td>Dashboards, metrics visualization</td><td>Free up to 10K metrics</td></tr>
+<tr><td><strong>Prometheus</strong></td><td>Metrics collection</td><td>Free (self-hosted)</td></tr>
+<tr><td><strong>Loki</strong></td><td>Log aggregation</td><td>Free with Grafana Cloud</td></tr>
+<tr><td><strong>Sentry</strong></td><td>Error tracking (Node.js + React Native)</td><td>Free tier: 5K events/mo</td></tr>
+<tr><td><strong>Uptime Kuma</strong></td><td>Uptime monitoring</td><td>Free (self-hosted)</td></tr></tbody></table>
+<hr>
+
+<h1>SECTION 8 — MOBILE AI INTEGRATION</h1>
+
+<h2>8.1 React Native AI Architecture</h2>
+
+<pre><code class="language-text">Frontend/
+<p>├── native-modules/</p>
+<p>│   ├── PoseDetection/</p>
+<p>│   │   ├── android/src/.../PoseDetectorModule.kt</p>
+<p>│   │   ├── ios/PoseDetectorModule.swift</p>
+<p>│   │   └── index.ts                    # JS interface</p>
+<p>│   └── TFLiteRunner/</p>
+<p>│       ├── android/src/.../TFLiteModule.kt</p>
+<p>│       ├── ios/TFLiteModule.swift</p>
+<p>│       └── index.ts</p>
+<p>├── services/ai/</p>
+<p>│   ├── PoseDetectionService.ts         # Wraps native module</p>
+<p>│   ├── ExerciseClassifierService.ts    # Runs exercise LSTM</p>
+<p>│   ├── RepCounterService.ts            # Pure TS rep counting</p>
+<p>│   ├── FormAnalyzerService.ts          # Rule-based form checks</p>
+<p>│   ├── AngleCalculatorService.ts       # Joint angle math</p>
+<p>│   └── VoiceCoachService.ts            # expo-speech TTS</p>
+<p>├── hooks/</p>
+<p>│   ├── usePoseDetection.ts             # Camera + pose hook</p>
+<p>│   ├── useWorkoutSession.ts            # Full workout state</p>
+<p>│   └── useVoiceCoach.ts                # Voice feedback hook</p>
+<p>└── stores/</p>
+<p>    └── workoutStore.ts                 # Zustand workout state</p>
+</code></pre>
+
+<h2>8.2 TFLite Integration Options</h2>
+
+<table><thead><tr><th>Option</th><th>Effort</th><th>Performance</th><th>Recommended</th></tr></thead><tbody><tr><td><strong>react-native-tflite</strong></td><td>Low</td><td>Good</td><td>✅ MVP</td></tr>
+<tr><td><strong>Custom native module</strong></td><td>High</td><td>Best</td><td>✅ Production</td></tr>
+<tr><td><strong>expo-camera + frame processor</strong></td><td>Medium</td><td>Good</td><td>Alternative</td></tr>
+<tr><td><strong>react-native-vision-camera</strong></td><td>Medium</td><td>Very good</td><td>✅ Best camera lib</td></tr></tbody></table>
+<strong>Recommended production stack:</strong>
+<pre><code class="language-text">react-native-vision-camera (camera + frame processor)
+<p>  + custom Kotlin/Swift TFLite frame processor plugin</p>
+<p>  + react-native-worklets (already in your deps!)</p>
+</code></pre>
+
+<h2>8.3 Memory & Threading Optimization</h2>
+
+<pre><code class="language-typescript">// Key optimization patterns for mobile AI
+
+<p>// 1. Model loading — do once, reuse</p>
+<p>let poseModel: TFLiteModel | null = null;</p>
+<p>async function ensureModelLoaded() {</p>
+<p>  if (!poseModel) {</p>
+<p>    poseModel = await TFLite.loadModel({</p>
+<p>      model: 'movenet_lightning_fp16.tflite',</p>
+<p>      delegate: Platform.OS === 'ios' ? 'coreml' : 'gpu',</p>
+<p>      numThreads: 2,</p>
+<p>    });</p>
+<p>  }</p>
+<p>  return poseModel;</p>
+<p>}</p>
+
+<p>// 2. Frame throttling — process every 2nd frame</p>
+<p>let frameCount = 0;</p>
+<p>function onFrame(frame: Frame) {</p>
+<p>  frameCount++;</p>
+<p>  if (frameCount % 2 !== 0) return; // Skip odd frames</p>
+<p>  processFrame(frame);</p>
+<p>}</p>
+
+<p>// 3. Offload to worklet thread (not JS thread)</p>
+<p>const processFrameWorklet = Worklets.createRunInJsFn((keypoints: number[]) =&gt; {</p>
+<p>  // This runs on JS thread but keypoint extraction runs on native thread</p>
+<p>  workoutStore.getState().updateKeypoints(keypoints);</p>
+<p>});</p>
+</code></pre>
+
+<h2>8.4 iOS vs Android Specific Optimizations</h2>
+
+<table><thead><tr><th>Aspect</th><th>Android</th><th>iOS</th></tr></thead><tbody><tr><td><strong>Camera API</strong></td><td>CameraX</td><td>AVCaptureSession</td></tr>
+<tr><td><strong>AI Delegate</strong></td><td>GPU (OpenCL) or NNAPI</td><td>CoreML or Metal</td></tr>
+<tr><td><strong>Model Format</strong></td><td>TFLite</td><td>TFLite or CoreML (.mlmodel)</td></tr>
+<tr><td><strong>Best Performance</strong></td><td>NNAPI on Pixel/Samsung</td><td>CoreML on A-series/M-series</td></tr>
+<tr><td><strong>Min Device</strong></td><td>Snapdragon 665+ / ~2019</td><td>iPhone XR+ / A12+</td></tr></tbody></table>
+<hr>
+
+<h1>SECTION 9 — SECURITY & COMPLIANCE</h1>
+
+<h2>9.1 Security Architecture</h2>
+
+<table><thead><tr><th>Layer</th><th>Measure</th><th>Implementation</th></tr></thead><tbody><tr><td><strong>API Auth</strong></td><td>JWT + refresh tokens</td><td>Your existing auth (keep, add refresh tokens)</td></tr>
+<tr><td><strong>API Rate Limiting</strong></td><td>Per-user + per-tier</td><td>express-rate-limit + Redis sliding window</td></tr>
+<tr><td><strong>AI Model Protection</strong></td><td>Encrypt model files on device</td><td>AES-256 encryption, decrypt at runtime</td></tr>
+<tr><td><strong>Video Privacy</strong></td><td>Server-side processing only</td><td>Never store raw frames, delete videos after analysis</td></tr>
+<tr><td><strong>Data Encryption</strong></td><td>At rest + in transit</td><td>TLS 1.3 (transit), AES-256 (S3 SSE)</td></tr>
+<tr><td><strong>Payment Security</strong></td><td>PCI DSS compliance</td><td>Razorpay handles card data (your current setup is correct)</td></tr>
+<tr><td><strong>Input Validation</strong></td><td>Sanitize all AI inputs</td><td>Prevent prompt injection in chatbot</td></tr></tbody></table>
+<h2>9.2 AI-Specific Security</h2>
+
+<pre><code class="language-javascript">// Prompt injection prevention for chatbot
+<p>function sanitizeUserInput(input) {</p>
+<p>  // 1. Length limit</p>
+<p>  if (input.length &gt; 2000) input = input.slice(0, 2000);</p>
+  
+<p>  // 2. Strip system prompt override attempts</p>
+<p>  const blocked = ['ignore previous', 'system:', 'you are now', 'new instructions'];</p>
+<p>  for (const phrase of blocked) {</p>
+<p>    if (input.toLowerCase().includes(phrase)) {</p>
+<p>      return "I can only help with fitness-related questions.";</p>
+<p>    }</p>
+<p>  }</p>
+  
+<p>  // 3. Content filtering — reject non-fitness queries</p>
+<p>  // Use a lightweight classifier or keyword filter</p>
+<p>  return input;</p>
+<p>}</p>
+</code></pre>
+
+<h2>9.3 Privacy Compliance</h2>
+
+<table><thead><tr><th>Requirement</th><th>Implementation</th></tr></thead><tbody><tr><td><strong>GDPR/DPDPA</strong></td><td>User data export + deletion API</td></tr>
+<tr><td><strong>Video consent</strong></td><td>Explicit opt-in before camera access</td></tr>
+<tr><td><strong>Data retention</strong></td><td>Auto-delete workout videos after 30 days</td></tr>
+<tr><td><strong>Analytics consent</strong></td><td>Toggle in settings, respect per feature</td></tr>
+<tr><td><strong>Model training consent</strong></td><td>Separate opt-in if using user data for training</td></tr></tbody></table>
+
+<hr>
+
+<h1>Part 4 — Development Roadmap, Tech Stack & Startup Best Practices</h1>
+
+<hr>
+
+<h1>SECTION 10 — COMPLETE DEVELOPMENT ROADMAP</h1>
+
+<h2>10.1 — 12-Month Roadmap</h2>
+
+<div class="mermaid">gantt
+<p>    title GetFit AI — 12-Month Development Roadmap</p>
+<p>    dateFormat  YYYY-MM</p>
+<p>    axisFormat  %b %Y</p>
+    
+<p>    section Foundation</p>
+<p>    Refactor backend to modular monolith       :f1, 2026-06, 3w</p>
+<p>    Setup Docker + dev environment             :f2, after f1, 1w</p>
+<p>    Setup CI/CD pipeline                       :f3, after f1, 1w</p>
+    
+<p>    section MVP AI (Month 1-3)</p>
+<p>    On-device pose detection prototype         :m1, 2026-06, 4w</p>
+<p>    Rep counter + angle calculator             :m2, after m1, 2w</p>
+<p>    Basic form rules (5 exercises)             :m3, after m2, 2w</p>
+<p>    Voice coaching integration                 :m4, after m3, 1w</p>
+<p>    Workout session recording                  :m5, after m3, 2w</p>
+    
+<p>    section AI Chatbot (Month 3-5)</p>
+<p>    Setup Python AI service                    :c1, 2026-08, 2w</p>
+<p>    RAG knowledge base creation                :c2, after c1, 2w</p>
+<p>    LLM integration (Ollama/vLLM)              :c3, after c1, 2w</p>
+<p>    Chat UI in mobile app                      :c4, after c3, 2w</p>
+<p>    Conversation memory system                 :c5, after c4, 2w</p>
+    
+<p>    section Advanced AI (Month 5-8)</p>
+<p>    Collect exercise dataset (200+ videos)     :a1, 2026-10, 4w</p>
+<p>    Train exercise classifier                  :a2, after a1, 2w</p>
+<p>    Train form correction MLP                  :a3, after a2, 3w</p>
+<p>    Video upload + analysis pipeline           :a4, 2026-11, 4w</p>
+<p>    Dynamic diet plan generator                :a5, 2026-11, 3w</p>
+<p>    Dynamic workout plan generator             :a6, after a5, 3w</p>
+    
+<p>    section Scale (Month 8-12)</p>
+<p>    AWS migration + GPU instances              :s1, 2027-02, 3w</p>
+<p>    LLM fine-tuning on fitness data            :s2, 2027-02, 4w</p>
+<p>    Recommendation engine                      :s3, 2027-03, 4w</p>
+<p>    Expand to 20+ exercises                    :s4, 2027-03, 4w</p>
+<p>    Performance optimization                   :s5, 2027-04, 3w</p>
+<p>    Production monitoring                      :s6, 2027-04, 2w</div></p>
+
+<h2>10.2 — MVP Roadmap (First 4 Months — Detail)</h2>
+
+<h3>Month 1: Foundation + Pose Detection</h3>
+
+<table><thead><tr><th>Week</th><th>Task</th><th>Deliverable</th></tr></thead><tbody><tr><td>W1</td><td>Refactor backend into modular structure</td><td>Clean module boundaries</td></tr>
+<tr><td>W1</td><td>Setup Docker Compose (API + MongoDB + Redis)</td><td><code>docker-compose up</code> works</td></tr>
+<tr><td>W2</td><td>Integrate <code>react-native-vision-camera</code></td><td>Camera preview working</td></tr>
+<tr><td>W2</td><td>Add MoveNet Lightning TFLite model</td><td>Pose detection on camera feed</td></tr>
+<tr><td>W3</td><td>Build skeleton overlay component</td><td>Keypoints drawn on screen</td></tr>
+<tr><td>W3</td><td>Implement angle calculator in TypeScript</td><td>Joint angles displaying live</td></tr>
+<tr><td>W4</td><td>Build rep counter for squats + pushups</td><td>Accurate rep counting</td></tr>
+<tr><td>W4</td><td>Basic form rules for squats</td><td>"Knees past toes" detection</td></tr></tbody></table>
+<h3>Month 2: Workout Tracking + Voice</h3>
+
+<table><thead><tr><th>Week</th><th>Task</th><th>Deliverable</th></tr></thead><tbody><tr><td>W5</td><td>Workout session UI (timer, sets, reps)</td><td>Full workout screen</td></tr>
+<tr><td>W5</td><td>Voice coaching with expo-speech</td><td>Voice says "Good rep!"</td></tr>
+<tr><td>W6</td><td>Form rules for pushups, lunges, curls</td><td>5 exercises with form checking</td></tr>
+<tr><td>W6</td><td>Session data saved to MongoDB</td><td>Workout history viewable</td></tr>
+<tr><td>W7</td><td>Post-workout summary screen</td><td>Stats + form score display</td></tr>
+<tr><td>W7</td><td>Integrate with existing exercise/workout models</td><td>Data flows end-to-end</td></tr>
+<tr><td>W8</td><td>Bug fixing + performance optimization</td><td>< 50ms latency confirmed</td></tr>
+<tr><td>W8</td><td>Beta test with 5-10 users</td><td>Feedback collected</td></tr></tbody></table>
+<h3>Month 3: Chatbot MVP</h3>
+
+<table><thead><tr><th>Week</th><th>Task</th><th>Deliverable</th></tr></thead><tbody><tr><td>W9</td><td>Setup Python FastAPI AI service</td><td>Health check working</td></tr>
+<tr><td>W9</td><td>Integrate Ollama with Llama 3.1 8B</td><td>Chat endpoint working</td></tr>
+<tr><td>W10</td><td>Create fitness knowledge base (50+ docs)</td><td>RAG documents ready</td></tr>
+<tr><td>W10</td><td>Setup Qdrant + embedding pipeline</td><td>Vector search working</td></tr>
+<tr><td>W11</td><td>Build chat UI in React Native</td><td>Chat screen with messages</td></tr>
+<tr><td>W11</td><td>Add user profile context to prompts</td><td>Personalized responses</td></tr>
+<tr><td>W12</td><td>Conversation history + memory</td><td>Context preserved</td></tr>
+<tr><td>W12</td><td>Feature-gate chatbot behind Pro subscription</td><td>Subscription check works</td></tr></tbody></table>
+<h3>Month 4: Video Analysis + Polish</h3>
+
+<table><thead><tr><th>Week</th><th>Task</th><th>Deliverable</th></tr></thead><tbody><tr><td>W13</td><td>Video upload to S3</td><td>Upload flow working</td></tr>
+<tr><td>W14</td><td>Server-side video analysis pipeline</td><td>Batch pose + form analysis</td></tr>
+<tr><td>W15</td><td>Annotated video generation</td><td>Skeleton overlay on video</td></tr>
+<tr><td>W16</td><td>Dynamic diet plan generator</td><td>Replace static <code>DIET_PLANS</code></td></tr></tbody></table>
+<h2>10.3 — What to Build First vs Delay</h2>
+
+<table><thead><tr><th>Build NOW (Month 1-4)</th><th>Build LATER (Month 5-8)</th><th>Delay (Month 9+)</th></tr></thead><tbody><tr><td>On-device pose detection</td><td>Exercise classifier ML</td><td>Recommendation engine</td></tr>
+<tr><td>Rep counter (rule-based)</td><td>Form corrector ML model</td><td>Multi-person tracking</td></tr>
+<tr><td>Basic form rules</td><td>Video upload analysis</td><td>Social features</td></tr>
+<tr><td>Voice coaching</td><td>LLM fine-tuning</td><td>AR overlay features</td></tr>
+<tr><td>Chatbot MVP (Ollama)</td><td>Dynamic diet/workout AI</td><td>WebRTC live coaching</td></tr>
+<tr><td>Workout session tracking</td><td>Advanced chatbot memory</td><td>Custom model architectures</td></tr></tbody></table>
+<div class="alert alert-important"><strong>IMPORTANT</strong><br><strong>The #1 mistake AI startups make:</strong> Building the AI first, app second. Your app MUST be useful with rule-based logic before adding ML. Rule-based rep counting and form checks are 80% as good as ML for MVP and ship in 1/10th the time.</div>
+<h2>10.4 — Team Structure</h2>
+
+<h3>Solo / 2-Person Team (Month 1-6)</h3>
+<pre><code class="language-text">You (Founder/CTO):
+<p>  <ul><li>React Native frontend</li></p>
+</ul>  <ul><li>Backend API</li>
+</ul>  <ul><li>AI model training</li>
+</ul>  <ul><li>On-device AI integration</li>
+</ul>  
+<p>Ideal Co-founder/Hire #1:</p>
+<p>  <ul><li>UI/UX design</li></p>
+</ul>  <ul><li>Frontend polish</li>
+</ul>  <ul><li>Content creation (knowledge base)</li>
+</ul>  <ul><li>User testing</li>
+</ul></code></pre>
+
+<h3>Growing Team (Month 6-12)</h3>
+<pre><code class="language-text">Engineering (3-4 people):
+<p>  <ul><li>1× Full-stack (React Native + Node.js)</li></p>
+</ul>  <ul><li>1× ML Engineer (training + inference)</li>
+</ul>  <ul><li>1× Backend/DevOps</li>
+</ul>  
+<p>Non-Engineering (2 people):</p>
+<p>  <ul><li>1× Designer (UI/UX)</li></p>
+</ul>  <ul><li>1× Content/Marketing</li>
+</ul></code></pre>
+
+<hr>
+
+<h1>SECTION 11 — RECOMMENDED TECH STACK</h1>
+
+<h2>11.1 — Complete Production Stack</h2>
+
+<table><thead><tr><th>Layer</th><th>Technology</th><th>Why</th></tr></thead><tbody><tr><td><strong>Mobile Framework</strong></td><td>React Native + Expo (your current)</td><td>✅ Already built, cross-platform</td></tr>
+<tr><td><strong>Mobile AI</strong></td><td>TensorFlow Lite + custom native modules</td><td>Best mobile inference</td></tr>
+<tr><td><strong>Camera</strong></td><td>react-native-vision-camera v4</td><td>Frame processors, 60fps</td></tr>
+<tr><td><strong>State Management</strong></td><td>Zustand</td><td>Lightweight, hooks-based</td></tr>
+<tr><td><strong>Navigation</strong></td><td>Expo Router (your current)</td><td>✅ File-based routing</td></tr>
+<tr><td><strong>Backend API</strong></td><td>Node.js + Express (your current)</td><td>✅ Keep, refactor to modules</td></tr>
+<tr><td><strong>AI Service</strong></td><td>Python + FastAPI</td><td>Standard for ML serving</td></tr>
+<tr><td><strong>LLM Serving</strong></td><td>vLLM (production) / Ollama (dev)</td><td>Fastest open-source LLM serving</td></tr>
+<tr><td><strong>ML Training</strong></td><td>PyTorch + Lightning</td><td>Industry standard</td></tr>
+<tr><td><strong>Model Export</strong></td><td>ONNX + TFLite</td><td>Cross-platform deployment</td></tr>
+<tr><td><strong>Experiment Tracking</strong></td><td>MLflow or Weights & Biases</td><td>Track training runs</td></tr>
+<tr><td><strong>Primary DB</strong></td><td>MongoDB (your current)</td><td>✅ Keep, flexible schema</td></tr>
+<tr><td><strong>Cache + Queue</strong></td><td>Redis + BullMQ</td><td>Fast cache, reliable queues</td></tr>
+<tr><td><strong>Vector DB</strong></td><td>Qdrant</td><td>Fast, free, easy to deploy</td></tr>
+<tr><td><strong>Object Storage</strong></td><td>AWS S3</td><td>Videos, model artifacts</td></tr>
+<tr><td><strong>CDN</strong></td><td>CloudFront</td><td>Video/asset delivery</td></tr>
+<tr><td><strong>Containerization</strong></td><td>Docker + Docker Compose</td><td>✅ Dev + production</td></tr>
+<tr><td><strong>Orchestration</strong></td><td>ECS Fargate (start) → K8s (scale)</td><td>Serverless containers</td></tr>
+<tr><td><strong>CI/CD</strong></td><td>GitHub Actions</td><td>Free for public repos</td></tr>
+<tr><td><strong>Monitoring</strong></td><td>Grafana + Prometheus + Sentry</td><td>Full observability</td></tr>
+<tr><td><strong>Analytics</strong></td><td>PostHog (self-hosted) or Mixpanel</td><td>Product analytics</td></tr>
+<tr><td><strong>Auth</strong></td><td>JWT (your current) + refresh tokens</td><td>✅ Keep, add refresh</td></tr>
+<tr><td><strong>Payments</strong></td><td>Razorpay (your current) + Apple IAP</td><td>✅ Already integrated</td></tr>
+<tr><td><strong>Voice/TTS</strong></td><td>expo-speech</td><td>On-device TTS</td></tr>
+<tr><td><strong>Push Notifications</strong></td><td>Expo Push + Firebase</td><td>Cross-platform</td></tr></tbody></table>
+<h2>11.2 — Technology Anti-Patterns to Avoid</h2>
+
+<table><thead><tr><th>❌ Don't</th><th>✅ Do Instead</th><th>Why</th></tr></thead><tbody><tr><td>OpenPose for mobile</td><td>MoveNet Lightning</td><td>OpenPose is 200MB+, 2fps on mobile</td></tr>
+<tr><td>GPT-4 API for all AI</td><td>Self-hosted Llama 3.1</td><td>$0.03/query at scale kills margins</td></tr>
+<tr><td>WebRTC for real-time pose</td><td>On-device TFLite</td><td>WebRTC adds 100-500ms latency</td></tr>
+<tr><td>Kubernetes from day 1</td><td>Docker Compose → ECS</td><td>Over-engineering kills velocity</td></tr>
+<tr><td>PostgreSQL migration now</td><td>Keep MongoDB</td><td>You have 9 working Mongoose models</td></tr>
+<tr><td>Microservices from day 1</td><td>Modular monolith</td><td>Split when you hit scaling walls</td></tr>
+<tr><td>Training from scratch</td><td>Fine-tune pre-trained models</td><td>100× less data + compute needed</td></tr></tbody></table>
+<hr>
+
+<h1>SECTION 12 — STARTUP-LEVEL BEST PRACTICES</h1>
+
+<h2>12.1 — How Fitness AI Startups Architect Systems</h2>
+
+<h3>Case Study: Tempo (acquired by JLab, ~$100M)</h3>
+<ul><li><strong>On-device 3D pose estimation</strong> using depth camera (LiDAR on iPad)</li>
+<li><strong>Rule-based form checking</strong> with ML augmentation</li>
+<li><strong>Server-side workout programming</strong> with recommendation engine</li>
+<li><strong>Key lesson:</strong> Started with limited exercise library (20 exercises), expanded after market fit</li>
+</ul>
+<h3>Case Study: Freeletics (200M+ users)</h3>
+<ul><li><strong>AI Coach</strong> trained on 300M+ workouts from user data</li>
+<li><strong>Started rule-based</strong> → gradually added ML</li>
+<li><strong>Key lesson:</strong> The AI got better as users grew (data flywheel)</li>
+</ul>
+<h3>Case Study: FitBod</h3>
+<ul><li><strong>Collaborative filtering</strong> for exercise recommendations</li>
+<li><strong>No computer vision</strong> — focused purely on programming intelligence</li>
+<li><strong>Key lesson:</strong> You don't need ALL AI features. One great AI feature can win.</li>
+</ul>
+<h2>12.2 — Common Mistakes & How to Avoid Them</h2>
+
+<table><thead><tr><th>Mistake</th><th>Why It Fails</th><th>Solution</th></tr></thead><tbody><tr><td><strong>Building all AI features at once</strong></td><td>12+ months to launch, no user feedback</td><td>Ship with 2-3 AI features, iterate</td></tr>
+<tr><td><strong>Perfect pose model before launch</strong></td><td>Accuracy obsession delays everything</td><td>70% accuracy + good UX beats 95% accuracy in a lab</td></tr>
+<tr><td><strong>Using cloud for real-time pose</strong></td><td>Latency > 200ms ruins UX</td><td>On-device inference only for real-time</td></tr>
+<tr><td><strong>Custom model from scratch</strong></td><td>Months of training, needs huge dataset</td><td>Fine-tune pre-trained (MoveNet, Llama)</td></tr>
+<tr><td><strong>Ignoring model size on mobile</strong></td><td>App crashes, battery drain, heat</td><td>Quantize to INT8, total models < 10MB</td></tr>
+<tr><td><strong>No fallback when AI fails</strong></td><td>App breaks on low-end devices</td><td>Rule-based fallback for every AI feature</td></tr>
+<tr><td><strong>Storing raw video permanently</strong></td><td>Storage costs explode</td><td>Process → extract data → delete video</td></tr>
+<tr><td><strong>Single GPU, no queue</strong></td><td>Server crashes under load</td><td>BullMQ queue + worker pattern</td></tr>
+<tr><td><strong>No A/B testing for AI</strong></td><td>Can't measure if AI improves UX</td><td>Feature flags + analytics from day 1</td></tr>
+<tr><td><strong>Skipping monitoring</strong></td><td>Silent failures in production</td><td>Sentry + Grafana + model accuracy tracking</td></tr></tbody></table>
+<h2>12.3 — Scaling Failures to Watch For</h2>
+
+<pre><code class="language-text">📈 Growth Phase Problems:
+
+<p>1-100 users:    Nothing breaks. You think you're fine.</p>
+<p>100-1K users:   MongoDB queries slow down (add indexes).</p>
+<p>1K-10K users:   LLM server overloaded (add queue + rate limiting).</p>
+<p>10K-50K users:  Video processing backlog (add worker pool).</p>
+<p>50K+ users:     Need GPU autoscaling, CDN, database sharding.</p>
+</code></pre>
+
+<h2>12.4 — Data Flywheel Strategy</h2>
+
+<div class="mermaid">graph TB
+<p>    Users["More Users"] --> Data["More Workout Data"]</p>
+<p>    Data --> Better["Better AI Models"]</p>
+<p>    Better --> UX["Better User Experience"]</p>
+<p>    UX --> Retention["Higher Retention"]</p>
+<p>    Retention --> Users</p>
+    
+<p>    Data --> Prop["Proprietary Dataset<br/>(Your Moat)"]</div></p>
+
+<strong>How to build the flywheel:</strong>
+<li><strong>Month 1-6:</strong> Ship with rule-based AI, collect usage data (with consent)</li>
+<li><strong>Month 6-9:</strong> Train first ML models on collected data</li>
+<li><strong>Month 9-12:</strong> Active learning — low-confidence predictions flagged for review</li>
+<li><strong>Month 12+:</strong> Your dataset is now a competitive moat</li>
+
+<h2>12.5 — Budget Allocation for AI Startup</h2>
+
+<table><thead><tr><th>Category</th><th>Month 1-4</th><th>Month 5-8</th><th>Month 9-12</th></tr></thead><tbody><tr><td><strong>Cloud infra</strong></td><td>$0-20 (free tiers)</td><td>$150-300</td><td>$500-1500</td></tr>
+<tr><td><strong>GPU training</strong></td><td>$10-30 (Colab Pro)</td><td>$50-100 (RunPod)</td><td>$100-300</td></tr>
+<tr><td><strong>LLM serving</strong></td><td>$0 (Ollama local)</td><td>$80-150 (spot GPU)</td><td>$200-500</td></tr>
+<tr><td><strong>Databases</strong></td><td>$0 (Atlas free)</td><td>$57-100</td><td>$150-300</td></tr>
+<tr><td><strong>Tools/SaaS</strong></td><td>$10 (Sentry free)</td><td>$30-50</td><td>$50-100</td></tr>
+<tr><td><strong>Domain/SSL</strong></td><td>$15</td><td>$0</td><td>$15</td></tr>
+<tr><td><strong>Total/month</strong></td><td><strong>~$30-65</strong></td><td><strong>~$350-700</strong></td><td><strong>~$1000-2700</strong></td></tr></tbody></table>
+<h2>12.6 — Final Architecture: What Gets Built When</h2>
+
+<pre><code class="language-text">PHASE 1 — "Works" (Month 1-4)
+<p>┌──────────────────────────────────────────────┐</p>
+<p>│  📱 Expo App                                  │</p>
+<p>│    ├─ On-device MoveNet pose detection        │</p>
+<p>│    ├─ Rule-based rep counter + form checker   │</p>
+<p>│    ├─ Voice coaching (expo-speech)            │</p>
+<p>│    └─ Chat UI → Ollama backend               │</p>
+<p>│                                               │</p>
+<p>│  ⚙️ Express Monolith (your current Backend)   │</p>
+<p>│    ├─ All existing routes (auth, food, etc.)  │</p>
+<p>│    ├─ New: /ai/chat endpoint                  │</p>
+<p>│    └─ New: /ai/video-upload endpoint          │</p>
+<p>│                                               │</p>
+<p>│  🐍 Python AI Service (FastAPI, single file)  │</p>
+<p>│    ├─ Ollama LLM wrapper                      │</p>
+<p>│    ├─ Basic RAG with Qdrant                   │</p>
+<p>│    └─ Video analysis endpoint                 │</p>
+<p>│                                               │</p>
+<p>│  💾 MongoDB + Redis (Docker Compose)          │</p>
+<p>└──────────────────────────────────────────────┘</p>
+
+<p>PHASE 2 — "Smart" (Month 5-8)</p>
+<p>┌──────────────────────────────────────────────┐</p>
+<p>│  + Trained exercise classifier (TFLite)       │</p>
+<p>│  + Trained form correction MLP (TFLite)       │</p>
+<p>│  + Dynamic diet/workout plan generation       │</p>
+<p>│  + Video analysis with annotated output       │</p>
+<p>│  + Conversation memory + user profiles        │</p>
+<p>│  + Background job queue (BullMQ)              │</p>
+<p>│  + S3 video storage                           │</p>
+<p>└──────────────────────────────────────────────┘</p>
+
+<p>PHASE 3 — "Production" (Month 9-12)</p>
+<p>┌──────────────────────────────────────────────┐</p>
+<p>│  + AWS deployment (ECS + GPU instances)       │</p>
+<p>│  + Fine-tuned Llama 3.1 on fitness data       │</p>
+<p>│  + Recommendation engine                      │</p>
+<p>│  + 20+ exercise support                       │</p>
+<p>│  + Monitoring (Grafana + Sentry)              │</p>
+<p>│  + Autoscaling + cost optimization            │</p>
+<p>│  + CI/CD with automated testing               │</p>
+<p>└──────────────────────────────────────────────┘</p>
+</code></pre>
+
+<hr>
+
+<div class="alert alert-important"><strong>IMPORTANT</strong><br><strong>Your #1 next step:</strong> Don't try to build everything. Start with <strong>on-device pose detection for squats</strong> (Week 1-2). Get MoveNet running in your Expo app with a skeleton overlay. Everything else flows from there.</div>
+
+<hr>
+
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#6C5CE7',
+    primaryTextColor: '#e4e4e7',
+    primaryBorderColor: '#A29BFE',
+    lineColor: '#A29BFE',
+    secondaryColor: '#16213E',
+    tertiaryColor: '#1A1A2E',
+    fontSize: '13px',
+  }
+});
+</script>
+</body>
+</html>
