@@ -269,11 +269,11 @@ export default function NutritionStreak({ onStreakUpdate }: Props) {
         {/* Stats row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }}>
           <View style={{ alignItems: 'center' }}>
-            <Text style={{ color: '#FF9800', fontSize: 18, fontWeight: '800' }}>🔥 {currentStreak}</Text>
+            <Text style={{ color: '#FF9800', fontSize: 18, fontWeight: '800' }}> {currentStreak}</Text>
             <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>Current</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
-            <Text style={{ color: C.accent, fontSize: 18, fontWeight: '800' }}>⚡ {longestStreak}</Text>
+            <Text style={{ color: C.accent, fontSize: 18, fontWeight: '800' }}> {longestStreak}</Text>
             <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>Longest</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
