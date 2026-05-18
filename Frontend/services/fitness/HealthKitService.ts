@@ -31,6 +31,7 @@ export interface HealthKitCalorieResult {
 
 let HK: any = null;
 
+
 const getHK = (): any => {
   if (Platform.OS !== 'ios') return null;
   if (HK) return HK;
@@ -44,6 +45,7 @@ const getHK = (): any => {
     console.warn('[HealthKitService] @kingstinct/react-native-healthkit not available:', e);
     return null;
   }
+
 };
 
 /* ---------- Permission identifiers ---------- */

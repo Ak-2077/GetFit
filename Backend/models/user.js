@@ -34,6 +34,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     avatar: String,
+    country: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     // fitness fields
     height: String,
     weight: String,

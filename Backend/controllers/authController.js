@@ -412,7 +412,7 @@ export async function updateProfile(req, res) {
     if (stepDistanceKm !== undefined) update.stepDistanceKm = stepDistanceKm;
     if (avatar !== undefined) update.avatar = avatar;
 
-    const user = await User.findByIdAndUpdate(userId, update, { new: true });
+    const user = await User.findByIdAndUpdate(userId, update, { returnDocument: 'after' });
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({ message: 'Profile updated', user });
   } catch (error) {
@@ -544,7 +544,7 @@ export async function verifyProfileEmailOtp(req, res) {
     const user = await User.findByIdAndUpdate(
       userId,
       { email, emailVerified: true },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password');
 
     if (!user) {
@@ -652,11 +652,13 @@ export async function appleLogin(req, res) {
 
     // Verify the identityToken with Apple's servers
     // Only requires bundle identifier for native iOS flow
+
     const BUNDLE_ID = process.env.APPLE_BUNDLE_ID;
     if (!BUNDLE_ID) {
       console.error('[Apple Login] APPLE_BUNDLE_ID is not configured in environment');
       return res.status(500).json({ message: 'Apple Sign-In is not configured on server' });
     }
+
 
     let applePayload;
     try {

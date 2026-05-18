@@ -34,6 +34,7 @@ import {
   removeFoodFromLog,
   getUserProfile,
   getFeatures,
+  updateStreak,
 } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { FitnessService } from '../../services/fitness';
@@ -306,6 +307,9 @@ export default function CaloriesScreen() {
 
   const [daily, setDaily] = useState<any>(null);
   const [profileGoal, setProfileGoal] = useState<number>(0);
+  const [proteinTarget, setProteinTarget] = useState<number>(120);
+  const [waterIntake, setWaterIntake] = useState<number>(0);
+  const [waterTarget, setWaterTarget] = useState<number>(2.5); // liters, recalculated from weight
   const [weekly, setWeekly] = useState<{ intakeTrend: DayPoint[]; burnedTrend: DayPoint[] }>({
     intakeTrend: [],
     burnedTrend: [],
@@ -336,27 +340,54 @@ export default function CaloriesScreen() {
   const [deletingFoodId, setDeletingFoodId] = useState('');
   const searchInputRef = useRef<TextInput>(null);
 
-  const progressSize = 188;
-  const stroke = 12;
-  const radius = (progressSize - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
+  // ── Triple Ring Sizes ──────────────────────────────
+  const heroRingSize = 180;
+  const calStroke = 10;
+  const calRadius = (heroRingSize - calStroke) / 2;
+  const calCircumference = 2 * Math.PI * calRadius;
+
+  const proteinStroke = 8;
+  const proteinRingSize = heroRingSize - calStroke * 2 - 10;
+  const proteinRadius = (proteinRingSize - proteinStroke) / 2;
+  const proteinCircumference = 2 * Math.PI * proteinRadius;
+
+  const waterStroke = 7;
+  const waterRingSize = proteinRingSize - proteinStroke * 2 - 8;
+  const waterRadius = (waterRingSize - waterStroke) / 2;
+  const waterCircumference = 2 * Math.PI * waterRadius;
 
   const consumedCalories = Number(daily?.consumedCalories || 0);
-  // Use profile goalCalories as primary target, fallback to API targetCalories, then 2000
   const targetCalories = profileGoal > 0 ? profileGoal : Number(daily?.targetCalories || 2000);
   const remainingCalories = Math.max(0, targetCalories - consumedCalories);
-  const progress = Math.max(0, Math.min(consumedCalories / Math.max(targetCalories, 1), 1));
-  const progressOffset = circumference * (1 - progress);
+  const calProgress = Math.max(0, Math.min(consumedCalories / Math.max(targetCalories, 1), 1));
+  const calProgressOffset = calCircumference * (1 - calProgress);
 
-  // Dynamic ring color based on consumption percentage
   const consumptionPercent = (consumedCalories / Math.max(targetCalories, 1)) * 100;
   const ringColor = consumptionPercent > 75 ? '#00E676' : consumptionPercent >= 50 ? '#FFA500' : '#FF4D4D';
   const ringColorSecondary = consumptionPercent > 75 ? '#6CFFB0' : consumptionPercent >= 50 ? '#FFD180' : '#FF8A80';
-  const ringGlowBg = consumptionPercent > 75 ? 'rgba(0,230,118,0.04)' : consumptionPercent >= 50 ? 'rgba(255,165,0,0.04)' : 'rgba(255,77,77,0.04)';
 
   const protein = Number(daily?.macros?.protein || 0);
+  const proteinProgress = Math.max(0, Math.min(protein / Math.max(proteinTarget, 1), 1));
+  const proteinProgressOffset = proteinCircumference * (1 - proteinProgress);
+  const proteinColor = '#FF9800';
+  const proteinColorSecondary = '#FFD54F';
+
+  const waterProgress = Math.max(0, Math.min(waterIntake / Math.max(waterTarget, 0.1), 1));
+  const waterProgressOffset = waterCircumference * (1 - waterProgress);
+  const waterColor = '#42A5F5';
+  const waterColorSecondary = '#90CAF9';
+
   const carbs = Number(daily?.macros?.carbs || 0);
   const fat = Number(daily?.macros?.fat || 0);
+
+  const handleWaterChange = async (delta: number) => {
+    const newVal = Math.max(0, Math.round(Math.min(waterIntake + delta, waterTarget + 2) * 100) / 100);
+    setWaterIntake(newVal);
+    const todayKey = `water_${new Date().toISOString().slice(0, 10)}`;
+    await AsyncStorage.setItem(todayKey, String(newVal));
+    // Sync streak with new water value
+    updateStreak({ water: newVal }).catch(() => {});
+  };
 
   const recentFoods = useMemo(() => (daily?.logs || []).slice(0, 5), [daily?.logs]);
 
@@ -439,10 +470,22 @@ export default function CaloriesScreen() {
       const goal = Number(profileRes.data?.goalCalories || profileRes.data?.maintenanceCalories || 0);
       if (goal > 0) setProfileGoal(goal);
 
+      // Sync protein target from profile (computed from weight during onboarding)
+      const pt = Number(profileRes.data?.dailyProteinTarget || 0);
+      if (pt > 0) setProteinTarget(pt);
+
+      // Load today's water intake from local storage
+      const todayKey = `water_${new Date().toISOString().slice(0, 10)}`;
+      const storedWater = await AsyncStorage.getItem(todayKey);
+      if (storedWater) setWaterIntake(Number(storedWater));
+
       // Update user weight in FitnessService for calorie estimation
       const userWeight = Number(profileRes.data?.weight || 0);
       if (userWeight > 0) {
         FitnessService.setUserWeight(userWeight);
+        // Water target: body weight (kg) × 0.033 = liters per day
+        const wt = Math.round(userWeight * 0.033 * 10) / 10;
+        if (wt > 0) setWaterTarget(wt);
       }
 
       setWeekly({
@@ -454,6 +497,11 @@ export default function CaloriesScreen() {
 
       // Trigger fitness refresh for steps + burn (via HealthKit/backend)
       fitness.refresh();
+
+      // Auto-sync streak after data load
+      const waterKey = `water_${new Date().toISOString().slice(0, 10)}`;
+      const currentWater = await AsyncStorage.getItem(waterKey);
+      updateStreak({ water: Number(currentWater || 0) }).catch(() => {});
     } catch (error) {
       console.warn('Calories screen load error', error);
       Alert.alert('Sync Error', 'Could not fetch calories data from backend.');
@@ -658,44 +706,99 @@ export default function CaloriesScreen() {
             onEnabled={() => loadData(true)}
           />
 
-          {/* ═══ HERO CARD — Calorie Ring ═══ */}
+          {/* ═══ HERO CARD — Triple Ring ═══ */}
           <View style={{
             backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.cardBorder,
             padding: 20, marginTop: 4,
           }}>
-            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 16 }}>
-              {/* Outer glow */}
-              <View style={{
-                width: progressSize + 16, height: progressSize + 16, borderRadius: (progressSize + 16) / 2,
-                backgroundColor: ringGlowBg,
-                justifyContent: 'center', alignItems: 'center',
-              }}>
-                <Svg width={progressSize} height={progressSize}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* LEFT — Triple concentric rings */}
+              <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={heroRingSize} height={heroRingSize}>
                   <Defs>
-                    <SvgGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+                    <SvgGradient id="cal-ring" x1="0" y1="0" x2="1" y2="1">
                       <Stop offset="0%" stopColor={ringColor} />
-                      <Stop offset="50%" stopColor={ringColorSecondary} />
-                      <Stop offset="100%" stopColor={ringColor} />
+                      <Stop offset="100%" stopColor={ringColorSecondary} />
+                    </SvgGradient>
+                    <SvgGradient id="pro-ring" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0%" stopColor={proteinColor} />
+                      <Stop offset="100%" stopColor={proteinColorSecondary} />
+                    </SvgGradient>
+                    <SvgGradient id="water-ring" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0%" stopColor={waterColor} />
+                      <Stop offset="100%" stopColor={waterColorSecondary} />
                     </SvgGradient>
                   </Defs>
-                  <Circle cx={progressSize / 2} cy={progressSize / 2} r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} fill="transparent" />
-                  <Circle cx={progressSize / 2} cy={progressSize / 2} r={radius} stroke="url(#ring-grad)" strokeWidth={stroke} fill="transparent" strokeLinecap="round"
-                    strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={progressOffset}
-                    transform={`rotate(-90 ${progressSize / 2} ${progressSize / 2})`} />
+                  {/* Calories ring (outer) */}
+                  <Circle cx={heroRingSize / 2} cy={heroRingSize / 2} r={calRadius} stroke="rgba(255,255,255,0.06)" strokeWidth={calStroke} fill="transparent" />
+                  <Circle cx={heroRingSize / 2} cy={heroRingSize / 2} r={calRadius} stroke="url(#cal-ring)" strokeWidth={calStroke} fill="transparent" strokeLinecap="round"
+                    strokeDasharray={`${calCircumference} ${calCircumference}`} strokeDashoffset={calProgressOffset}
+                    transform={`rotate(-90 ${heroRingSize / 2} ${heroRingSize / 2})`} />
+                  {/* Protein ring (middle) */}
+                  <Circle cx={heroRingSize / 2} cy={heroRingSize / 2} r={proteinRadius} stroke="rgba(255,255,255,0.05)" strokeWidth={proteinStroke} fill="transparent" />
+                  <Circle cx={heroRingSize / 2} cy={heroRingSize / 2} r={proteinRadius} stroke="url(#pro-ring)" strokeWidth={proteinStroke} fill="transparent" strokeLinecap="round"
+                    strokeDasharray={`${proteinCircumference} ${proteinCircumference}`} strokeDashoffset={proteinProgressOffset}
+                    transform={`rotate(-90 ${heroRingSize / 2} ${heroRingSize / 2})`} />
+                  {/* Water ring (inner) */}
+                  <Circle cx={heroRingSize / 2} cy={heroRingSize / 2} r={waterRadius} stroke="rgba(255,255,255,0.04)" strokeWidth={waterStroke} fill="transparent" />
+                  <Circle cx={heroRingSize / 2} cy={heroRingSize / 2} r={waterRadius} stroke="url(#water-ring)" strokeWidth={waterStroke} fill="transparent" strokeLinecap="round"
+                    strokeDasharray={`${waterCircumference} ${waterCircumference}`} strokeDashoffset={waterProgressOffset}
+                    transform={`rotate(-90 ${heroRingSize / 2} ${heroRingSize / 2})`} />
                 </Svg>
+                {/* Center text */}
                 <View style={{ position: 'absolute', alignItems: 'center' }}>
-                  <Text style={{ color: C.text, fontSize: 32, fontWeight: '800' }}>{Math.round(consumedCalories)}</Text>
-                  <Text style={{ color: C.subtext, fontSize: 12, marginTop: 2 }}>consumed kcal</Text>
-                  <Text style={{ color: ringColor, fontSize: 13, marginTop: 4, fontWeight: '700' }}>{Math.round(remainingCalories)} remaining</Text>
-                  <Text style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Target {Math.round(targetCalories)} kcal</Text>
+                  <Text style={{ color: C.text, fontSize: 24, fontWeight: '800' }}>{Math.round(consumedCalories)}</Text>
+                  <Text style={{ color: C.subtext, fontSize: 9, marginTop: 1 }}>kcal</Text>
+                </View>
+              </View>
+
+              {/* RIGHT — Legend + stats */}
+              <View style={{ flex: 1, marginLeft: 20, gap: 14 }}>
+                {/* Calories legend */}
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: ringColor, marginRight: 8 }} />
+                    <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>Calories</Text>
+                  </View>
+                  <Text style={{ color: C.subtext, fontSize: 11, marginLeft: 18 }}>{Math.round(consumedCalories)} / {Math.round(targetCalories)} kcal</Text>
+                  <Text style={{ color: ringColor, fontSize: 10, fontWeight: '600', marginLeft: 18, marginTop: 1 }}>{Math.round(remainingCalories)} remaining</Text>
+                </View>
+
+                {/* Protein legend */}
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: proteinColor, marginRight: 8 }} />
+                    <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>Protein</Text>
+                  </View>
+                  <Text style={{ color: C.subtext, fontSize: 11, marginLeft: 18 }}>{protein.toFixed(0)}g / {proteinTarget}g</Text>
+                </View>
+
+                {/* Water legend */}
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: waterColor, marginRight: 8 }} />
+                    <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>Water</Text>
+                  </View>
+                  <Text style={{ color: C.subtext, fontSize: 11, marginLeft: 18, marginBottom: 5 }}>{waterIntake.toFixed(1)} / {waterTarget}L</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 18, gap: 6 }}>
+                    <TouchableOpacity onPress={() => handleWaterChange(-0.25)} activeOpacity={0.6}
+                      style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(66,165,245,0.15)', justifyContent: 'center', alignItems: 'center' }}>
+                      <FontAwesome name="minus" size={9} color={waterColor} />
+                    </TouchableOpacity>
+                    <Text style={{ color: waterColor, fontSize: 10, fontWeight: '700' }}>0.25L</Text>
+                    <TouchableOpacity onPress={() => handleWaterChange(0.25)} activeOpacity={0.6}
+                      style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(66,165,245,0.15)', justifyContent: 'center', alignItems: 'center' }}>
+                      <FontAwesome name="plus" size={9} color={waterColor} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
 
             {/* Macro bars */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
               {[
-                { label: 'Protein', value: protein, color: '#00E676', max: 150 },
+                { label: 'Protein', value: protein, color: proteinColor, max: proteinTarget },
                 { label: 'Carbs', value: carbs, color: '#6CFFB0', max: 250 },
                 { label: 'Fats', value: fat, color: '#FFB088', max: 80 },
               ].map(m => (

@@ -173,6 +173,11 @@ export const cancelSubscription = () =>
 export const verifyAppleReceipt = (payload) =>
   API.post('/api/payments/apple/verify', payload);
 
+// Nutrition Streak endpoints
+export const getMonthlyStreak = (month) => API.get('/api/streaks/monthly', { params: { month } });
+export const updateStreak = (data) => API.post('/api/streaks/update', data);
+export const getDayStreak = (date) => API.get(`/api/streaks/day/${date}`);
+
 // Exercise endpoints (muscle-group specific)
 export const getExercisesByMuscle = (muscleGroup) => API.get(`/api/exercises/${muscleGroup}`);
 export const getAllExercises = () => API.get('/api/exercises');
