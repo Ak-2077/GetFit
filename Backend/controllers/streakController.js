@@ -4,8 +4,29 @@ import User from '../models/user.js';
 
 // ─── HELPERS ────────────────────────────────────────────
 
+/**
+ * Local server-time YYYY-MM-DD (matches FoodLog.date which uses
+ * `new Date().setHours(0,0,0,0)`). Using ISO/UTC here would mis-bucket
+ * food logs on servers running in non-UTC timezones — e.g. food logged
+ * at 4 PM IST has date = local midnight = previous day's 18:30 UTC,
+ * which a UTC date filter would silently exclude. That bug manifested
+ * as zero calories/protein/fat in the streak doc while water (passed
+ * directly in the request body) populated correctly.
+ */
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Local-midnight Date (00:00:00.000) for the given YYYY-MM-DD string. */
+function localDayBounds(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+  const end = new Date(y, m - 1, d, 23, 59, 59, 999);
+  return { start, end };
 }
 
 function calcCompletion(consumed, target) {
@@ -162,9 +183,9 @@ export async function updateStreak(req, res) {
     // Fat target: ~25% of calorie target / 9 kcal per gram
     const fatTarget = Math.round((calTarget * 0.25) / 9);
 
-    // Fetch today's food logs to compute consumed macros
-    const todayStart = new Date(`${date}T00:00:00.000Z`);
-    const todayEnd = new Date(`${date}T23:59:59.999Z`);
+    // Fetch today's food logs to compute consumed macros.
+    // Use local-midnight bounds to match FoodLog.date (stored as local midnight).
+    const { start: todayStart, end: todayEnd } = localDayBounds(date);
 
     const foodLogs = await FoodLog.find({
       userId,
@@ -212,7 +233,7 @@ export async function updateStreak(req, res) {
         completionScore,
         streakQualified,
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     return res.json({ message: 'Streak updated', streak });
