@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   Alert,
   Animated,
   Dimensions,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -23,13 +25,37 @@ import { HealthKitService } from '../../services/fitness/HealthKitService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// ─── All Countries ─────────────────────────────────────
+const COUNTRIES = [
+  'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria',
+  'Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan',
+  'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde','Cambodia',
+  'Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros','Congo','Costa Rica',
+  'Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica','Dominican Republic','East Timor','Ecuador',
+  'Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini','Ethiopia','Fiji','Finland','France',
+  'Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada','Guatemala','Guinea','Guinea-Bissau',
+  'Guyana','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland',
+  'Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo',
+  'Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania',
+  'Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius',
+  'Mexico','Micronesia','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia',
+  'Nauru','Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway',
+  'Oman','Pakistan','Palau','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland',
+  'Portugal','Qatar','Romania','Russia','Rwanda','Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines',
+  'Samoa','San Marino','Sao Tome and Principe','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore',
+  'Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','South Korea','South Sudan','Spain','Sri Lanka','Sudan',
+  'Suriname','Sweden','Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand','Togo','Tonga',
+  'Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates',
+  'United Kingdom','United States','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe',
+];
+
 // ─── Step Definitions ──────────────────────────────────
 
 interface StepConfig {
   key: string;
   title: string;
   subtitle: string;
-  type: 'text' | 'number' | 'select' | 'health';
+  type: 'text' | 'number' | 'select' | 'health' | 'country';
   placeholder?: string;
   options?: { label: string; value: string; icon: string }[];
   keyboardType?: 'default' | 'numeric';
@@ -44,6 +70,13 @@ const STEPS: StepConfig[] = [
     type: 'text',
     placeholder: 'Enter your name',
     keyboardType: 'default',
+  },
+  {
+    key: 'country',
+    title: 'Where are you from?',
+    subtitle: 'Select your country',
+    type: 'country',
+    placeholder: 'Search country…',
   },
   {
     key: 'weight',
@@ -141,6 +174,7 @@ export default function OnboardingScreen() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const [countrySearch, setCountrySearch] = useState('');
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -148,6 +182,13 @@ export default function OnboardingScreen() {
 
   const step = STEPS[currentStep];
   const currentValue = answers[step.key] || '';
+
+  // Filtered countries for search
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch.trim()) return COUNTRIES;
+    const q = countrySearch.toLowerCase();
+    return COUNTRIES.filter((c) => c.toLowerCase().includes(q));
+  }, [countrySearch]);
 
   // ─── Validation ────────────────────────────────────
 
@@ -169,6 +210,10 @@ export default function OnboardingScreen() {
     }
 
     if (s.type === 'select') {
+      return val.length > 0;
+    }
+
+    if (s.type === 'country') {
       return val.length > 0;
     }
 
@@ -221,10 +266,12 @@ export default function OnboardingScreen() {
 
   const handleNext = () => {
     if (!isStepValid()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (currentStep < TOTAL_STEPS - 1) {
       animateTransition('forward', () => {
         setCurrentStep((prev) => prev + 1);
+        setCountrySearch('');
         setErrorText('');
       });
     } else {
@@ -234,14 +281,17 @@ export default function OnboardingScreen() {
 
   const handleBack = () => {
     if (currentStep > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       animateTransition('back', () => {
         setCurrentStep((prev) => prev - 1);
+        setCountrySearch('');
         setErrorText('');
       });
     }
   };
 
   const handleSkip = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
       'Skip Onboarding?',
       'You can complete your profile later from settings.',
@@ -267,6 +317,7 @@ export default function OnboardingScreen() {
       if (token) setAuthToken(token);
       await saveOnboarding({
         name: answers.name?.trim(),
+        country: answers.country,
         weight: answers.weight,
         height: answers.height,
         age: Number(answers.age),
@@ -293,6 +344,7 @@ export default function OnboardingScreen() {
    * the user accepted or declined.
    */
   const handleAuthorizeHealth = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
       // This call triggers the iOS HealthKit permissions popup.
@@ -306,10 +358,12 @@ export default function OnboardingScreen() {
   };
 
   const handleSkipHealth = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     handleSubmit();
   };
 
   const updateAnswer = (value: string) => {
+    Haptics.selectionAsync();
     setAnswers((prev) => ({ ...prev, [step.key]: value }));
   };
 
@@ -331,6 +385,71 @@ export default function OnboardingScreen() {
           {step.suffix ? (
             <Text style={styles.suffixText}>{step.suffix}</Text>
           ) : null}
+        </View>
+      );
+    }
+
+    if (step.type === 'country') {
+      return (
+        <View style={styles.countryContainer}>
+          <View style={styles.inputContainer}>
+            <FontAwesome name="search" size={16} color="rgba(255,255,255,0.3)" style={{ marginRight: 10 }} />
+            <TextInput
+              value={countrySearch}
+              onChangeText={setCountrySearch}
+              placeholder={step.placeholder}
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              style={styles.textInput}
+              autoFocus
+            />
+            {countrySearch.length > 0 && (
+              <TouchableOpacity onPress={() => setCountrySearch('')}>
+                <FontAwesome name="times-circle" size={18} color="rgba(255,255,255,0.4)" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {currentValue ? (
+            <View style={styles.selectedCountryBadge}>
+              <FontAwesome name="globe" size={14} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.selectedCountryText}>{currentValue}</Text>
+              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); updateAnswer(''); }}>
+                <FontAwesome name="times" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          <FlatList
+            data={filteredCountries}
+            keyExtractor={(item) => item}
+            keyboardShouldPersistTaps="handled"
+            style={styles.countryList}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const isSelected = currentValue === item;
+              return (
+                <TouchableOpacity
+                  style={[styles.countryRow, isSelected && styles.countryRowSelected]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    updateAnswer(item);
+                    setCountrySearch('');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.countryRowText, isSelected && styles.countryRowTextSelected]}>{item}</Text>
+                  {isSelected && (
+                    <View style={styles.checkCircle}>
+                      <FontAwesome name="check" size={12} color="#000" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <Text style={styles.noResultsText}>No countries found</Text>
+            }
+          />
         </View>
       );
     }
@@ -674,6 +793,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // ─── Country Picker ───────────────────────────────
+  countryContainer: {
+    flex: 1,
+  },
+  selectedCountryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  selectedCountryText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  countryList: {
+    flex: 1,
+    marginTop: 8,
+  },
+  countryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 16,
+    marginBottom: 6,
+  },
+  countryRowSelected: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: '#fff',
+  },
+  countryRowText: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  countryRowTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  noResultsText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 15,
+    textAlign: 'center',
+    marginTop: 24,
   },
 
   // ─── Bottom Area ──────────────────────────────────

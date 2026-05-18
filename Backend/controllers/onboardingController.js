@@ -64,7 +64,7 @@ export async function saveOnboarding(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { name, weight, height, age, gender, goal, diet, level } = req.body;
+    const { name, country, weight, height, age, gender, goal, diet, level } = req.body;
 
     // ── Validation ──────────────────────────────────────
     const errors = [];
@@ -124,6 +124,7 @@ export async function saveOnboarding(req, res) {
       userId,
       {
         name: name.trim(),
+        country: country || null,
         weight: String(weightNum),
         height: String(heightNum),
         age: ageNum,
