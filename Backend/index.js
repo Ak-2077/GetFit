@@ -53,6 +53,7 @@ import workoutPlanRoute from './routes/workoutPlanRoute.js';
 import subscriptionRoute from './routes/subscriptionRoute.js';
 import exerciseRoute from './routes/exerciseRoute.js';
 import paymentsRoute from './routes/paymentsRoute.js';
+import streakRoute from './routes/streakRoute.js';
 import { startSubscriptionSweeper } from './services/subscriptionSweeper.js';
 
 app.use('/api/auth', authRoute);
@@ -74,6 +75,7 @@ app.use('/api/workout-plan', workoutPlanRoute);
 app.use('/api/subscription', subscriptionRoute);
 app.use('/api/exercises', exerciseRoute);
 app.use('/api/payments', paymentsRoute);
+app.use('/api/streaks', streakRoute);
 
 app.get("/", (req, res) => {
     res.send("Welcome to GetFit!");

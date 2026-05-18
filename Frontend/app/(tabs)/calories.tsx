@@ -34,6 +34,7 @@ import {
   removeFoodFromLog,
   getUserProfile,
   getFeatures,
+  updateStreak,
 } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { FitnessService } from '../../services/fitness';
@@ -384,6 +385,8 @@ export default function CaloriesScreen() {
     setWaterIntake(newVal);
     const todayKey = `water_${new Date().toISOString().slice(0, 10)}`;
     await AsyncStorage.setItem(todayKey, String(newVal));
+    // Sync streak with new water value
+    updateStreak({ water: newVal }).catch(() => {});
   };
 
   const recentFoods = useMemo(() => (daily?.logs || []).slice(0, 5), [daily?.logs]);
@@ -494,6 +497,11 @@ export default function CaloriesScreen() {
 
       // Trigger fitness refresh for steps + burn (via HealthKit/backend)
       fitness.refresh();
+
+      // Auto-sync streak after data load
+      const waterKey = `water_${new Date().toISOString().slice(0, 10)}`;
+      const currentWater = await AsyncStorage.getItem(waterKey);
+      updateStreak({ water: Number(currentWater || 0) }).catch(() => {});
     } catch (error) {
       console.warn('Calories screen load error', error);
       Alert.alert('Sync Error', 'Could not fetch calories data from backend.');

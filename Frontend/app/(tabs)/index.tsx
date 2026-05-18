@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { HomeSkeleton } from '../../components/SkeletonScreens';
+import NutritionStreak from '../../components/NutritionStreak';
 
 const C = {
   bg: '#060D09', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(29,36,31,0.18)', accent: '#1FA463',
@@ -115,7 +116,7 @@ export default function HomeScreen() {
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
                     {user?.avatar ? <Image source={{ uri: user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
                       : <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -124,7 +125,7 @@ export default function HomeScreen() {
                 style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 2, ...getAvatarBorderStyle(user?.subscriptionPlan || 'free'), justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 0 }, elevation: 3 }}>
                 {user?.avatar ? <Image source={{ uri: user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
                   : <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: C.accent }}>{fl}</Text></View>}
               </TouchableOpacity>
             )}
             <View style={{ flex: 1, marginLeft: 12 }}>
@@ -194,8 +195,8 @@ export default function HomeScreen() {
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Summary</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
             {[{ label: 'Consumed', value: `${Math.round(consumed)}`, sub: 'kcal', image: require('../../assets/icons/calories/food.png'), color: C.accent, route: null as string | null },
-              { label: 'Burned', value: `${Math.round(fitness.caloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn, route: '/analytics/calories' as string },
-              { label: 'Steps', value: `${Math.round(fitness.steps).toLocaleString()}`, sub: `${fitness.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA', route: '/analytics/steps' as string },
+            { label: 'Burned', value: `${Math.round(fitness.caloriesBurned)}`, sub: 'kcal', image: require('../../assets/icons/calories/burn.png'), color: C.burn, route: '/analytics/calories' as string },
+            { label: 'Steps', value: `${Math.round(fitness.steps).toLocaleString()}`, sub: `${fitness.distanceKm.toFixed(1)} km`, image: require('../../assets/icons/calories/steps.png'), color: '#60A5FA', route: '/analytics/steps' as string },
             ].map((item) => {
               const cardContent = (
                 <>
@@ -223,6 +224,9 @@ export default function HomeScreen() {
             })}
           </View>
 
+          {/* ═══ MONTHLY NUTRITION STREAK ═══ */}
+          <NutritionStreak />
+
           {/* ═══ TODAY'S WORKOUT ═══ */}
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Workout</Text>
           <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 18, marginBottom: 20 }}>
@@ -230,7 +234,7 @@ export default function HomeScreen() {
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,107,107,0.12)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
                 <Ionicons name="barbell-outline" size={22} color={C.burn} /></View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: C.white, fontSize: 15, fontWeight: '700' }}>Full Body Workout</Text>
+                <Text style={{ color: C.white, fontSize: 15, fontWeight: '700' }}>Full  Workout</Text>
                 <Text style={{ color: C.label, fontSize: 12, marginTop: 2 }}>45 min • {user?.level || 'Intermediate'}</Text>
               </View>
             </View>
@@ -246,8 +250,8 @@ export default function HomeScreen() {
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Quick Actions</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
             {[{ label: 'Add Food', icon: 'add-circle-outline' as const, color: C.accent, onPress: () => router.push('/(tabs)/calories' as any) },
-              { label: 'Scan', icon: 'scan-outline' as const, color: '#60A5FA', onPress: () => router.push('/scan' as any) },
-              { label: 'Log Workout', icon: 'fitness-outline' as const, color: C.burn, onPress: () => router.push('/home-workout' as any) },
+            { label: 'Scan', icon: 'scan-outline' as const, color: '#60A5FA', onPress: () => router.push('/scan' as any) },
+            { label: 'Log Workout', icon: 'fitness-outline' as const, color: C.burn, onPress: () => router.push('/home-workout' as any) },
             ].map((a) => (
               <TouchableOpacity key={a.label} activeOpacity={0.7} onPress={a.onPress}
                 style={{ flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, paddingVertical: 18, alignItems: 'center' }}>
