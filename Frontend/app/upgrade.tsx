@@ -537,16 +537,14 @@ const PlanCard: React.FC<{
 }> = ({ plan, isCurrent, onPurchase }) => {
   const isProPlus = plan.tier === 'pro_plus';
   const accent = isProPlus ? '#FF7F00' : C.accent;
-  const gradientColors: [string, string] = isProPlus
-    ? ['rgba(255,127,0,0.10)', 'rgba(255,107,107,0.04)']
-    : ['rgba(31,164,99,0.10)', 'rgba(31,164,99,0.02)'];
+  const gradientColors: [string, string] = [C.card, C.card];
 
   return (
     <View
       style={[
         styles.planCard,
         {
-          borderColor: isCurrent ? C.accent : `${accent}40`,
+          borderColor: isCurrent ? C.accent : C.cardBorder,
           borderWidth: plan.isPopular || isCurrent ? 1.5 : 1,
         },
       ]}
@@ -706,7 +704,7 @@ const styles = StyleSheet.create({
     width: 380,
     height: 380,
     borderRadius: 190,
-    backgroundColor: 'rgba(31,164,99,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
   },
   header: {
     flexDirection: 'row',
@@ -730,8 +728,8 @@ const styles = StyleSheet.create({
   currentBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.accentSoft,
-    borderColor: `${C.accent}55`,
+    backgroundColor: C.card,
+    borderColor: C.cardBorder,
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,

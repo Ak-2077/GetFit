@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount } from '../../services/api';
+import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount, updateStreak } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { HomeSkeleton } from '../../components/SkeletonScreens';
 import NutritionStreak from '../../components/NutritionStreak';
@@ -66,6 +66,10 @@ export default function HomeScreen() {
       setUnread(Number(n.data?.count || 0));
       // Also trigger a fitness refresh so steps/burn stay in sync
       fitness.refresh();
+      // Sync today's streak so the heatmap shows fresh calorie/protein data
+      const waterKey = `water_${new Date().toISOString().slice(0, 10)}`;
+      const currentWater = await AsyncStorage.getItem(waterKey);
+      updateStreak({ water: Number(currentWater || 0) }).catch(() => {});
     } catch (e) { console.warn('Home error', e); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
