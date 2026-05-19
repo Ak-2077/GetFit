@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # ── Ollama LLM Server ──
+  ollama:
+    image: ollama/ollama:latest
+    container_name: getfit-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ── Redis (Job Queues + Cache) ──
+  redis:
+    image: redis:7-alpine
+    container_name: getfit-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # ── Python AI Service (FastAPI) ──
+  ai:
+    build: ./ai-service
+    container_name: getfit-ai
+    ports:
+      - "8100:8100"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+    depends_on:
+      - ollama
+      - redis
+    restart: unless-stopped
+    volumes:
+      - ./ai-service/app:/app/app
+      - ai_video_uploads:/app/uploads
+
+  # ── Node.js Backend (existing) ──
+  # Uncomment when ready to containerize your Express backend
+  # api:
+  #   build: ./Backend
+  #   container_name: getfit-api
+  #   ports:
+  #     - "5050:5050"
+  #   env_file: ./Backend/.env
+  #   environment:
+  #     - AI_SERVICE_URL=http://ai:8100
+  #     - REDIS_URL=redis://redis:6379/0
+  #   depends_on:
+  #     - redis
+  #   restart: unless-stopped
+
+volumes:
+  ollama_data:
+  ai_video_uploads:

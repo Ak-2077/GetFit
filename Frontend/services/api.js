@@ -183,5 +183,65 @@ export const getDayStreak = (date) => API.get(`/api/streaks/day/${date}`);
 export const getExercisesByMuscle = (muscleGroup) => API.get(`/api/exercises/${muscleGroup}`);
 export const getAllExercises = () => API.get('/api/exercises');
 
+// ── AI Chat ──
+export const sendChatMessage = (message, sessionId = null) =>
+  API.post('/api/ai/chat', { message, sessionId });
+export const getChatSessions = () =>
+  API.get('/api/ai/chat/sessions');
+export const getChatSessionMessages = (sessionId) =>
+  API.get(`/api/ai/chat/sessions/${sessionId}`);
+
+// ── AI Feedback & Learning ──
+export const submitChatFeedback = (sessionId, messageIndex, isPositive, reason = null) =>
+  API.post('/api/ai/chat/feedback', { sessionId, messageIndex, isPositive, reason });
+export const endChatSession = (sessionId) =>
+  API.post('/api/ai/chat/end-session', { sessionId });
+
+// ── AI Memories ──
+export const getAIMemories = () =>
+  API.get('/api/ai/chat/memories');
+export const deleteAIMemory = (memoryId) =>
+  API.delete(`/api/ai/chat/memories/${memoryId}`);
+export const confirmAIMemory = (memoryId) =>
+  API.put(`/api/ai/chat/memories/${memoryId}/confirm`);
+export const resetAIMemories = () =>
+  API.delete('/api/ai/chat/memories/reset');
+export const exportAIMemories = () =>
+  API.get('/api/ai/chat/memories/export');
+
+// ── AI Analytics ──
+export const getAIAnalytics = () =>
+  API.get('/api/ai/chat/analytics');
+
+// ── AI User State & Adaptive Engine ──
+export const getAIUserState = () =>
+  API.get('/api/ai/chat/state');
+export const addAIStateSignal = (type, value = {}) =>
+  API.post('/api/ai/chat/state/signal', { type, value });
+export const getAIKnowledgeGraph = () =>
+  API.get('/api/ai/chat/knowledge-graph');
+
+// ── AI Autonomous Intelligence ──
+export const getAIOrchestrationHealth = () =>
+  API.get('/api/ai/chat/health');
+export const getAILongHorizonPlan = () =>
+  API.get('/api/ai/chat/planner');
+export const getAIDigitalTwin = () =>
+  API.get('/api/ai/chat/twin');
+export const simulateAIPlan = (plan, durationWeeks = 4) =>
+  API.post('/api/ai/chat/twin/simulate', { plan, durationWeeks });
+export const getAIPersistentReasoning = () =>
+  API.get('/api/ai/chat/reasoning');
+export const getAIMemoryHealth = () =>
+  API.get('/api/ai/chat/memory-health');
+
+// ── AI Video Analysis ──
+export const submitVideoAnalysis = (videoUrl, exerciseType = null) =>
+  API.post('/api/ai/video/analyze', { videoUrl, exerciseType });
+export const getVideoAnalysisResult = (jobId) =>
+  API.get(`/api/ai/video/result/${jobId}`);
+export const getVideoAnalysisHistory = () =>
+  API.get('/api/ai/video/history');
+
 export default API;
 
