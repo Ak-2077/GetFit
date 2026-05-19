@@ -7,7 +7,8 @@ import {
   addFoodToLog, 
   getTodaysFoodLog, 
   removeFoodFromLog,
-  searchFoods
+  searchFoods,
+  searchFoodsByName
 } from '../controllers/foodController.js';
 import auth from '../middleware/authMiddleware.js';
 
@@ -17,6 +18,7 @@ const router = express.Router();
 router.post('/add-food', auth, addBrandFood);
 router.get('/brand-foods', auth, getBrandFoods);
 router.get('/search', auth, searchFoods);
+router.get('/search-name', auth, searchFoodsByName);
 router.get('/barcode/:barcode', auth, getFoodByBarcode);
 router.get('/:id', auth, getFoodById);
 

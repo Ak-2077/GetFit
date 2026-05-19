@@ -92,6 +92,7 @@ export const setAuthToken = (token) => {
 export const addBrandFood = (data) => API.post('/api/food/add-food', data);
 export const getBrandFoods = () => API.get('/api/food/brand-foods');
 export const searchFoods = (query) => API.get('/api/food/search', { params: { query } });
+export const searchFoodsByName = (q, limit = 15) => API.get('/api/food/search-name', { params: { q, limit } });
 export const getFoodByBarcode = (barcode) => API.get(`/api/food/barcode/${barcode}`);
 export const getFoodById = (id) => API.get(`/api/food/${id}`);
 export const addFoodToLog = (data) => API.post('/api/food/log', data);
