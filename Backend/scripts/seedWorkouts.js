@@ -58,6 +58,7 @@ const WORKOUTS = [
   { name: 'Dumbbell Curls', type: 'gym', level: 'basic', duration: '10 min', difficulty: 'easy', description: 'Isolation exercise for bicep peak development.' },
   { name: 'Leg Curl', type: 'gym', level: 'basic', duration: '10 min', difficulty: 'easy', description: 'Machine isolation for hamstring development.' },
   { name: 'Shoulder Press Machine', type: 'gym', level: 'basic', duration: '12 min', difficulty: 'easy', description: 'Guided overhead pressing for deltoid development.' },
+  { name: 'Lateral Raises', type: 'gym', level: 'basic', duration: '10 min', difficulty: 'easy', description: 'Dumbbell isolation for medial deltoid width.', bodyPart: 'shoulders' },
   { name: 'Chest Fly Machine', type: 'gym', level: 'basic', duration: '10 min', difficulty: 'easy', description: 'Isolation movement for chest inner fiber activation.' },
   { name: 'Leg Extension', type: 'gym', level: 'basic', duration: '10 min', difficulty: 'easy', description: 'Quad isolation using leg extension machine.' },
   { name: 'Tricep Pushdown', type: 'gym', level: 'basic', duration: '10 min', difficulty: 'easy', description: 'Cable isolation for tricep long head development.' },
@@ -71,6 +72,7 @@ const WORKOUTS = [
   { name: 'Weighted Pull-ups', type: 'gym', level: 'pro', duration: '15 min', difficulty: 'hard', description: 'Loaded vertical pull for advanced back development.' },
   { name: 'Hack Squat', type: 'gym', level: 'pro', duration: '15 min', difficulty: 'medium', description: 'Machine squat variation targeting quads and glutes.' },
   { name: 'Face Pulls', type: 'gym', level: 'pro', duration: '10 min', difficulty: 'easy', description: 'Rear delt and rotator cuff health exercise.' },
+  { name: 'Reverse Peck Deck Fly', type: 'gym', level: 'pro', duration: '12 min', difficulty: 'medium', description: 'Rear delt fly on the pec deck machine.', bodyPart: 'shoulders' },
   { name: 'Skull Crushers', type: 'gym', level: 'pro', duration: '12 min', difficulty: 'medium', description: 'Lying tricep extension for long head emphasis.' },
   { name: 'Preacher Curls', type: 'gym', level: 'pro', duration: '10 min', difficulty: 'medium', description: 'Strict bicep isolation eliminating momentum.' },
 

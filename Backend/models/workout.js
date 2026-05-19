@@ -35,6 +35,10 @@ const workoutSchema = new mongoose.Schema(
       enum: ['chest', 'legs', 'shoulders', 'arms', 'back', 'core', 'abs', 'other'],
       default: 'other',
     },
+    subCategory: {
+      type: String,
+      default: '',
+    },
   },
   { timestamps: true }
 );

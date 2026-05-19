@@ -19,6 +19,7 @@ const C = {
   card: '#121212',
   cardBorder: 'rgba(255,255,255,0.06)',
   accent: '#0d0e0dff',
+  tabActive: '#1FA463',
   white: '#F0F0F0',
   label: 'rgba(255,255,255,0.50)',
   muted: 'rgba(255,255,255,0.30)',
@@ -134,6 +135,11 @@ export default function WorkoutListScreen() {
     return required > planRank;
   };
 
+  const isWorkoutLocked = (workout: any) => {
+    const level = String(workout?.level || 'basic');
+    return (PLAN_RANK[level] ?? 0) > planRank;
+  };
+
 
   // Get workouts for active tab
   const filteredWorkouts = allWorkouts.filter(w => w.level === activeTab);
@@ -176,18 +182,14 @@ export default function WorkoutListScreen() {
     ? filteredWorkouts.filter((w) => mapWorkoutToBodyPart(w) === String(selectedBodyPart).toLowerCase())
     : filteredWorkouts;
 
-  // Placeholder data for locked tabs
-  const LOCKED_PLACEHOLDERS = [
-    { name: 'Premium Exercise 1', duration: '15 min', difficulty: 'medium' },
-    { name: 'Premium Exercise 2', duration: '20 min', difficulty: 'hard' },
-    { name: 'Premium Exercise 3', duration: '12 min', difficulty: 'medium' },
-  ];
-
   const tabWidth = (width - 52) / 3;
 
   const bodyPartDisplay = selectedBodyPart
     ? `${String(selectedBodyPart).charAt(0).toUpperCase()}${String(selectedBodyPart).slice(1)}`
     : 'Body';
+
+  const availableCount = allWorkouts.filter((w) => !isWorkoutLocked(w)).length;
+  const showLockedEmpty = isTabLocked(activeTab) && activeBodyFiltered.length === 0;
 
   // Get the image for the current body part
   const getWorkoutImage = (workout: any) => {
@@ -395,7 +397,7 @@ export default function WorkoutListScreen() {
               {selectedBodyPart ? `${bodyPartDisplay} Workouts` : (TYPE_TITLES[workoutType] || 'Workouts')}
             </Text>
             <Text style={{ fontSize: 12, color: C.label, marginTop: 2 }}>
-              {allWorkouts.length} of {totalAvailable} workouts available
+              {availableCount} of {totalAvailable} workouts available
             </Text>
           </View>
           {/* Filter icon */}
@@ -435,7 +437,7 @@ export default function WorkoutListScreen() {
               width: tabWidth,
               height: 40,
               borderRadius: 12,
-              backgroundColor: C.accent,
+              backgroundColor: C.tabActive,
               transform: [
                 {
                   translateX: tabIndicator.interpolate({
@@ -455,9 +457,7 @@ export default function WorkoutListScreen() {
               <TouchableOpacity
                 key={tab.key}
                 activeOpacity={0.8}
-                onPress={() => {
-                  if (!locked) setActiveTab(tab.key);
-                }}
+                onPress={() => setActiveTab(tab.key)}
                 style={{
                   flex: 1,
                   height: 40,
@@ -498,55 +498,37 @@ export default function WorkoutListScreen() {
           }
         >
 
-          {isTabLocked(activeTab) ? (
-            // ── LOCKED STATE ──
-            <View>
-              {/* Upgrade banner */}
+          {showLockedEmpty ? (
+            <View style={{ alignItems: 'center', paddingTop: 60 }}>
+              <View
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: 'rgba(31,164,99,0.10)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <Ionicons name="lock-closed" size={30} color={C.tabActive} />
+              </View>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: C.white, marginBottom: 6 }}>
+                To access, please subscribe
+              </Text>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => router.push('/upgrade' as any)}
-                style={{ marginBottom: 20, borderRadius: 18, overflow: 'hidden' }}
+                style={{
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: C.tabActive,
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                }}
               >
-                <LinearGradient
-                  colors={['rgba(106,13,173,0.18)', 'rgba(200,168,78,0.12)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    padding: 18,
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: 'rgba(106,13,173,0.2)',
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(106,13,173,0.15)',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        marginRight: 14,
-                      }}
-                    >
-                      <Ionicons name="sparkles" size={20} color={C.purple} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: C.white }}>
-                        Upgrade to Unlock
-                      </Text>
-                      <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>
-                        Upgrade to access this workout tier
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={C.muted} />
-                  </View>
-                </LinearGradient>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: C.tabActive }}>Subscribe</Text>
               </TouchableOpacity>
-
-              {/* Locked placeholder cards */}
-              {LOCKED_PLACEHOLDERS.map((w, i) => renderWorkoutCard(w, i, true))}
             </View>
           ) : activeBodyFiltered.length === 0 ? (
             // ── EMPTY STATE ──
@@ -574,7 +556,88 @@ export default function WorkoutListScreen() {
           ) : (
             // ── WORKOUT LIST ──
             <View>
-              {activeBodyFiltered.map((w: any, i: number) => renderWorkoutCard(w, i, false))}
+              {isTabLocked(activeTab) && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/upgrade' as any)}
+                  style={{ marginBottom: 20, borderRadius: 18, overflow: 'hidden' }}
+                >
+                  <LinearGradient
+                    colors={['rgba(106,13,173,0.18)', 'rgba(200,168,78,0.12)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                      padding: 18,
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      borderColor: 'rgba(106,13,173,0.2)',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(106,13,173,0.15)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          marginRight: 14,
+                        }}
+                      >
+                        <Ionicons name="sparkles" size={20} color={C.purple} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: C.white }}>
+                          Upgrade to Unlock
+                        </Text>
+                        <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>
+                          Upgrade to access this workout tier
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={C.muted} />
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
+              {(() => {
+                const grouped = activeBodyFiltered.reduce((acc: any, w: any) => {
+                  const cat = w.subCategory || 'Other';
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(w);
+                  return acc;
+                }, {});
+
+                if (Object.keys(grouped).length === 0) return null;
+                if (Object.keys(grouped).length === 1 && grouped['Other']) {
+                  return activeBodyFiltered.map((w: any, i: number) => renderWorkoutCard(w, i, isWorkoutLocked(w)));
+                }
+
+                const ORDER = [
+                  'Upper Chest', 'Middle Chest', 'Lower Chest', 'Isolation Exercises',
+                  'Front Delts', 'Side Delts', 'Rear Delts',
+                  'Other'
+                ];
+                const sortedKeys = Object.keys(grouped).sort((a, b) => {
+                  let ai = ORDER.indexOf(a);
+                  let bi = ORDER.indexOf(b);
+                  if (ai === -1) ai = 99;
+                  if (bi === -1) bi = 99;
+                  return ai - bi;
+                });
+
+                return sortedKeys.map((cat) => (
+                  <View key={cat} style={{ marginBottom: 10 }}>
+                    {cat !== 'Other' && (
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: C.white, marginBottom: 12, marginLeft: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        {cat}
+                      </Text>
+                    )}
+                    {grouped[cat].map((w: any, i: number) => renderWorkoutCard(w, i, isWorkoutLocked(w)))}
+                  </View>
+                ));
+              })()}
 
               {/* ═══ UNLOCK PRO FOOTER (for free users) ═══ */}
               {currentPlan === 'free' && (
