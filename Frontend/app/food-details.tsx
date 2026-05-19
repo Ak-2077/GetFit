@@ -299,14 +299,14 @@ export default function FoodDetailsScreen() {
   const C = {
     bg: '#050505',
     card: 'rgba(25,25,25,1)',
-    cardBorder: 'rgba(29,36,31,0.18)',
-    glass: 'rgba(22,33,25,0.78)',
-    accent: '#00E676',
-    accentSoft: 'rgba(0,230,118,0.16)',
+    cardBorder: 'rgba(255,255,255,0.06)',
+    glass: 'rgba(20,22,24,0.92)',
+    accent: '#1FA463',
+    accentSoft: 'rgba(31,164,99,0.14)',
     text: '#F4F6F5',
     subtext: 'rgba(255,255,255,0.62)',
     muted: 'rgba(255,255,255,0.4)',
-    border: 'rgba(0,230,118,0.18)',
+    border: 'rgba(255,255,255,0.06)',
   };
 
   return (

@@ -61,14 +61,14 @@ import { CaloriesSkeleton } from '../../components/SkeletonScreens';
 const C = {
   bg: '#050505',
   card: 'rgba(25,25,25,1)',
-  cardBorder: 'rgba(29,36,31,0.18)',
-  glass: 'rgba(22,33,25,0.78)',
-  accent: '#00E676',
-  accentSoft: 'rgba(0,230,118,0.16)',
+  cardBorder: 'rgba(255,255,255,0.06)',
+  glass: 'rgba(20,22,24,0.92)',
+  accent: '#1FA463',
+  accentSoft: 'rgba(31,164,99,0.14)',
   text: '#F4F6F5',
   subtext: 'rgba(255,255,255,0.62)',
   muted: 'rgba(255,255,255,0.4)',
-  border: 'rgba(0,230,118,0.18)',
+  border: 'rgba(255,255,255,0.06)',
   burnColor: '#FF6B6B',
   burnSoft: 'rgba(255,107,107,0.15)',
 };
@@ -175,8 +175,8 @@ const DualTrendChart = React.memo(function DualTrendChart({ intakeData, burnData
               <Stop offset="100%" stopColor={C.burnColor} stopOpacity="0.02" />
             </SvgGradient>
             <SvgGradient id="intake-line" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0%" stopColor="#00E676" />
-              <Stop offset="100%" stopColor="#6CFFB0" />
+              <Stop offset="0%" stopColor={C.accent} />
+              <Stop offset="100%" stopColor={C.accent} stopOpacity="0.6" />
             </SvgGradient>
             <SvgGradient id="burn-line" x1="0" y1="0" x2="1" y2="0">
               <Stop offset="0%" stopColor="#FF6B6B" />
@@ -202,7 +202,7 @@ const DualTrendChart = React.memo(function DualTrendChart({ intakeData, burnData
           {burnLine ? <Path d={burnLine} stroke="url(#burn-line)" strokeWidth={2.5} fill="none" strokeLinecap="round" /> : null}
           {intakePoints.map((p, i) => (
             <React.Fragment key={`ip-${i}`}>
-              <Circle cx={p.x} cy={p.y} r={4.5} fill="rgba(0,230,118,0.2)" />
+              <Circle cx={p.x} cy={p.y} r={4.5} fill={C.accentSoft} />
               <Circle cx={p.x} cy={p.y} r={3} fill={C.card} stroke={C.accent} strokeWidth={1.8} />
               <Rect x={p.x - 12} y={p.y - 12} width={24} height={24} fill="transparent" onPress={() => handlePointPress('Intake', i, intakeData, intakePoints)} />
             </React.Fragment>
@@ -363,8 +363,8 @@ export default function CaloriesScreen() {
   const calProgressOffset = calCircumference * (1 - calProgress);
 
   const consumptionPercent = (consumedCalories / Math.max(targetCalories, 1)) * 100;
-  const ringColor = consumptionPercent > 75 ? '#00E676' : consumptionPercent >= 50 ? '#FFA500' : '#FF4D4D';
-  const ringColorSecondary = consumptionPercent > 75 ? '#6CFFB0' : consumptionPercent >= 50 ? '#FFD180' : '#FF8A80';
+  const ringColor = consumptionPercent > 75 ? C.accent : consumptionPercent >= 50 ? '#FFA500' : '#FF4D4D';
+  const ringColorSecondary = consumptionPercent > 75 ? C.accent : consumptionPercent >= 50 ? '#FFD180' : '#FF8A80';
 
   const protein = Number(daily?.macros?.protein || 0);
   const proteinProgress = Math.max(0, Math.min(protein / Math.max(proteinTarget, 1), 1));
@@ -386,7 +386,7 @@ export default function CaloriesScreen() {
     const todayKey = `water_${new Date().toISOString().slice(0, 10)}`;
     await AsyncStorage.setItem(todayKey, String(newVal));
     // Sync streak with new water value
-    updateStreak({ water: newVal }).catch(() => {});
+    updateStreak({ water: newVal }).catch(() => { });
   };
 
   const recentFoods = useMemo(() => (daily?.logs || []).slice(0, 5), [daily?.logs]);
@@ -501,7 +501,7 @@ export default function CaloriesScreen() {
       // Auto-sync streak after data load
       const waterKey = `water_${new Date().toISOString().slice(0, 10)}`;
       const currentWater = await AsyncStorage.getItem(waterKey);
-      updateStreak({ water: Number(currentWater || 0) }).catch(() => {});
+      updateStreak({ water: Number(currentWater || 0) }).catch(() => { });
     } catch (error) {
       console.warn('Calories screen load error', error);
       Alert.alert('Sync Error', 'Could not fetch calories data from backend.');
@@ -652,13 +652,13 @@ export default function CaloriesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {/* Top-right radial glow — same as Profile */}
-      <View style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(0,230,118,0.06)' }} />
-      <View style={{ position: 'absolute', top: -20, right: -20, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(0,230,118,0.04)' }} />
+<View style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: `${C.accent}10` }} />
+        <View style={{ position: 'absolute', top: -20, right: -20, width: 180, height: 180, borderRadius: 90, backgroundColor: `${C.accent}05` }} />
 
       {/* Refresh indicator */}
       {refreshing && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 99, alignItems: 'center', paddingTop: 60 }}>
-          <ActivityIndicator size="small" color="#00E676" />
+          <ActivityIndicator size="small" color={C.accent} />
         </View>
       )}
 
@@ -823,7 +823,7 @@ export default function CaloriesScreen() {
             }}>
               <View style={{
                 width: 42, height: 42, borderRadius: 12,
-                backgroundColor: 'rgba(0,230,118,0.12)',
+                backgroundColor: C.accentSoft,
                 justifyContent: 'center', alignItems: 'center', marginRight: 14,
               }}>
                 <FontAwesome name="heartbeat" size={18} color={C.accent} />
@@ -864,17 +864,17 @@ export default function CaloriesScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
                 <Text style={{ color: C.accent, fontSize: 10 }}>Active {Math.round(fitness.walkingCalories)} kcal</Text>
                 {fitness.source === 'healthkit' && (
-                  <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                  <View style={{ backgroundColor: C.accentSoft, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                     <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>❤️ HK</Text>
                   </View>
                 )}
                 {fitness.source === 'health_connect' && (
-                  <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                  <View style={{ backgroundColor: C.accentSoft, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                     <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>💚 HC</Text>
                   </View>
                 )}
                 {fitness.source === 'pedometer' && (
-                  <View style={{ backgroundColor: 'rgba(0,230,118,0.15)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                  <View style={{ backgroundColor: C.accentSoft, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                     <Text style={{ color: C.accent, fontSize: 8, fontWeight: '700' }}>📱 STEP</Text>
                   </View>
                 )}
@@ -953,10 +953,10 @@ export default function CaloriesScreen() {
           {/* <Text style={{ fontSize: 13, fontWeight: '700', color: C.subtext, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 20, marginBottom: 10 }}>Nutrition Details</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {[
-              { label: 'Protein', value: protein, unit: 'g', icon: 'bolt', color: '#00E676', bg: 'rgba(0,230,118,0.12)' },
-              { label: 'Carbs', value: carbs, unit: 'g', icon: 'leaf', color: '#6CFFB0', bg: 'rgba(108,255,176,0.12)' },
-              { label: 'Fats', value: fat, unit: 'g', icon: 'tint', color: '#FFB088', bg: 'rgba(255,176,136,0.12)' },
-              { label: 'Fiber', value: Number(daily?.macros?.fiber || 0), unit: 'g', icon: 'pagelines', color: '#80CBC4', bg: 'rgba(128,203,196,0.12)' },
+              { label: 'Protein', value: protein, unit: 'g', icon: 'bolt', color: C.accent, bg: C.accentSoft },
+              { label: 'Carbs', value: carbs, unit: 'g', icon: 'leaf', color: '#FFA500', bg: 'rgba(255,165,0,0.14)' },
+              { label: 'Fats', value: fat, unit: 'g', icon: 'tint', color: '#FF6B6B', bg: 'rgba(255,107,107,0.14)' },
+              { label: 'Fiber', value: Number(daily?.macros?.fiber || 0), unit: 'g', icon: 'pagelines', color: '#60A5FA', bg: 'rgba(96,165,250,0.14)' },
             ].map((item) => (
               <View
                 key={item.label}
@@ -1135,7 +1135,7 @@ export default function CaloriesScreen() {
                   style={{ color: C.text, flex: 1, marginLeft: 10, fontSize: 14 }}
                 />
                 {searchLoading ? (
-                  <ActivityIndicator size="small" color="#00E676" />
+                  <ActivityIndicator size="small" color={C.accent} />
                 ) : searchText.length > 0 ? (
                   <TouchableOpacity onPress={() => { setSearchText(''); setResults([]); }}>
                     <FontAwesome name="times-circle" size={16} color={C.muted} />

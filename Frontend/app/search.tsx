@@ -7,7 +7,7 @@ import { globalSearch } from '../services/api';
 
 
 const C = {
-  bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463',
+  bg: '#060D09', card: 'rgba(20,22,24,0.92)', cardBorder: 'rgba(255,255,255,0.06)', accent: '#1FA463',
   white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)',
   burnColor: '#FF6B6B',
 };
@@ -150,7 +150,7 @@ export default function SearchScreen() {
                         <Text style={{ color: C.white, fontSize: 14, fontWeight: '600' }}>{f.name}</Text>
                         {f.brand && <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{f.brand}</Text>}
                       </View>
-                      <Text style={{ color: C.accent, fontSize: 13, fontWeight: '700' }}>{f.calories} kcal</Text>
+                      <Text style={{ color: C.accent, fontSize: 13, fontWeight: '700' }}>{String(f.calories ?? 0)} kcal</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -171,9 +171,9 @@ export default function SearchScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: C.white, fontSize: 14, fontWeight: '600' }}>{e.name}</Text>
-                        <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{e.muscle} • {e.difficulty}</Text>
+                        <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{String(e.muscle ?? 'Unknown')} • {String(e.difficulty ?? 'N/A')}</Text>
                       </View>
-                      <Text style={{ color: C.burnColor, fontSize: 12 }}>{e.caloriesPer10Min} kcal/10m</Text>
+                      <Text style={{ color: C.burnColor, fontSize: 12 }}>{String(e.caloriesPer10Min ?? 0)} kcal/10m</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -194,9 +194,9 @@ export default function SearchScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: C.white, fontSize: 14, fontWeight: '600' }}>{w.name}</Text>
-                        <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{w.exercises} exercises</Text>
+                        <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{String(w.exercises ?? 0)} exercises</Text>
                       </View>
-                      <Text style={{ color: C.muted, fontSize: 12 }}>{w.duration}</Text>
+                      <Text style={{ color: C.muted, fontSize: 12 }}>{String(w.duration ?? 'N/A')}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -215,7 +215,7 @@ export default function SearchScreen() {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         {[{ l: 'Calories', v: n.calories, u: 'kcal', c: C.accent }, { l: 'Protein', v: n.protein, u: 'g', c: '#60A5FA' }, { l: 'Carbs', v: n.carbs, u: 'g', c: '#FFA500' }, { l: 'Fat', v: n.fat, u: 'g', c: '#FF6B6B' }].map((m) => (
                           <View key={m.l} style={{ alignItems: 'center' }}>
-                            <Text style={{ color: m.c, fontSize: 14, fontWeight: '700' }}>{m.v}{m.u}</Text>
+                            <Text style={{ color: m.c, fontSize: 14, fontWeight: '700' }}>{String(m.v ?? 0)}{m.u}</Text>
                             <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>{m.l}</Text>
                           </View>
                         ))}
