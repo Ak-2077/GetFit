@@ -1,5 +1,7 @@
 import Food from '../models/food.js';
 import FoodLog from '../models/foodLog.js';
+import FoodCache from '../models/foodCache.js';
+import { lookupOpenFoodFacts, lookupUSDA, searchUSDA } from '../services/foodApiService.js';
 
 const LIQUID_KEYWORDS = /(drink|juice|soda|cola|water|beverage|milk|coffee|tea|energy|shake|smoothie)/i;
 
@@ -207,26 +209,209 @@ export const getBrandFoods = async (req, res) => {
   }
 };
 
-// Get food by barcode
+// Convert normalized API/cache data into a saved Food document for logging
+const persistToFoodCollection = async (normalized) => {
+  if (!normalized || !normalized.barcode) return null;
+
+  const noLead = normalized.barcode.replace(/^0+/, '') || normalized.barcode;
+  const pattern = new RegExp(`^0*${escapeRegex(noLead)}$`);
+  const existing = await Food.findOne({ barcode: { $regex: pattern } });
+  if (existing) return existing;
+
+  const unit = inferServingUnit({ servingSize: normalized.servingSize, name: normalized.productName });
+  const food = new Food({
+    name: normalized.productName,
+    brand: normalized.brand,
+    category: normalized.category || 'general',
+    type: normalized.type || 'food',
+    barcode: normalized.barcode,
+    origin: normalized.origin || '',
+    calories: normalized.calories || 0,
+    protein: normalized.protein || 0,
+    carbs: normalized.carbs || 0,
+    fat: normalized.fat || 0,
+    fiber: normalized.fiber || 0,
+    sugar: normalized.sugar || 0,
+    servingSize: normalized.servingSize || '100g',
+    servingUnit: unit,
+    unit,
+    searchKeywords: extractSearchKeywords({
+      name: normalized.productName,
+      brand: normalized.brand,
+      category: normalized.category,
+      type: normalized.type,
+    }),
+    source: normalized.source === 'usda' ? 'custom' : 'openfoodfacts',
+  });
+
+  await food.save();
+  return food;
+};
+
+// Upsert normalized data into FoodCache and return the cached doc
+const upsertCache = async (normalized) => {
+  if (!normalized || !normalized.barcode) return null;
+
+  const cached = await FoodCache.findOneAndUpdate(
+    { barcode: normalized.barcode },
+    {
+      $set: {
+        productName: normalized.productName,
+        brand: normalized.brand,
+        calories: normalized.calories,
+        protein: normalized.protein,
+        carbs: normalized.carbs,
+        fat: normalized.fat,
+        fiber: normalized.fiber,
+        sugar: normalized.sugar,
+        sodium: normalized.sodium || 0,
+        servingSize: normalized.servingSize,
+        servingUnit: normalized.servingUnit,
+        ingredients: normalized.ingredients || '',
+        image: normalized.image || '',
+        origin: normalized.origin || '',
+        category: normalized.category || 'general',
+        type: normalized.type || 'food',
+        source: normalized.source,
+        lastSearchedAt: new Date(),
+      },
+      $inc: { searchCount: 1 },
+    },
+    { upsert: true, returnDocument: 'after' }
+  );
+
+  return cached;
+};
+
+// Convert a FoodCache doc to the response shape the frontend expects
+const cacheToResponse = (cached, foodDoc) => {
+  if (!cached) return null;
+  const plain = typeof cached.toObject === 'function' ? cached.toObject() : cached;
+  return {
+    _id: foodDoc?._id || plain._id,
+    name: plain.productName,
+    brand: plain.brand,
+    category: plain.category,
+    type: plain.type,
+    calories: plain.calories,
+    protein: plain.protein,
+    carbs: plain.carbs,
+    fat: plain.fat,
+    fiber: plain.fiber,
+    sugar: plain.sugar,
+    sodium: plain.sodium,
+    servingSize: plain.servingSize,
+    servingUnit: plain.servingUnit,
+    unit: plain.servingUnit,
+    barcode: plain.barcode,
+    origin: plain.origin,
+    ingredients: plain.ingredients,
+    image: plain.image,
+    source: plain.source,
+  };
+};
+
+// Get food by barcode — cache-first with Open Food Facts + USDA fallback
 export const getFoodByBarcode = async (req, res) => {
   try {
     const rawBarcode = req.params.barcode;
     const normalizedBarcode = normalizeBarcode(rawBarcode);
 
-    if (!normalizedBarcode) {
-      return res.status(400).json({ message: 'Invalid barcode' });
+    if (!normalizedBarcode || normalizedBarcode.length < 8) {
+      return res.status(400).json({ message: 'Invalid barcode (must be 8-14 digits)' });
     }
 
+    // ── 1. Check FoodCache ──
+    const cached = await FoodCache.findOneAndUpdate(
+      { barcode: normalizedBarcode },
+      { $inc: { searchCount: 1 }, $set: { lastSearchedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+
+    let needsRefresh = false;
+
+    if (cached) {
+      // Auto-fix stale cache: OFF values are per 100g, servingSize must be '100g'
+      needsRefresh = cached.source === 'openfoodfacts' && cached.servingSize !== '100g';
+      if (!needsRefresh) {
+        const foodDoc = await persistToFoodCollection(cached.toObject ? cached.toObject() : cached);
+        return res.status(200).json({ food: cacheToResponse(cached, foodDoc), source: 'cache' });
+      }
+      // Stale entry — skip cache, go to API refresh
+    }
+
+    // ── 2. Check Food collection (skip if stale refresh needed) ──
     const noLeadingZeroBarcode = normalizedBarcode.replace(/^0+/, '') || normalizedBarcode;
     const leadingZeroTolerantPattern = new RegExp(`^0*${escapeRegex(noLeadingZeroBarcode)}$`);
 
-    const food = await Food.findOne({ barcode: { $regex: leadingZeroTolerantPattern } });
-    if (!food) {
-      return res.status(404).json({ message: 'Food not found' });
+    if (!needsRefresh) {
+      const existingFood = await Food.findOne({ barcode: { $regex: leadingZeroTolerantPattern } });
+
+      if (existingFood) {
+        // Backfill cache
+        const normalized = {
+          barcode: normalizedBarcode,
+          productName: existingFood.name,
+          brand: existingFood.brand || '',
+          calories: existingFood.calories || 0,
+          protein: existingFood.protein || 0,
+          carbs: existingFood.carbs || 0,
+          fat: existingFood.fat || 0,
+          fiber: existingFood.fiber || 0,
+          sugar: existingFood.sugar || 0,
+          sodium: 0,
+          servingSize: existingFood.servingSize || '100g',
+          servingUnit: existingFood.servingUnit || existingFood.unit || 'g',
+          ingredients: '',
+          image: '',
+          origin: existingFood.origin || '',
+          category: existingFood.category || 'general',
+          type: existingFood.type || 'food',
+          source: existingFood.source || 'openfoodfacts',
+        };
+        await upsertCache(normalized);
+        return res.status(200).json({ food: toFoodResponse(existingFood), source: 'database' });
+      }
     }
 
-    res.status(200).json(toFoodResponse(food));
+    // ── 3. Open Food Facts API ──
+    let apiResult = await lookupOpenFoodFacts(normalizedBarcode);
+
+    // ── 4. USDA fallback ──
+    if (!apiResult) {
+      apiResult = await lookupUSDA(normalizedBarcode);
+    }
+
+    if (!apiResult) {
+      return res.status(404).json({ message: 'Product not found in any food database' });
+    }
+
+    // ── 5. Cache + persist + fix stale Food doc ──
+    await upsertCache(apiResult);
+
+    // Update existing Food doc if it has stale servingSize, otherwise create new
+    const existingFoodDoc = await Food.findOne({ barcode: { $regex: leadingZeroTolerantPattern } });
+    let foodDoc;
+    if (existingFoodDoc) {
+      existingFoodDoc.servingSize = apiResult.servingSize || '100g';
+      existingFoodDoc.servingUnit = inferServingUnit({ servingSize: apiResult.servingSize, name: apiResult.productName });
+      existingFoodDoc.unit = existingFoodDoc.servingUnit;
+      existingFoodDoc.calories = apiResult.calories || 0;
+      existingFoodDoc.protein = apiResult.protein || 0;
+      existingFoodDoc.carbs = apiResult.carbs || 0;
+      existingFoodDoc.fat = apiResult.fat || 0;
+      existingFoodDoc.fiber = apiResult.fiber || 0;
+      existingFoodDoc.sugar = apiResult.sugar || 0;
+      await existingFoodDoc.save();
+      foodDoc = existingFoodDoc;
+    } else {
+      foodDoc = await persistToFoodCollection(apiResult);
+    }
+
+    const freshCache = await FoodCache.findOne({ barcode: normalizedBarcode });
+    return res.status(200).json({ food: cacheToResponse(freshCache, foodDoc), source: apiResult.source });
   } catch (err) {
+    console.error('[getFoodByBarcode] error:', err);
     res.status(500).json({ message: 'Error fetching food', error: err.message });
   }
 };
@@ -434,66 +619,39 @@ export const searchFoods = async (req, res) => {
         .lean();
     }
 
-    // If no results and query looks like a barcode, try OpenFoodFacts API
+    // If no results and query looks like a barcode, try APIs via service layer
     if (foods.length === 0 && /^\d{8,14}$/.test(normalizedBarcodeQuery)) {
       try {
-        const endpoints = [
-          'https://world.openfoodfacts.org',
-          'https://us.openfoodfacts.org',
-          'https://in.openfoodfacts.org',
-          'https://uk.openfoodfacts.org',
-          'https://jp.openfoodfacts.org',
-          'https://cn.openfoodfacts.org',
-        ];
+        let apiResult = await lookupOpenFoodFacts(normalizedBarcodeQuery);
+        if (!apiResult) apiResult = await lookupUSDA(normalizedBarcodeQuery);
 
-        for (const baseUrl of endpoints) {
-          const response = await fetch(`${baseUrl}/api/v0/product/${normalizedBarcodeQuery}.json`);
-          if (!response.ok) continue;
-
-          const data = await response.json();
-          if (!data.product) continue;
-
-          const product = data.product;
-          const servingSize = product.serving_size || '100g';
-          const unit = inferServingUnit({
-            servingSize,
-            name: product.product_name,
-          });
-          const productName = product.product_name || 'Unknown Product';
-          const productBrand = product.brands || 'Unknown Brand';
-          const category = product.categories_tags?.[0]
-            ? String(product.categories_tags[0]).replace(/^\w+:/, '').replace(/-/g, ' ')
-            : 'general';
-          const type = /(whey|protein|mass gainer|creatine|bcaa|multivitamin|supplement)/i.test(`${productName} ${productBrand}`)
-            ? 'supplement'
-            : 'food';
-
-          const newFood = new Food({
-            name: productName,
-            brand: productBrand,
-            category,
-            type,
-            barcode: normalizedBarcodeQuery,
-            origin: resolveOrigin({ product, barcode: normalizedBarcodeQuery }),
-            calories: product.nutriments?.['energy-kcal'] || 0,
-            protein: product.nutriments?.proteins || 0,
-            carbs: product.nutriments?.carbohydrates || 0,
-            fat: product.nutriments?.fat || 0,
-            fiber: product.nutriments?.fiber || 0,
-            sugar: product.nutriments?.sugars || 0,
-            servingSize,
-            servingUnit: unit,
-            unit,
-            searchKeywords: extractSearchKeywords({ name: productName, brand: productBrand, category, type }),
-            source: 'openfoodfacts',
-          });
-
-          await newFood.save();
-          foods = [newFood];
-          break;
+        if (apiResult) {
+          const [, foodDoc] = await Promise.all([
+            upsertCache(apiResult),
+            persistToFoodCollection(apiResult),
+          ]);
+          if (foodDoc) foods = [foodDoc];
         }
       } catch (apiError) {
-        console.warn('OpenFoodFacts API error:', apiError.message);
+        console.warn('API barcode lookup error:', apiError.message);
+      }
+    }
+
+    // If still no results and query is text, try USDA text search
+    if (foods.length === 0 && !/^\d{8,14}$/.test(query)) {
+      try {
+        const usdaResults = await searchUSDA(query, limit);
+        if (usdaResults.length > 0) {
+          const persisted = await Promise.all(
+            usdaResults.map(async (r) => {
+              const doc = await persistToFoodCollection(r);
+              return doc;
+            })
+          );
+          foods = persisted.filter(Boolean);
+        }
+      } catch (usdaErr) {
+        console.warn('USDA text search fallback error:', usdaErr.message);
       }
     }
 
@@ -520,5 +678,86 @@ export const getFoodById = async (req, res) => {
     return res.status(200).json(toFoodResponse(food));
   } catch (err) {
     return res.status(500).json({ message: 'Error fetching food details', error: err.message });
+  }
+};
+
+// Manual food search by name — searches local DB first, USDA fallback
+export const searchFoodsByName = async (req, res) => {
+  try {
+    const rawQuery = typeof req.query?.q === 'string' ? req.query.q.trim() : '';
+    const userId = req.userId;
+    const limitRaw = Number(req.query?.limit);
+    const limit = Number.isFinite(limitRaw) ? clamp(Math.round(limitRaw), 1, 30) : 15;
+
+    if (!rawQuery || rawQuery.length < 2) {
+      return res.status(400).json({ message: 'Query must be at least 2 characters' });
+    }
+
+    // Search local DB first
+    const visibilityFilter = {
+      $or: [{ source: { $in: ['openfoodfacts', 'custom'] } }, { userId }],
+    };
+
+    let foods = [];
+    try {
+      foods = await Food.find({
+        $and: [{ $text: { $search: rawQuery } }, visibilityFilter],
+      })
+        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
+        .sort({ score: { $meta: 'textScore' }, updatedAt: -1 })
+        .limit(limit)
+        .lean();
+    } catch (_) {
+      foods = [];
+    }
+
+    if (foods.length === 0) {
+      foods = await Food.find({
+        $and: [
+          {
+            $or: [
+              { searchKeywords: { $in: [rawQuery.toLowerCase()] } },
+              { name: { $regex: rawQuery, $options: 'i' } },
+              { brand: { $regex: rawQuery, $options: 'i' } },
+            ],
+          },
+          visibilityFilter,
+        ],
+      })
+        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
+        .sort({ updatedAt: -1 })
+        .limit(limit)
+        .lean();
+    }
+
+    // USDA fallback for text search
+    if (foods.length < 3) {
+      try {
+        const usdaResults = await searchUSDA(rawQuery, limit - foods.length);
+        if (usdaResults.length > 0) {
+          const persisted = await Promise.all(
+            usdaResults.map(async (r) => {
+              const doc = await persistToFoodCollection(r);
+              return doc ? (typeof doc.toObject === 'function' ? doc.toObject() : doc) : null;
+            })
+          );
+          const newFoods = persisted.filter(Boolean);
+          // Deduplicate by _id
+          const existingIds = new Set(foods.map((f) => String(f._id)));
+          for (const nf of newFoods) {
+            if (!existingIds.has(String(nf._id))) {
+              foods.push(nf);
+              existingIds.add(String(nf._id));
+            }
+          }
+        }
+      } catch (usdaErr) {
+        console.warn('USDA search fallback error:', usdaErr.message);
+      }
+    }
+
+    res.status(200).json(foods.slice(0, limit).map(toFoodResponse));
+  } catch (err) {
+    res.status(500).json({ message: 'Error searching foods by name', error: err.message });
   }
 };

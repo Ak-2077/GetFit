@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -19,7 +19,10 @@ type FoodItem = {
   fat?: number;
   fiber?: number;
   sugar?: number;
+  sodium?: number;
   ingredients?: string;
+  image?: string;
+  source?: string;
   supplementFacts?: any;
 };
 
@@ -71,15 +74,22 @@ export default function FoodDetailsScreen() {
           return;
         }
 
-        // Try barcode endpoint first
+        // Try barcode endpoint first (new format: { food, source })
         try {
           const byCode = await getFoodByBarcode(barcode);
-          const found = byCode?.data?.food || byCode?.data || null;
-          if (found) { setFood(found); return; }
-        } catch (err) {
-          // fallback to search
+          const data = byCode?.data;
+          const found = data?.food || data || null;
+          if (found && (found._id || found.name || found.calories !== undefined)) {
+            setFood(found);
+            return;
+          }
+        } catch (err: any) {
+          if (err?.response?.status !== 404) {
+            // Only fallback to search if it's not a real server error
+          }
         }
 
+        // Fallback to search
         const res = await searchFoods(barcode);
         if (res.data && res.data.length > 0) {
           setFood(res.data[0]);
@@ -150,48 +160,13 @@ export default function FoodDetailsScreen() {
     const adjustedFat = Number(((food?.fat ?? 0) * servingMultiplier).toFixed(1));
 
     return [
-      {
-        label: 'Calories',
-        value: adjustedCalories,
-        unit: 'kcal',
-        cardClass: 'bg-rose-950 border border-rose-800',
-        valueClass: 'text-rose-300',
-      },
-      {
-        label: 'Protein',
-        value: adjustedProtein,
-        unit: 'g',
-        cardClass: 'bg-emerald-950 border border-emerald-800',
-        valueClass: 'text-emerald-300',
-      },
-      {
-        label: 'Carbs',
-        value: adjustedCarbs,
-        unit: 'g',
-        cardClass: 'bg-amber-950 border border-amber-800',
-        valueClass: 'text-amber-300',
-      },
-      {
-        label: 'Fat',
-        value: adjustedFat,
-        unit: 'g',
-        cardClass: 'bg-sky-950 border border-sky-800',
-        valueClass: 'text-sky-300',
-      },
-      {
-        label: 'Fiber',
-        value: Math.round((food?.fiber ?? 0) * servingMultiplier),
-        unit: 'g',
-        cardClass: 'bg-green-950 border border-green-800',
-        valueClass: 'text-green-300',
-      },
-      {
-        label: 'Sugar',
-        value: Math.round((food?.sugar ?? 0) * servingMultiplier),
-        unit: 'g',
-        cardClass: 'bg-pink-950 border border-pink-800',
-        valueClass: 'text-pink-300',
-      },
+      { label: 'Calories', value: adjustedCalories, unit: 'kcal', icon: 'fire', color: '#FF6B6B' },
+      { label: 'Protein', value: adjustedProtein, unit: 'g', icon: 'bolt', color: '#00E676' },
+      { label: 'Carbs', value: adjustedCarbs, unit: 'g', icon: 'leaf', color: '#FFB74D' },
+      { label: 'Fat', value: adjustedFat, unit: 'g', icon: 'tint', color: '#42A5F5' },
+      { label: 'Fiber', value: Math.round((food?.fiber ?? 0) * servingMultiplier), unit: 'g', icon: 'pagelines', color: '#66BB6A' },
+      { label: 'Sugar', value: Math.round((food?.sugar ?? 0) * servingMultiplier), unit: 'g', icon: 'cube', color: '#EC407A' },
+      { label: 'Sodium', value: Number(((food?.sodium ?? 0) * servingMultiplier).toFixed(2)), unit: 'g', icon: 'diamond', color: '#AB47BC' },
     ];
   }, [food, servingMultiplier]);
 
@@ -309,14 +284,33 @@ export default function FoodDetailsScreen() {
     border: 'rgba(255,255,255,0.06)',
   };
 
+  const inputStyle = {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: C.text,
+    fontSize: 14,
+  } as const;
+
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center justify-between px-4 py-3">
-        <TouchableOpacity className="h-10 w-10 items-center justify-center rounded-full bg-gray-800" onPress={goBackSafe}>
-          <FontAwesome name="chevron-left" size={18} color="#fff" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+      {/* Top-right radial glow — same as Calories tab */}
+      <View style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(0,230,118,0.06)' }} />
+      <View style={{ position: 'absolute', top: -20, right: -20, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(0,230,118,0.04)' }} />
+
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
+        <TouchableOpacity onPress={goBackSafe} activeOpacity={0.7} style={{
+          width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder,
+          justifyContent: 'center', alignItems: 'center',
+        }}>
+          <FontAwesome name="chevron-left" size={14} color={C.text} />
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-white">Nutrition Details</Text>
-        <View className="w-10" />
+        <Text style={{ color: C.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 }}>Nutrition Details</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView
@@ -324,186 +318,224 @@ export default function FoodDetailsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-5 pb-8">
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 32 }}>
         {loading ? (
-          <View className="min-h-[320px] items-center justify-center">
-            <ActivityIndicator size="large" color="#1FA463" />
+          <View style={{ minHeight: 320, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color={C.accent} />
           </View>
         ) : !food ? (
-          <View className="min-h-[320px] items-center justify-center">
-            <FontAwesome name="search" size={26} color="#9ca3af" />
-            <Text className="mt-3 text-2xl font-bold text-white">No food found</Text>
+          <View style={{ minHeight: 320, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <FontAwesome name="search" size={22} color={C.accent} />
+            </View>
+            <Text style={{ color: C.text, fontSize: 22, fontWeight: '800', marginTop: 4 }}>No food found</Text>
             {loadError ? (
-              <Text className="mt-2 text-center text-sm text-gray-400">
+              <Text style={{ color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 }}>
                 Could not reach food database. Please check server connection and try again.
               </Text>
             ) : (
-              <Text className="mt-2 text-center text-sm text-gray-400">
+              <Text style={{ color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 }}>
                 Barcode {barcode || '-'} is not available in our food database yet.
               </Text>
             )}
 
             {!loadError ? (
-              <View className="mt-5 w-full rounded-2xl border border-gray-700 bg-gray-900 p-4">
-                <Text className="text-base font-bold text-white">Create Custom Food</Text>
-                <Text className="mt-1 text-xs text-gray-400">Barcode: {barcode || '-'}</Text>
+              <View style={{ marginTop: 20, width: '100%', backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                    <FontAwesome name="plus" size={13} color={C.accent} />
+                  </View>
+                  <View>
+                    <Text style={{ color: C.text, fontSize: 15, fontWeight: '700' }}>Create Custom Food</Text>
+                    <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Barcode: {barcode || '-'}</Text>
+                  </View>
+                </View>
 
-                <TextInput
-                  className="mt-3 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"
-                  value={customName}
-                  onChangeText={setCustomName}
-                  placeholder="Food name"
-                  placeholderTextColor="#6b7280"
-                />
-
-                <TextInput
-                  className="mt-3 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"
-                  value={customBrand}
-                  onChangeText={setCustomBrand}
-                  placeholder="Brand (optional)"
-                  placeholderTextColor="#6b7280"
-                />
-
-                <TextInput
-                  className="mt-3 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"
-                  value={customCalories}
-                  onChangeText={setCustomCalories}
-                  keyboardType="numeric"
-                  placeholder="Calories per 100g"
-                  placeholderTextColor="#6b7280"
-                />
-
-                <TextInput
-                  className="mt-3 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"
-                  value={customProtein}
-                  onChangeText={setCustomProtein}
-                  keyboardType="numeric"
-                  placeholder="Protein (g) per 100g"
-                  placeholderTextColor="#6b7280"
-                />
-
-                <TextInput
-                  className="mt-3 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"
-                  value={customCarbs}
-                  onChangeText={setCustomCarbs}
-                  keyboardType="numeric"
-                  placeholder="Carbs (g) per 100g"
-                  placeholderTextColor="#6b7280"
-                />
-
-                <TextInput
-                  className="mt-3 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"
-                  value={customFat}
-                  onChangeText={setCustomFat}
-                  keyboardType="numeric"
-                  placeholder="Fat (g) per 100g"
-                  placeholderTextColor="#6b7280"
-                />
+                <TextInput style={inputStyle} value={customName} onChangeText={setCustomName} placeholder="Food name" placeholderTextColor={C.muted} />
+                <TextInput style={[inputStyle, { marginTop: 10 }]} value={customBrand} onChangeText={setCustomBrand} placeholder="Brand (optional)" placeholderTextColor={C.muted} />
+                <TextInput style={[inputStyle, { marginTop: 10 }]} value={customCalories} onChangeText={setCustomCalories} keyboardType="numeric" placeholder="Calories per 100g" placeholderTextColor={C.muted} />
+                <TextInput style={[inputStyle, { marginTop: 10 }]} value={customProtein} onChangeText={setCustomProtein} keyboardType="numeric" placeholder="Protein (g) per 100g" placeholderTextColor={C.muted} />
+                <TextInput style={[inputStyle, { marginTop: 10 }]} value={customCarbs} onChangeText={setCustomCarbs} keyboardType="numeric" placeholder="Carbs (g) per 100g" placeholderTextColor={C.muted} />
+                <TextInput style={[inputStyle, { marginTop: 10 }]} value={customFat} onChangeText={setCustomFat} keyboardType="numeric" placeholder="Fat (g) per 100g" placeholderTextColor={C.muted} />
 
                 <TouchableOpacity
-                  className="mt-4 items-center rounded-xl bg-green-600 py-3"
                   onPress={handleCreateCustomFood}
                   disabled={creatingCustomFood}
+                  activeOpacity={0.8}
+                  style={{ marginTop: 14, alignItems: 'center', borderRadius: 14, paddingVertical: 13, backgroundColor: C.accent }}
                 >
-                  <Text className="font-bold text-white">{creatingCustomFood ? 'Creating...' : 'Create & Continue'}</Text>
+                  <Text style={{ color: '#000', fontSize: 14, fontWeight: '800' }}>{creatingCustomFood ? 'Creating...' : 'Create & Continue'}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
-            <TouchableOpacity className="mt-3 rounded-xl bg-gray-700 px-5 py-3" onPress={goBackSafe}>
-              <Text className="font-bold text-white">Scan Another</Text>
+            <TouchableOpacity onPress={goBackSafe} activeOpacity={0.8} style={{ marginTop: 12, alignItems: 'center', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder }}>
+              <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>Scan Another</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            <View className="rounded-2xl border border-gray-700 bg-gray-900 p-5">
-              <Text className="text-2xl font-extrabold text-white">{food.name || 'Unknown Food'}</Text>
-              <Text className="mt-2 text-sm text-slate-300">Brand: {food.brand || 'Unknown'}</Text>
-              <Text className="mt-1 text-sm text-slate-300">Origin: {food.origin || 'Unknown'}</Text>
-              <Text className="mt-1 text-sm text-slate-300">Barcode: {barcode || '-'}</Text>
-              <View className="mt-3 rounded-xl border border-gray-700 bg-[#0B1220] p-3">
-                <Text className="text-xs font-semibold text-gray-300">Serving (Editable)</Text>
-                <View className="mt-2 flex-row items-center">
+            {/* ═══ PRODUCT INFO CARD ═══ */}
+            <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16, overflow: 'hidden' }}>
+              {food.image ? (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, marginBottom: 14, padding: 8 }}>
+                  <Image source={{ uri: food.image }} style={{ width: '100%', height: 180, borderRadius: 12 }} resizeMode="contain" />
+                </View>
+              ) : null}
+
+              <Text style={{ color: C.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.3 }}>{food.name || 'Unknown Food'}</Text>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6, flexWrap: 'wrap' }}>
+                {food.brand ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.glass, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: C.cardBorder }}>
+                    <FontAwesome name="tag" size={10} color={C.accent} style={{ marginRight: 5 }} />
+                    <Text style={{ color: C.subtext, fontSize: 11, fontWeight: '600' }}>{food.brand}</Text>
+                  </View>
+                ) : null}
+                {food.origin ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.glass, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: C.cardBorder }}>
+                    <FontAwesome name="globe" size={10} color="#42A5F5" style={{ marginRight: 5 }} />
+                    <Text style={{ color: C.subtext, fontSize: 11, fontWeight: '600' }}>{food.origin}</Text>
+                  </View>
+                ) : null}
+                {food.source ? (() => {
+                  const trust = food.source === 'usda'
+                    ? { icon: 'shield' as const, label: 'Verified', color: '#00E676', bg: 'rgba(0,230,118,0.14)' }
+                    : food.source === 'openfoodfacts'
+                    ? { icon: 'users' as const, label: 'Community', color: '#42A5F5', bg: 'rgba(66,165,245,0.14)' }
+                    : { icon: 'user' as const, label: 'Self-added', color: C.muted, bg: 'rgba(255,255,255,0.08)' };
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: trust.bg, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 4, gap: 4 }}>
+                      <FontAwesome name={trust.icon} size={9} color={trust.color} />
+                      <Text style={{ color: trust.color, fontSize: 9, fontWeight: '700', letterSpacing: 0.2 }}>{trust.label}</Text>
+                    </View>
+                  );
+                })() : null}
+              </View>
+
+              {barcode ? (
+                <Text style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>Barcode: {barcode}</Text>
+              ) : null}
+
+              {/* ── Serving Editor ── */}
+              <View style={{ marginTop: 14, backgroundColor: C.glass, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <FontAwesome name="balance-scale" size={11} color={C.accent} style={{ marginRight: 6 }} />
+                  <Text style={{ color: C.subtext, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>SERVING SIZE</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <TextInput
-                    className="flex-1 rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white"
+                    style={{
+                      flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, borderWidth: 1, borderColor: C.border,
+                      paddingHorizontal: 12, paddingVertical: 10, color: C.text, fontSize: 16, fontWeight: '700',
+                    }}
                     value={servingAmountText}
                     onChangeText={setServingAmountText}
                     keyboardType="decimal-pad"
                     placeholder="100"
-                    placeholderTextColor="#6b7280"
+                    placeholderTextColor={C.muted}
                   />
-
-                  <View className="ml-2 flex-row rounded-lg border border-gray-600 bg-gray-800 p-1">
+                  <View style={{ marginLeft: 8, flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 3 }}>
                     <TouchableOpacity
-                      className={`rounded-md px-3 py-2 ${servingUnit === 'g' ? 'bg-blue-600' : 'bg-transparent'}`}
                       onPress={() => setServingUnit('g')}
+                      style={{
+                        borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8,
+                        backgroundColor: servingUnit === 'g' ? C.accent : 'transparent',
+                      }}
                     >
-                      <Text className="font-bold text-white">g</Text>
+                      <Text style={{ color: servingUnit === 'g' ? '#000' : C.text, fontWeight: '700', fontSize: 13 }}>g</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className={`ml-1 rounded-md px-3 py-2 ${servingUnit === 'ml' ? 'bg-blue-600' : 'bg-transparent'}`}
                       onPress={() => setServingUnit('ml')}
+                      style={{
+                        borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, marginLeft: 2,
+                        backgroundColor: servingUnit === 'ml' ? C.accent : 'transparent',
+                      }}
                     >
-                      <Text className="font-bold text-white">ml</Text>
+                      <Text style={{ color: servingUnit === 'ml' ? '#000' : C.text, fontWeight: '700', fontSize: 13 }}>ml</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-                <Text className="mt-2 text-xs text-slate-400">
+                <Text style={{ color: C.muted, fontSize: 10, marginTop: 6 }}>
                   Base serving: {food.servingSize || `${baseServingAmount}${servingUnit}`}
                 </Text>
               </View>
             </View>
 
-            
+            {/* ═══ NUTRITION GRID ═══ */}
+            <View style={{ marginTop: 14, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
+                  <FontAwesome name="pie-chart" size={12} color={C.accent} />
+                </View>
+                <Text style={{ color: C.text, fontSize: 15, fontWeight: '800' }}>Nutrition for {servingAmount || 0}{servingUnit}</Text>
+              </View>
 
-            <View className="mt-4 rounded-2xl border border-gray-700 bg-gray-900 p-4">
-              <Text className="mb-3 text-lg font-bold text-white">Nutrition for {servingAmount || 0}{servingUnit}</Text>
-              <View className="flex-row flex-wrap justify-between">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                 {nutritionBlocks.map((block) => (
-                  <View key={block.label} className={`mb-3 w-[48%] rounded-2xl p-4 ${block.cardClass}`}>
-                    <Text className="text-sm font-semibold text-gray-200">{block.label}</Text>
-                    <Text className={`mt-2 text-2xl font-extrabold ${block.valueClass}`}>{block.value}</Text>
-                    <Text className="mt-1 text-xs text-gray-300">{block.unit}</Text>
+                  <View key={block.label} style={{
+                    width: '48%', backgroundColor: C.glass, borderRadius: 16, padding: 14, marginBottom: 10,
+                    borderWidth: 1, borderColor: C.cardBorder,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <FontAwesome name={block.icon as any} size={11} color={block.color} style={{ marginRight: 6 }} />
+                      <Text style={{ color: C.subtext, fontSize: 12, fontWeight: '600' }}>{block.label}</Text>
+                    </View>
+                    <Text style={{ color: C.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 }}>{block.value}</Text>
+                    <Text style={{ color: C.muted, fontSize: 10, marginTop: 2, fontWeight: '500' }}>{block.unit}</Text>
                   </View>
                 ))}
               </View>
             </View>
 
+            {/* ═══ INGREDIENTS / SUPPLEMENT FACTS ═══ */}
             {(food?.ingredients || food?.supplementFacts) && (
-              <View className="mt-4 rounded-2xl border border-gray-700 bg-gray-900 p-4">
+              <View style={{ marginTop: 14, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 16 }}>
                 {food?.ingredients ? (
-                  <View className="mb-3">
-                    <Text className="text-sm font-semibold text-white">Ingredients</Text>
-                    <Text className="mt-2 text-sm text-gray-300">{food.ingredients}</Text>
+                  <View style={{ marginBottom: food?.supplementFacts ? 14 : 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <FontAwesome name="list-ul" size={12} color="#FFB74D" style={{ marginRight: 8 }} />
+                      <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>Ingredients</Text>
+                    </View>
+                    <Text style={{ color: C.subtext, fontSize: 12, lineHeight: 18 }}>{food.ingredients}</Text>
                   </View>
                 ) : null}
 
                 {food?.supplementFacts ? (
                   <View>
-                    <Text className="text-sm font-semibold text-white">Supplement Facts</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <FontAwesome name="flask" size={12} color="#AB47BC" style={{ marginRight: 8 }} />
+                      <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }}>Supplement Facts</Text>
+                    </View>
                     {Array.isArray(food.supplementFacts) ? (
-                      <View className="mt-2">
+                      <View>
                         {food.supplementFacts.map((sf: any, idx: number) => (
-                          <View key={idx} className="flex-row justify-between mt-2">
-                            <Text className="text-sm text-gray-300">{sf.name}</Text>
-                            <Text className="text-sm text-gray-300">{sf.amount || ''}</Text>
+                          <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: idx < food.supplementFacts.length - 1 ? 1 : 0, borderBottomColor: C.cardBorder }}>
+                            <Text style={{ color: C.subtext, fontSize: 12 }}>{sf.name}</Text>
+                            <Text style={{ color: C.text, fontSize: 12, fontWeight: '600' }}>{sf.amount || ''}</Text>
                           </View>
                         ))}
                       </View>
                     ) : (
-                      <Text className="mt-2 text-sm text-gray-300">{typeof food.supplementFacts === 'string' ? food.supplementFacts : JSON.stringify(food.supplementFacts)}</Text>
+                      <Text style={{ color: C.subtext, fontSize: 12, lineHeight: 18 }}>{typeof food.supplementFacts === 'string' ? food.supplementFacts : JSON.stringify(food.supplementFacts)}</Text>
                     )}
                   </View>
                 ) : null}
               </View>
             )}
 
+            {/* ═══ ADD BUTTON ═══ */}
             <TouchableOpacity
-              className="mt-5 items-center rounded-2xl bg-green-600 py-4"
               onPress={handleAddFood}
               disabled={adding}
+              activeOpacity={0.8}
+              style={{
+                marginTop: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+                borderRadius: 16, paddingVertical: 16, backgroundColor: C.accent,
+              }}
             >
-              <Text className="text-base font-extrabold text-white">{adding ? 'Adding...' : 'Add To Today Log'}</Text>
+              <FontAwesome name="plus-circle" size={16} color="#000" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#000', fontSize: 15, fontWeight: '800' }}>{adding ? 'Adding...' : 'Add To Today Log'}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -529,10 +561,10 @@ export default function FoodDetailsScreen() {
             </View>
 
             {([
-              { key: 'breakfast' as const, label: 'Breakfast', icon: 'coffee', desc: 'Morning meal' },
-              { key: 'lunch' as const, label: 'Lunch', icon: 'sun-o', desc: 'Afternoon meal' },
-              { key: 'dinner' as const, label: 'Dinner', icon: 'moon-o', desc: 'Evening meal' },
-              { key: 'snack' as const, label: 'Snacks', icon: 'apple', desc: 'Between meals' },
+              { key: 'breakfast' as const, label: 'Breakfast', icon: 'coffee', desc: 'Morning meal', iconColor: '#FFB74D' },
+              { key: 'lunch' as const, label: 'Lunch', icon: 'sun-o', desc: 'Afternoon meal', iconColor: '#FFD54F' },
+              { key: 'dinner' as const, label: 'Dinner', icon: 'moon-o', desc: 'Evening meal', iconColor: '#42A5F5' },
+              { key: 'snack' as const, label: 'Snacks', icon: 'apple', desc: 'Between meals', iconColor: '#66BB6A' },
             ]).map((item) => (
               <TouchableOpacity
                 key={item.key}
@@ -543,8 +575,8 @@ export default function FoodDetailsScreen() {
                   padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center',
                 }}
               >
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                  <FontAwesome name={item.icon as any} size={15} color={C.accent} />
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${item.iconColor}18`, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                  <FontAwesome name={item.icon as any} size={15} color={item.iconColor} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>{item.label}</Text>
