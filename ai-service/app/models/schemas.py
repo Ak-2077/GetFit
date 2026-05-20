@@ -38,6 +38,12 @@ class DietRequest(BaseModel):
     diet_preference: str = "non-veg"
     calorie_target: Optional[int] = None
     allergies: list[str] = []
+    meals_per_day: int = 4
+    cuisine: str = "indian"
+    cooking_time: str = "moderate"        # "minimal" | "moderate" | "elaborate"
+    budget: str = "medium"                # "low" | "medium" | "high"
+    health_conditions: list[str] = []
+    additional_notes: str = ""
 
 
 class DietResponse(BaseModel):

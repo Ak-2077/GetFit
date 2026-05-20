@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { sendChatMessage, submitChatFeedback, endChatSession, setAuthToken } from '../services/api';
+import { sendChatMessage, streamChatMessage, submitChatFeedback, endChatSession, setAuthToken } from '../services/api';
 
 const C = {
   bg: '#000000',
@@ -29,6 +29,7 @@ interface Message {
   timestamp: Date;
   index?: number;
   feedback?: 'positive' | 'negative' | null;
+  streaming?: boolean;
 }
 
 const SUGGESTIONS = [
@@ -57,9 +58,12 @@ export default function AIChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(params.sessionId || null);
   const flatListRef = useRef<FlatList>(null);
   const sessionIdRef = useRef<string | null>(params.sessionId || null);
+  const streamAbortRef = useRef<{ abort: () => void } | null>(null);
+  const streamContentRef = useRef('');
 
   useEffect(() => {
     (async () => {
@@ -74,22 +78,8 @@ export default function AIChatScreen() {
     }
   }, []);
 
-  const handleSend = useCallback(async (text?: string) => {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: msg,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
+  const handleSendRegular = useCallback(async (msg: string, aiMsgId: string) => {
     setLoading(true);
-    Keyboard.dismiss();
-
     try {
       const res = await sendChatMessage(msg, sessionId as any);
       const data = res.data;
@@ -100,7 +90,7 @@ export default function AIChatScreen() {
       }
 
       const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: aiMsgId,
         role: 'assistant',
         content: stripMarkdown(data.reply),
         timestamp: new Date(),
@@ -108,12 +98,11 @@ export default function AIChatScreen() {
       };
       setMessages(prev => {
         const updated = [...prev, aiMsg];
-        // Assign indexes for feedback
         return updated.map((m, i) => ({ ...m, index: i }));
       });
     } catch (error: any) {
       const errMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: aiMsgId,
         role: 'assistant',
         content: error?.response?.data?.message || 'Sorry, something went wrong. Please try again.',
         timestamp: new Date(),
@@ -122,7 +111,91 @@ export default function AIChatScreen() {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, sessionId]);
+  }, [sessionId]);
+
+  const handleSend = useCallback(async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg || loading || streaming) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: msg,
+      timestamp: new Date(),
+    };
+
+    const aiMsgId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    Keyboard.dismiss();
+
+    // Try streaming first — only works in web/environments with ReadableStream
+    const canStream = typeof globalThis !== 'undefined' && typeof (globalThis as any).ReadableStream !== 'undefined';
+
+    if (canStream) {
+      setStreaming(true);
+      streamContentRef.current = '';
+
+      // Add empty streaming AI message
+      const streamingMsg: Message = {
+        id: aiMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        streaming: true,
+        feedback: null,
+      };
+      setMessages(prev => [...prev, streamingMsg]);
+
+      streamAbortRef.current = (streamChatMessage as any)(msg, sessionId, {
+        onToken: (token: string) => {
+          streamContentRef.current += token;
+          const current = streamContentRef.current;
+          setMessages(prev =>
+            prev.map(m => m.id === aiMsgId ? { ...m, content: stripMarkdown(current) } : m)
+          );
+        },
+        onMeta: (meta: any) => {
+          if (meta.sessionId) {
+            setSessionId(meta.sessionId);
+            sessionIdRef.current = meta.sessionId;
+          }
+        },
+        onDone: (sid: string) => {
+          if (sid) {
+            setSessionId(sid);
+            sessionIdRef.current = sid;
+          }
+          setMessages(prev =>
+            prev.map((m, i) => m.id === aiMsgId
+              ? { ...m, streaming: false, index: i }
+              : { ...m, index: i }
+            )
+          );
+          setStreaming(false);
+          streamAbortRef.current = null;
+        },
+        onError: (err: string) => {
+          // If streaming failed with empty content, fall back to regular
+          if (!streamContentRef.current) {
+            setMessages(prev => prev.filter(m => m.id !== aiMsgId));
+            setStreaming(false);
+            handleSendRegular(msg, aiMsgId);
+          } else {
+            setMessages(prev =>
+              prev.map((m, i) => m.id === aiMsgId
+                ? { ...m, streaming: false, index: i }
+                : { ...m, index: i }
+              )
+            );
+            setStreaming(false);
+          }
+        },
+      });
+    } else {
+      handleSendRegular(msg, aiMsgId);
+    }
+  }, [input, loading, streaming, sessionId, handleSendRegular]);
 
   // Handle thumbs up/down
   const handleFeedback = useCallback(async (msgIndex: number, isPositive: boolean) => {
@@ -311,14 +384,16 @@ export default function AIChatScreen() {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           />
 
-          {/* Typing indicator */}
-          {loading && (
+          {/* Typing / streaming indicator */}
+          {(loading || (streaming && !streamContentRef.current)) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8 }}>
               <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: C.accentDim, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
                 <Ionicons name="sparkles" size={12} color={C.accent} />
               </View>
               <ActivityIndicator size="small" color={C.accent} />
-              <Text style={{ fontSize: 12, color: C.muted, marginLeft: 8 }}>Thinking...</Text>
+              <Text style={{ fontSize: 12, color: C.muted, marginLeft: 8 }}>
+                {streaming ? 'Connecting...' : 'Thinking...'}
+              </Text>
             </View>
           )}
 
@@ -352,14 +427,14 @@ export default function AIChatScreen() {
                 placeholderTextColor={C.muted}
                 style={{ flex: 1, fontSize: 14, color: C.white, maxHeight: 100 }}
                 multiline
-                editable={!loading}
+                editable={!loading && !streaming}
                 onSubmitEditing={() => handleSend()}
                 returnKeyType="send"
               />
             </View>
             <TouchableOpacity
               onPress={() => handleSend()}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || streaming}
               style={{
                 width: 44,
                 height: 44,

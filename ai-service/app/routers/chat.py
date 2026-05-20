@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from app.models.schemas import ChatRequest, ChatResponse
 from app.core.llm import ollama
+import json as _json
 
 router = APIRouter()
 
@@ -144,3 +146,94 @@ async def chat_completion(request: ChatRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
+
+
+def _build_messages(request: ChatRequest) -> list[dict]:
+    """Build the full message list from a ChatRequest (shared between sync and stream)."""
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    mode = request.response_mode or "coach"
+    if mode in MODE_PROMPTS:
+        messages.append({"role": "system", "content": MODE_PROMPTS[mode]})
+
+    if request.token_budget <= 200:
+        messages.append({"role": "system", "content": "IMPORTANT: Keep response under 3-4 sentences. Be extremely concise."})
+    elif request.token_budget >= 450:
+        messages.append({"role": "system", "content": "You may give a detailed, comprehensive response for this query."})
+
+    if request.user_context:
+        ctx = request.user_context
+        context_str = "User profile: " + ", ".join(f"{k}={v}" for k, v in ctx.items() if v is not None)
+        messages.append({"role": "system", "content": context_str})
+
+    if request.compiled_memories:
+        memory_str = f"USER PROFILE & MEMORY:\n{request.compiled_memories}\n\nUse this naturally. Never mention having a 'memory system'."
+        messages.append({"role": "system", "content": memory_str})
+    elif request.user_memories:
+        memory_str = "USER FACTS:\n" + "\n".join(f"- {mem}" for mem in request.user_memories[:15])
+        memory_str += "\n\nUse naturally. Never mention memory system."
+        messages.append({"role": "system", "content": memory_str})
+
+    if request.user_context:
+        behavior_parts = []
+        pref = request.user_context.get("preferredResponseLength")
+        if pref == "short":
+            behavior_parts.append("User prefers SHORT responses (3-5 lines). Be concise.")
+        elif pref == "detailed":
+            behavior_parts.append("User prefers DETAILED responses with thorough explanations.")
+
+        tech = request.user_context.get("styleTechnicality")
+        if tech is not None and tech > 0.7:
+            behavior_parts.append("Use technical language, cite exercise science.")
+        elif tech is not None and tech < 0.3:
+            behavior_parts.append("Keep language casual and simple.")
+
+        motiv = request.user_context.get("styleMotivation")
+        if motiv is not None and motiv < 0.3:
+            behavior_parts.append("Be direct and factual. No motivational fluff.")
+        elif motiv is not None and motiv > 0.7:
+            behavior_parts.append("Be encouraging and motivational.")
+
+        avoid = request.user_context.get("avoid")
+        if avoid:
+            behavior_parts.append(f"AVOID: {avoid}")
+        prefer = request.user_context.get("prefer")
+        if prefer:
+            behavior_parts.append(f"USER LIKES: {prefer}")
+
+        if behavior_parts:
+            messages.append({"role": "system", "content": "\n".join(behavior_parts)})
+
+    if request.trajectory_context:
+        context_label = "CONTEXT & INSIGHTS"
+        instruction = "Use this data to give accurate, personalized answers. Reference specific numbers from tool results when available. Do not mention 'trajectory analysis', 'tools', or 'reasoning state' explicitly."
+        messages.append({"role": "system", "content": f"{context_label}:\n{request.trajectory_context}\n\n{instruction}"})
+
+    for msg in request.messages:
+        messages.append({"role": msg.role, "content": msg.content})
+
+    return messages
+
+
+@router.post("/stream")
+async def chat_stream(request: ChatRequest):
+    """Stream chat response tokens via Server-Sent Events."""
+    try:
+        messages = _build_messages(request)
+
+        async def event_generator():
+            try:
+                async for token in ollama.chat_stream(messages):
+                    yield f"data: {_json.dumps({'token': token})}\n\n"
+                yield f"data: {_json.dumps({'done': True})}\n\n"
+            except Exception as e:
+                yield f"data: {_json.dumps({'error': str(e)})}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stream error: {str(e)}")

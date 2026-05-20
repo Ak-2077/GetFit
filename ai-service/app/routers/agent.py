@@ -80,6 +80,7 @@ async def route_tools(request: ToolRouteRequest):
         response = await ollama.generate_json(
             prompt=f"Intent: {request.intent}{profile_str}{state_str}\n\nUser message: \"{request.message}\"",
             system=TOOL_ROUTER_PROMPT,
+            model="fast",
         )
 
         result = json.loads(response)
@@ -241,6 +242,7 @@ async def estimate_confidence(request: ConfidenceRequest):
         response = await ollama.generate_json(
             prompt="Rate confidence:",
             system=prompt,
+            model="fast",
         )
 
         result = json.loads(response)
@@ -312,6 +314,7 @@ async def predict_behavior(request: PredictionRequest):
         response = await ollama.generate_json(
             prompt="Predict user behavior:",
             system=prompt,
+            model="fast",
         )
 
         result = json.loads(response)
