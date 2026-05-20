@@ -184,8 +184,35 @@ export const getMemoriesForChat = async (userId, userMessage = "", intent = "coa
     }
   }
 
-  // Take top 30 after re-ranking
-  memories = memories.slice(0, 30);
+  // Intent-based memory limits — fewer memories = faster compilation + less tokens
+  const INTENT_MEMORY_LIMITS = {
+    casual_chat: 8,
+    memory_recall: 20,
+    motivation: 10,
+    emotional_support: 12,
+    coaching: 20,
+    factual_query: 15,
+    form_correction: 15,
+    workout_planning: 25,
+    nutrition_question: 25,
+    progress_analysis: 25,
+    injury_concern: 30,
+  };
+  const INTENT_COMPILE_BUDGET = {
+    casual_chat: 100,
+    motivation: 120,
+    emotional_support: 150,
+    coaching: 200,
+    factual_query: 200,
+    workout_planning: 300,
+    nutrition_question: 300,
+    progress_analysis: 250,
+    injury_concern: 300,
+  };
+
+  const memLimit = INTENT_MEMORY_LIMITS[intent] || 20;
+  const compileBudget = INTENT_COMPILE_BUDGET[intent] || 200;
+  memories = memories.slice(0, memLimit);
   const flat = memories.map(m => m.fact);
 
   // Compile memories into optimized context (reduces token usage)
@@ -193,7 +220,7 @@ export const getMemoriesForChat = async (userId, userMessage = "", intent = "coa
   let tokensSaved = 0;
   if (flat.length > 5) {
     try {
-      const compileResult = await compileMemories(flat, 300);
+      const compileResult = await compileMemories(flat, compileBudget);
       compiled = compileResult.compiled;
       const rawTokens = flat.join("\n").length / 4;
       tokensSaved = Math.max(0, Math.round(rawTokens - compileResult.token_estimate));

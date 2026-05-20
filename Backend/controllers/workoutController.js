@@ -32,7 +32,15 @@ const WORKOUT_MODELS = {
       source: 'local',
     },
   },
-  gym: {},
+  gym: {
+    shoulders: {
+      mode: 'gym',
+      bodyPart: 'shoulders',
+      modelId: 'gym_shoulders',
+      title: 'Shoulders Animation',
+      source: 'local',
+    },
+  },
 };
 
 const normalizeSegment = (value = '') => String(value).trim().toLowerCase();
@@ -70,11 +78,11 @@ export const getWorkoutsByType = async (req, res) => {
     const userPlan = req.user?.subscriptionPlan || 'free';
     const allowedLevels = PLAN_LEVELS[userPlan] || PLAN_LEVELS.free;
 
-    // Build query
-    const query = { type, level: { $in: allowedLevels } };
+    // Build query (return all levels so UI can lock per workout)
+    const query = { type };
     if (bodyPart) query.bodyPart = bodyPart;
 
-    // Fetch only workouts the user's plan allows (and body part if provided)
+    // Fetch workouts (all levels) for this type, optionally filtered by body part
     const workouts = await Workout.find(query)
       .sort({ level: 1, difficulty: 1 })
       .lean();

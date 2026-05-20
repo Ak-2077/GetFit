@@ -101,7 +101,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="ai-trainer"
-        options={{ title: 'AI Trainer' }}
+        options={{ title: 'Kyro' }}
       />
       <Tabs.Screen
         name="calories"

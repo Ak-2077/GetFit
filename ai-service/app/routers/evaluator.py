@@ -13,9 +13,7 @@ router = APIRouter()
 # personalization, coaching quality, contradiction risk.
 # ═══════════════════════════════════════════════════════════════
 
-# Use smaller model for evaluation (fast, cheap, independent)
-EVALUATOR_MODEL = "qwen3:8b"  # Lighter model for evaluation gating
-EVALUATOR_FALLBACK = "qwen3:14b"  # Fallback to main model if small unavailable
+# Model roles resolved via ollama._get_model("evaluator") and ollama._get_model("main")
 
 class EvaluateRequest(BaseModel):
     user_message: str
@@ -121,16 +119,16 @@ RULES:
 - verdict="regenerate" if factual_accuracy < 0.3 or multiple scores < 0.4
 - verdict="approve" if all scores >= 0.6
 """
-        # Try lighter model first
+        # Use evaluator role (lighter model), fallback to main
         try:
             response = await ollama.chat(
                 [{"role": "user", "content": prompt}],
-                model=EVALUATOR_MODEL
+                model="evaluator"
             )
         except Exception:
             response = await ollama.chat(
                 [{"role": "user", "content": prompt}],
-                model=EVALUATOR_FALLBACK
+                model="main"
             )
 
         # Parse JSON

@@ -33,18 +33,16 @@ const C = {
 
 // ── Interaction Modes (2x2 grid) ──
 const MODES = [
-  { key: 'chat', icon: 'chatbubbles' as const, label: 'Chat', sub: 'Ask anything', color: C.accent, bg: 'rgba(31,164,99,0.12)', ready: true },
-  { key: 'diet', icon: 'nutrition' as const, label: 'Diet Plan', sub: 'Meal planner', color: '#FFB74D', bg: 'rgba(255,183,77,0.10)', ready: true },
-  { key: 'live', icon: 'fitness' as const, label: 'Live Coach', sub: 'Real-time', color: C.pink, bg: 'rgba(236,64,122,0.10)', ready: false },
-  { key: 'video', icon: 'videocam' as const, label: 'Video AI', sub: 'Form check', color: C.cyan, bg: 'rgba(100,231,241,0.10)', ready: false },
+  { key: 'chat', icon: 'sparkles' as const, label: 'Kyro', sub: 'Ask anything', color: C.accent, bg: 'rgba(31,164,99,0.12)', ready: true },
+  { key: 'video', icon: 'videocam' as const, label: 'Video Feedback', sub: 'Form check', color: C.cyan, bg: 'rgba(100,231,241,0.10)', ready: false },
+  { key: 'diet', icon: 'chatbubbles' as const, label: 'Chat Diet Plan', sub: 'Kyro meal planner', color: '#FFB74D', bg: 'rgba(255,183,77,0.10)', ready: true },
+  { key: 'program', icon: 'calendar' as const, label: 'Smart Program', sub: 'Adaptive plans', color: '#42A5F5', bg: 'rgba(66,165,245,0.10)', ready: false },
 ];
 
 // ── Upcoming Features (horizontal scroll) ──
 const UPCOMING = [
-  { key: 'live', title: 'Live AI Trainer', sub: 'Camera tracks your movement in real-time and gives instant form corrections during your workout', icon: 'fitness' as const, color: C.pink, gradient: ['rgba(236,64,122,0.16)', 'rgba(236,64,122,0.03)'] as [string, string] },
   { key: 'video', title: 'Video Feedback', sub: 'Record any exercise and get frame-by-frame AI analysis with correction overlays', icon: 'videocam' as const, color: C.cyan, gradient: ['rgba(100,231,241,0.14)', 'rgba(100,231,241,0.03)'] as [string, string] },
-  { key: 'voice', title: 'Voice Coach', sub: 'Hands-free audio guidance — counts reps, corrects form, and keeps you motivated', icon: 'mic' as const, color: '#AB47BC', gradient: ['rgba(171,71,188,0.14)', 'rgba(171,71,188,0.03)'] as [string, string] },
-  { key: 'program', title: 'Smart Programs', sub: 'Multi-week periodized plans that adapt to your progress and recovery', icon: 'calendar' as const, color: '#42A5F5', gradient: ['rgba(66,165,245,0.14)', 'rgba(66,165,245,0.03)'] as [string, string] },
+  { key: 'program', title: 'Smart Program', sub: 'Multi-week periodized plans that adapt to your progress and recovery', icon: 'calendar' as const, color: '#42A5F5', gradient: ['rgba(66,165,245,0.14)', 'rgba(66,165,245,0.03)'] as [string, string] },
 ];
 
 // ── Animated press wrapper ──
@@ -99,9 +97,9 @@ export default function AITrainerScreen() {
 
             <View style={{ paddingTop: 8, paddingBottom: 8 }}>
               <Text style={{ fontSize: 28, fontWeight: '800', color: C.white, letterSpacing: -0.5 }}>
-                <Text style={{ color: C.accent }}>AI </Text>Trainer
+                <Text style={{ color: C.accent }}>Ky</Text>ro
               </Text>
-              <Text style={{ fontSize: 14, color: C.label, marginTop: 4 }}>Your personal AI coach</Text>
+              <Text style={{ fontSize: 14, color: C.label, marginTop: 4 }}>Your personal AI trainer</Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 24 }}>
@@ -123,8 +121,8 @@ export default function AITrainerScreen() {
                   <Ionicons name="sparkles" size={22} color={C.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: C.white }}>AI-powered coaching</Text>
-                  <Text style={{ fontSize: 11, color: C.label, marginTop: 2, lineHeight: 16 }}>Chat, diet plans, live training & video analysis</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: C.white }}>Kyro-powered coaching</Text>
+                  <Text style={{ fontSize: 11, color: C.label, marginTop: 2, lineHeight: 16 }}>Kyro trainer, video feedback, diet plans & smart programs</Text>
                 </View>
               </View>
             </LinearGradient>
@@ -146,14 +144,12 @@ export default function AITrainerScreen() {
             <Text style={{ fontSize: 11, fontWeight: '700', color: C.muted, marginBottom: 12, letterSpacing: 0.8 }}>EVERYTHING INCLUDED</Text>
             <View style={{ backgroundColor: C.card, borderRadius: 18, padding: 20, borderWidth: 1, borderColor: C.cardBorder }}>
               {[
-                { icon: 'chatbubbles-outline', label: 'Unlimited AI coach conversations' },
-                { icon: 'fitness-outline', label: 'Live real-time form correction' },
-                { icon: 'videocam-outline', label: 'Recorded video analysis' },
-                { icon: 'restaurant-outline', label: 'AI-personalized meal plans' },
-                { icon: 'mic-outline', label: 'Hands-free voice coaching' },
-                { icon: 'calendar-outline', label: 'Adaptive training programs' },
+                { icon: 'sparkles-outline', label: 'Unlimited Kyro conversations' },
+                { icon: 'videocam-outline', label: 'Video feedback & form analysis' },
+                { icon: 'chatbubbles-outline', label: 'Chat-based diet planning' },
+                { icon: 'calendar-outline', label: 'Smart adaptive programs' },
               ].map((f, i) => (
-                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: i < 5 ? 14 : 0 }}>
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: i < 3 ? 14 : 0 }}>
                   <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: C.accentBg, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                     <Ionicons name={f.icon as any} size={16} color={C.accent} />
                   </View>
@@ -188,6 +184,8 @@ export default function AITrainerScreen() {
     switch (key) {
       case 'chat': router.push('/ai-chat' as any); break;
       case 'diet': router.push('/ai-diet' as any); break;
+      case 'video': break; // Coming soon
+      case 'program': break; // Coming soon
     }
   };
 
@@ -206,9 +204,9 @@ export default function AITrainerScreen() {
           {/* ═══ HEADER ═══ */}
           <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
             <Text style={{ fontSize: 28, fontWeight: '800', color: C.white, letterSpacing: -0.5 }}>
-              <Text style={{ color: C.accent }}>AI </Text>Trainer
+              <Text style={{ color: C.accent }}>Ky</Text>ro
             </Text>
-            <Text style={{ fontSize: 14, color: C.label, marginTop: 4 }}>Your personal AI coach</Text>
+            <Text style={{ fontSize: 14, color: C.label, marginTop: 4 }}>Your personal AI trainer</Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: 'rgba(255,127,0,0.12)', marginRight: 8 }}>
@@ -222,7 +220,7 @@ export default function AITrainerScreen() {
             </View>
           </View>
 
-          {/* ═══ AI COACH HERO — Gradient Border ═══ */}
+          {/* ═══ KYRO HERO — Gradient Border ═══ */}
           <View style={{ paddingHorizontal: 20 }}>
             <PressableCard onPress={() => router.push('/ai-chat' as any)}>
               <LinearGradient
@@ -237,14 +235,14 @@ export default function AITrainerScreen() {
                       <Ionicons name="sparkles" size={22} color={C.accent} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>AI Fitness Coach</Text>
-                      <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>Gym expert • Injury prevention • Nutrition</Text>
+                      <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>Kyro</Text>
+                      <Text style={{ fontSize: 11, color: C.label, marginTop: 2 }}>Your AI fitness coach • Nutrition • Form</Text>
                     </View>
                   </View>
 
                   <View style={s.searchBar}>
                     <Ionicons name="chatbubble-ellipses-outline" size={17} color={C.muted} style={{ marginRight: 10 }} />
-                    <Text style={{ flex: 1, fontSize: 13, color: C.muted }}>Ask your AI coach...</Text>
+                    <Text style={{ flex: 1, fontSize: 13, color: C.muted }}>Ask Kyro anything...</Text>
                     <LinearGradient
                       colors={[C.accent, '#00C96B']}
                       start={{ x: 0, y: 0 }}

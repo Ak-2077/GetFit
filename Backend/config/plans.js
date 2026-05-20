@@ -56,7 +56,7 @@ const PLANS = [
   {
     id: 'pro_monthly',
     tier: 'pro',
-    name: 'AI Trainer Pro',
+    name: 'Kyro Pro',
     billingCycle: 'monthly',
     durationDays: 30,
     amountPaise: 19900, // ₹199
@@ -84,7 +84,7 @@ const PLANS = [
   {
     id: 'pro_yearly',
     tier: 'pro',
-    name: 'AI Trainer Pro',
+    name: 'Kyro Pro',
     billingCycle: 'yearly',
     durationDays: 365,
     amountPaise: 199000, // ₹1,990 (≈ 2 months free vs monthly)
@@ -112,7 +112,7 @@ const PLANS = [
   {
     id: 'pro_plus_monthly',
     tier: 'pro_plus',
-    name: 'AI Trainer Pro+',
+    name: 'Kyro Pro+',
     billingCycle: 'monthly',
     durationDays: 30,
     amountPaise: 39900, // ₹399
@@ -127,7 +127,7 @@ const PLANS = [
     allowedFeatures: PRO_PLUS_FEATURES,
     featureList: [
       { name: 'Everything in Pro', included: true },
-      { name: 'AI Personal Trainer', included: true },
+      { name: 'Kyro AI Trainer', included: true },
       { name: 'Priority Support', included: true },
       { name: 'Advanced Analytics', included: true },
       { name: 'Custom Workout Plans', included: true },
@@ -136,7 +136,7 @@ const PLANS = [
   {
     id: 'pro_plus_yearly',
     tier: 'pro_plus',
-    name: 'AI Trainer Pro+',
+    name: 'Kyro Pro+',
     billingCycle: 'yearly',
     durationDays: 365,
     amountPaise: 399000, // ₹3,990 (≈ 2 months free vs monthly)
@@ -151,7 +151,7 @@ const PLANS = [
     allowedFeatures: PRO_PLUS_FEATURES,
     featureList: [
       { name: 'Everything in Pro', included: true },
-      { name: 'AI Personal Trainer', included: true },
+      { name: 'Kyro AI Trainer', included: true },
       { name: 'Priority Support', included: true },
       { name: 'Advanced Analytics', included: true },
       { name: 'Custom Workout Plans', included: true },

@@ -129,6 +129,7 @@ async def compile_memories(request: CompileRequest):
             prompt=f"Compile these user facts:\n\n{raw}",
             system=COMPILE_PROMPT,
             temperature=0.3,
+            model="compressor",
         )
 
         return CompileResponse(

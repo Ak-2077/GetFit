@@ -121,7 +121,7 @@ export const compileMemories = async (memories, maxTokens = 300) => {
  * @param {Object} params - DietRequest fields
  */
 export const generateAIDietPlan = async (params) => {
-  const res = await aiClient.post('/diet/generate', params);
+  const res = await aiClient.post('/diet/generate', params, { timeout: 60000 });
   return res.data;
 };
 
@@ -230,6 +230,24 @@ export const causalReasoning = async (observations, userState = null, timeframe 
   const res = await aiClient.post('/evaluator/causal', {
     observations, user_state: userState, timeframe,
   });
+  return res.data;
+};
+
+/**
+ * Stream a chat completion via SSE — yields token chunks.
+ * Returns a readable stream of SSE events.
+ */
+export const chatCompletionStream = async (messages, userContext = null, userMemories = [], compiledMemories = "", orchestration = {}) => {
+  const res = await aiClient.post('/chat/stream', {
+    messages,
+    user_context: userContext,
+    user_memories: userMemories,
+    compiled_memories: compiledMemories,
+    response_mode: orchestration.mode || "coach",
+    intent: orchestration.intent || "coaching",
+    token_budget: orchestration.token_budget || 300,
+    trajectory_context: orchestration.trajectory_context || "",
+  }, { responseType: 'stream' });
   return res.data;
 };
 

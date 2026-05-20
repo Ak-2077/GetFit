@@ -3,6 +3,7 @@ import auth from '../middleware/authMiddleware.js';
 import { generateActivityGoal } from '../controllers/aiController.js';
 import {
   sendMessage,
+  sendMessageStream,
   getSessions,
   getSessionMessages,
   submitFeedback,
@@ -22,6 +23,7 @@ import {
   simulatePlanEndpoint,
   getPersistentReasoning,
   getMemoryHealthReport,
+  getLearningInsights,
 } from '../controllers/chatController.js';
 import { submitVideo, getResult, getHistory } from '../controllers/videoController.js';
 
@@ -32,6 +34,7 @@ router.post('/activity-goal', auth, generateActivityGoal);
 
 // Chat
 router.post('/chat', auth, sendMessage);
+router.post('/chat/stream', auth, sendMessageStream);
 router.get('/chat/sessions', auth, getSessions);
 router.get('/chat/sessions/:sessionId', auth, getSessionMessages);
 
@@ -63,6 +66,7 @@ router.get('/chat/twin', auth, getDigitalTwin);
 router.post('/chat/twin/simulate', auth, simulatePlanEndpoint);
 router.get('/chat/reasoning', auth, getPersistentReasoning);
 router.get('/chat/memory-health', auth, getMemoryHealthReport);
+router.get('/chat/learning', auth, getLearningInsights);
 
 // Video analysis
 router.post('/video/analyze', auth, submitVideo);

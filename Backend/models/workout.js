@@ -32,8 +32,17 @@ const workoutSchema = new mongoose.Schema(
     },
     bodyPart: {
       type: String,
-      enum: ['chest', 'legs', 'shoulders', 'arms', 'back', 'core', 'abs', 'other'],
+      enum: [
+        'chest', 'legs', 'shoulders', 'arms', 'back', 'core', 'abs',
+        'biceps', 'triceps', 'forearms', 'obliques', 'quads',
+        'adductors', 'calves', 'lats', 'traps', 'glutes', 'hamstrings',
+        'other'
+      ],
       default: 'other',
+    },
+    subCategory: {
+      type: String,
+      default: '',
     },
   },
   { timestamps: true }

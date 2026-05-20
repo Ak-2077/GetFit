@@ -31,8 +31,8 @@ function DarkCard({ children, style }: any) {
 const VIBGYOR: [string, string, ...string[]] = ['#8B00FF', '#4B0082', '#0000FF', '#00FF00', '#FFFF00', '#FF7F00', '#FF0000'];
 
 function getSubLabel(plan: string) {
-  if (plan === 'pro') return 'AI Trainer Pro';
-  if (plan === 'pro_plus') return 'AI Trainer Pro Plus';
+  if (plan === 'pro') return 'Kyro Pro';
+  if (plan === 'pro_plus') return 'Kyro Pro Plus';
   return 'Free Plan';
 }
 

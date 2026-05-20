@@ -1,5 +1,5 @@
 import {
-  chatCompletion, extractMemories, summarizeConversation, detectTopics,
+  chatCompletion, chatCompletionStream, extractMemories, summarizeConversation, detectTopics,
   classifyIntent, reflectOnResponse, analyzeTrajectory,
   routeTools, structuredReason, estimateConfidence,
   evaluateResponse,
@@ -25,9 +25,11 @@ import {
 import { executeTools, getOrCreateUserState, addUserSignal } from '../services/agentService.js';
 import { getProactiveContext, getOrCreateReasoning, updateReasoningState, getCoachingToneAdjustment, checkAutonomousAdaptations } from '../services/plannerService.js';
 import { getTwinContext, simulatePlanLocal } from '../services/digitalTwinService.js';
-import { getCircuitBreakers, recordStageExecution, recordIncident, recordPromptOutcome, getBestConfig } from '../services/diagnosticsService.js';
+import { getCircuitBreakers, recordStageExecution, recordIncident, recordPromptOutcome, getBestConfig, withTimeout, STAGE_BUDGETS } from '../services/diagnosticsService.js';
 import { getMemoriesNeedingVerification, applyTruthDecay, getMemoryHealth } from '../services/truthEngine.js';
 import OrchestrationHealth from '../models/orchestrationHealth.js';
+import ExperienceReplay from '../models/experienceReplay.js';
+import ReasoningCache from '../models/reasoningCache.js';
 import mongoose from 'mongoose';
 
 // ── Chat Session Schema (inline for now, extract to models/ later) ──
@@ -86,31 +88,108 @@ export const sendMessage = async (req, res) => {
 
     // ════════════════════════════════════════════════════════════════
     // AUTONOMOUS AI ORCHESTRATION PIPELINE (12 stages)
-    // Intent → Planner → Memory+Truth → Tools → Reasoning →
-    // Twin+Simulation → Generation → Evaluator → Safety → Learn
+    // with FAST PATH + SELECTIVE DEPTH GATING for latency optimization
     // ════════════════════════════════════════════════════════════════
     const pipelineStart = Date.now();
+    const stageTimings = {};
+    const _t = (label) => { stageTimings[label] = Date.now(); };
+    const _te = (label) => { if (stageTimings[label]) stageTimings[label] = Date.now() - stageTimings[label]; };
 
-    // ── STAGE 1: Intent + Profile + State + Planner + Breakers (parallel) ──
+    // ── STAGE 1: Intent + Profile + State + Breakers (parallel) ──
+    _t('stage1_intent');
     const recentContext = session.messages.slice(-4).map(m => m.content);
 
+    const intentFallback = { intent: 'coaching', mode: 'coach', knowledge_sources: ['user_memory'], depth: 2, token_budget: 300, needs_reflection: false };
     const [intentPlan, learningProfile, userState, circuitBreakers] = await Promise.all([
-      classifyIntent(message, recentContext).catch(() => ({
-        intent: 'coaching', mode: 'coach', knowledge_sources: ['user_memory'],
-        depth: 2, token_budget: 300, needs_reflection: false,
-      })),
+      withTimeout(classifyIntent(message, recentContext), STAGE_BUDGETS.intent_classification, 'intent_classification', intentFallback),
       getOrCreateProfile(userId),
       getOrCreateUserState(userId),
       getCircuitBreakers().catch(() => ({ toolExecution: false, evaluator: false, reasoning: false, simulation: false })),
     ]);
+    _te('stage1_intent');
 
-    // ── STAGE 2: Persistent Reasoning + Long-Horizon Planner (parallel) ──
-    const [proactiveCtx, twinCtx, toneAdjustment, bestConfig] = await Promise.all([
-      getProactiveContext(userId).catch(() => ''),
-      getTwinContext(userId).catch(() => ''),
-      getCoachingToneAdjustment(userId).catch(() => null),
-      getBestConfig(userId, intentPlan.intent).catch(() => null),
-    ]);
+    // ── DEPTH GATING: Determine pipeline tier based on intent complexity ──
+    const FAST_INTENTS = ['casual_chat', 'memory_recall', 'motivation'];
+    const MEDIUM_INTENTS = ['coaching', 'emotional_support', 'factual_query', 'form_correction', 'correction_request'];
+    const DEEP_INTENTS = ['workout_planning', 'nutrition_question', 'progress_analysis', 'injury_concern'];
+    const pipelineTier = FAST_INTENTS.includes(intentPlan.intent) ? 'fast'
+      : DEEP_INTENTS.includes(intentPlan.intent) ? 'deep' : 'medium';
+
+    // ── FAST PATH: Simple queries → skip heavy stages (target <2s) ──
+    if (pipelineTier === 'fast') {
+      _t('fast_path');
+      const recentMessages = session.messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
+      const styleProfile = learningProfile.styleProfile || {};
+      const fastContext = {
+        name: user.name, goal: user.goal, plan,
+        preferredResponseLength: learningProfile.preferredResponseLength,
+        styleVerbosity: styleProfile.verbosity,
+        styleMotivation: styleProfile.motivation,
+      };
+
+      // Light memory: only compiled context, no embedding search
+      let fastMemory = '';
+      try {
+        const memData = await getMemoriesForChat(userId, '', intentPlan.intent);
+        fastMemory = memData.compiled || memData.flat.slice(0, 8).map(f => `- ${f}`).join('\n');
+      } catch (_) {}
+
+      const fastOrch = {
+        mode: intentPlan.mode,
+        intent: intentPlan.intent,
+        token_budget: Math.min(intentPlan.token_budget, 200),
+        trajectory_context: '',
+      };
+
+      const aiResponse = await chatCompletion(recentMessages, fastContext, [], fastMemory, fastOrch);
+      _te('fast_path');
+
+      session.messages.push({ role: 'assistant', content: aiResponse.content });
+      if (session.messages.length <= 2) {
+        session.title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+      }
+      await session.save();
+
+      // Lightweight background learning (no evaluator, no trajectory, no reasoning)
+      setImmediate(async () => {
+        try {
+          const lastMsgs = session.messages.slice(-4).map(m => ({ role: m.role, content: m.content }));
+          const extracted = await extractMemories(lastMsgs);
+          if (extracted.memories?.length > 0) await saveMemories(userId, extracted.memories, session._id);
+          await detectTopics(message).then(r => r.topics?.length > 0 && learningProfile.recordInteraction(r.topics)).catch(() => {});
+        } catch (_) {}
+      });
+
+      recordStageExecution('fast_pipeline', pipelineStart, true).catch(() => {});
+      return res.json({
+        sessionId: session._id,
+        reply: aiResponse.content,
+        role: 'assistant',
+        meta: {
+          intent: intentPlan.intent, mode: intentPlan.mode,
+          pipelineTier: 'fast', memoriesUsed: 0,
+          pipelineMs: Date.now() - pipelineStart,
+          stageTimes: stageTimings,
+        },
+      });
+    }
+
+    // ── STAGE 2: Planner + Twin (MEDIUM: bestConfig only | DEEP: full parallel) ──
+    _t('stage2_planner');
+    let proactiveCtx = '', twinCtx = '', toneAdjustment = null, bestConfig = null;
+
+    if (pipelineTier === 'deep') {
+      [proactiveCtx, twinCtx, toneAdjustment, bestConfig] = await Promise.all([
+        withTimeout(getProactiveContext(userId), STAGE_BUDGETS.planner_context, 'planner_context', ''),
+        withTimeout(getTwinContext(userId), STAGE_BUDGETS.twin_context, 'twin_context', ''),
+        getCoachingToneAdjustment(userId).catch(() => null),
+        getBestConfig(userId, intentPlan.intent).catch(() => null),
+      ]);
+    } else {
+      // Medium: only get bestConfig (fast DB call), skip planner/twin
+      bestConfig = await getBestConfig(userId, intentPlan.intent).catch(() => null);
+    }
+    _te('stage2_planner');
 
     // Apply autonomous tone adjustment from long-horizon planner
     if (toneAdjustment?.suggestedTone && toneAdjustment.suggestedTone !== intentPlan.mode) {
@@ -118,7 +197,6 @@ export const sendMessage = async (req, res) => {
     }
 
     // Apply self-improving prompt system: override mode with learned best style
-    // Only apply if the learned style has enough confidence (score > 0.6)
     if (bestConfig?.coachingStyleScore > 0.6) {
       const MODE_MAP = { warm: 'coach', direct: 'technical', technical: 'technical', supportive: 'supportive', motivational: 'coach', concise: 'concise' };
       const mappedMode = MODE_MAP[bestConfig.coachingStyle] || intentPlan.mode;
@@ -126,10 +204,13 @@ export const sendMessage = async (req, res) => {
     }
 
     // ── STAGE 3: Memory retrieval + Truth verification (dynamic attention) ──
-    const memoryData = await getMemoriesForChat(
-      userId, message, intentPlan.intent,
-      { injuryRisk: userState.injuryRisk, fatigue: userState.fatigue }
+    _t('stage3_memory');
+    const memoryFallback = { compiled: '', flat: [], raw: [], analytics: { totalRetrieved: 0, tokensSaved: 0 } };
+    const memoryData = await withTimeout(
+      getMemoriesForChat(userId, message, intentPlan.intent, { injuryRisk: userState.injuryRisk, fatigue: userState.fatigue }),
+      STAGE_BUDGETS.memory_retrieval, 'memory_retrieval', memoryFallback
     );
+    _te('stage3_memory');
 
     // ── STAGE 4: Dynamic Context Builder ──
     const recentMessages = session.messages.slice(
@@ -169,12 +250,12 @@ export const sendMessage = async (req, res) => {
         .sort((a, b) => b.count - a.count).slice(0, 3).map(p => p.pattern).join(', ');
     }
 
-    // ── STAGE 5: Tool Execution Graph (with dependency resolution) ──
+    // ── STAGE 5: Tool Execution Graph (DEEP only) ──
     let toolResults = [];
     const toolIntents = ['workout_planning', 'nutrition_question', 'factual_query', 'progress_analysis'];
 
-    if (toolIntents.includes(intentPlan.intent) && !circuitBreakers.toolExecution) {
-      const toolStart = Date.now();
+    if (toolIntents.includes(intentPlan.intent) && !circuitBreakers.toolExecution && pipelineTier === 'deep') {
+      _t('stage5_tools');
       try {
         const userProfile = { weight_kg: user.weight, height_cm: user.height, age: user.age, gender: user.gender, activity_level: user.activityLevel, goal: user.goal, diet_preference: user.dietPreference };
         const stateSnapshot = { energy: userState.energy, recovery: userState.recovery, fatigue: userState.fatigue, adherence: userState.adherence, injuryRisk: userState.injuryRisk, recommendedIntensity: userState.recommendedIntensity };
@@ -184,18 +265,19 @@ export const sendMessage = async (req, res) => {
         if (toolPlan.tools?.length > 0) {
           toolResults = await executeTools(userId, toolPlan.tools);
         }
-        recordStageExecution('tool_routing', toolStart, true).catch(() => {});
+        recordStageExecution('tool_routing', _t('stage5_tools') || Date.now(), true).catch(() => {});
       } catch (toolErr) {
-        recordStageExecution('tool_routing', toolStart, false).catch(() => {});
         recordIncident('routing_failure', 'medium', toolErr.message).catch(() => {});
       }
+      _te('stage5_tools');
     }
 
-    // ── STAGE 6: Structured Reasoning + Persistent State ──
+    // ── STAGE 6: Structured Reasoning (DEEP only) ──
     let reasoningState = null;
     const complexIntents = ['workout_planning', 'nutrition_question', 'progress_analysis', 'injury_concern'];
 
-    if ((complexIntents.includes(intentPlan.intent) || toolResults.length > 0) && !circuitBreakers.reasoning) {
+    if ((complexIntents.includes(intentPlan.intent) || toolResults.length > 0) && !circuitBreakers.reasoning && pipelineTier === 'deep') {
+      _t('stage6_reasoning');
       try {
         reasoningState = await structuredReason(
           message, intentPlan.intent, userContext,
@@ -211,16 +293,18 @@ export const sendMessage = async (req, res) => {
             sessionId: session._id,
             reply: reasoningState.clarification_question,
             role: 'assistant',
-            meta: { intent: intentPlan.intent, mode: intentPlan.mode, action: 'clarification' },
+            meta: { intent: intentPlan.intent, mode: intentPlan.mode, action: 'clarification', pipelineTier },
           });
         }
       } catch (_) {}
+      _te('stage6_reasoning');
     }
 
-    // ── STAGE 7: Goal Trajectory + Proactive Planning + Twin Context ──
+    // ── STAGE 7: Goal Trajectory + Proactive Planning (DEEP only) ──
     let trajectoryContext = '';
     const trajectoryIntents = ['coaching', 'progress_analysis', 'emotional_support', 'motivation'];
-    if (trajectoryIntents.includes(intentPlan.intent) && learningProfile.totalSessions >= 3) {
+    if (trajectoryIntents.includes(intentPlan.intent) && learningProfile.totalSessions >= 3 && pipelineTier === 'deep') {
+      _t('stage7_trajectory');
       try {
         const trajResult = await analyzeTrajectory({
           session_summaries: (learningProfile.sessionSummaries || []).slice(-10).map(s => s.summary),
@@ -235,6 +319,7 @@ export const sendMessage = async (req, res) => {
         if (trajResult.coaching_adjustments?.length) parts.push(`Adjust: ${trajResult.coaching_adjustments.join('; ')}`);
         trajectoryContext = parts.join('\n');
       } catch (_) {}
+      _te('stage7_trajectory');
     }
 
     // Append user state + proactive planner + digital twin context
@@ -242,7 +327,8 @@ export const sendMessage = async (req, res) => {
     const contextLayers = [trajectoryContext, stateContext, proactiveCtx, twinCtx].filter(Boolean);
     trajectoryContext = contextLayers.join('\n');
 
-    // ── STAGE 8: Response Generation (enriched with all context layers) ──
+    // ── STAGE 8: Response Generation ──
+    _t('stage8_generation');
     let toolContext = '';
     if (toolResults.length > 0) {
       toolContext = toolResults.filter(t => t.data)
@@ -260,56 +346,88 @@ export const sendMessage = async (req, res) => {
     }
 
     let graphContext = '';
-    if (complexIntents.includes(intentPlan.intent)) {
+    if (complexIntents.includes(intentPlan.intent) && pipelineTier === 'deep') {
       try { graphContext = await getGraphContext(userId, intentPlan.intent); } catch (_) {}
     }
 
     const fullTrajectory = [trajectoryContext, toolContext, reasoningContext, graphContext].filter(Boolean).join('\n---\n');
 
+    // Token budget caps per tier
+    const TIER_TOKEN_CAPS = { fast: 200, medium: 400, deep: 800 };
+    const cappedBudget = Math.min(intentPlan.token_budget, TIER_TOKEN_CAPS[pipelineTier] || 400);
+
     const orchestration = {
       mode: intentPlan.mode,
       intent: intentPlan.intent,
-      token_budget: intentPlan.token_budget,
+      token_budget: cappedBudget,
       trajectory_context: fullTrajectory,
     };
 
     const aiResponse = await chatCompletion(
       recentMessages, userContext, memoryData.flat, memoryData.compiled, orchestration
     );
+    _te('stage8_generation');
 
     let finalContent = aiResponse.content;
 
-    // ── STAGE 9: Independent Evaluator (separate model) ──
+    // ── STAGE 9: Independent Evaluator (DEEP only + high-stakes intents) ──
     let evaluationResult = null;
-    const evaluatorIntents = ['workout_planning', 'nutrition_question', 'injury_concern', 'coaching'];
-    if (evaluatorIntents.includes(intentPlan.intent) && !circuitBreakers.evaluator) {
+    const evaluatorIntents = ['workout_planning', 'nutrition_question', 'injury_concern'];
+    if (evaluatorIntents.includes(intentPlan.intent) && !circuitBreakers.evaluator && pipelineTier === 'deep') {
+      _t('stage9_evaluator');
       try {
-        evaluationResult = await evaluateResponse(
-          message, finalContent, intentPlan.intent,
-          memoryData.flat.slice(0, 10),
-          toolResults.length > 0,
-          { energy: userState.energy, injuryRisk: userState.injuryRisk },
-          reasoningState,
+        evaluationResult = await withTimeout(
+          evaluateResponse(
+            message, finalContent, intentPlan.intent,
+            memoryData.flat.slice(0, 10),
+            toolResults.length > 0,
+            { energy: userState.energy, injuryRisk: userState.injuryRisk },
+            reasoningState,
+          ),
+          STAGE_BUDGETS.evaluator, 'evaluator', null
         );
 
-        if (evaluationResult.verdict === 'reject' || evaluationResult.safety_flag) {
-          // Safety rejection — use safe fallback
+        if (evaluationResult && (evaluationResult.verdict === 'reject' || evaluationResult.safety_flag)) {
+          // Record experience for learning
+          ExperienceReplay.recordExperience({
+            userId, userMessage: message, intent: intentPlan.intent, mode: intentPlan.mode,
+            originalResponse: finalContent, originalScore: evaluationResult.confidence || 0.2,
+            replayType: evaluationResult.safety_flag ? 'safety_violation' : 'evaluator_rejection',
+            pipelineTier, memoriesUsed: memoryData.raw.length,
+            toolsUsed: toolResults.filter(t => t.data).map(t => t.tool),
+            evaluatorVerdict: evaluationResult.verdict,
+            issues: evaluationResult.issues || [],
+            revisionGuidance: evaluationResult.revision_guidance,
+          }).catch(() => {});
+
           finalContent = "I want to make sure I give you safe and accurate advice. Could you tell me more about your situation so I can help better?";
           recordIncident('safety_violation', 'high', 'Evaluator rejected response', { verdict: evaluationResult.verdict }).catch(() => {});
-        } else if (evaluationResult.verdict === 'regenerate') {
-          // Re-generate with revision guidance
+        } else if (evaluationResult && evaluationResult.verdict === 'regenerate') {
+          const originalContent = finalContent;
           const revisedOrch = { ...orchestration, trajectory_context: `${fullTrajectory}\n---\nREVISION NEEDED: ${evaluationResult.revision_guidance || 'Improve accuracy and personalization'}` };
           const retry = await chatCompletion(recentMessages, userContext, memoryData.flat, memoryData.compiled, revisedOrch);
           finalContent = retry.content;
+
+          // Record the revision for learning
+          ExperienceReplay.recordExperience({
+            userId, userMessage: message, intent: intentPlan.intent, mode: intentPlan.mode,
+            originalResponse: originalContent, originalScore: evaluationResult.confidence || 0.4,
+            correctedResponse: finalContent, correctedScore: 0.7,
+            replayType: 'evaluator_revision', pipelineTier,
+            memoriesUsed: memoryData.raw.length,
+            evaluatorVerdict: evaluationResult.verdict,
+            issues: evaluationResult.issues || [],
+            revisionGuidance: evaluationResult.revision_guidance,
+          }).catch(() => {});
         }
-        // 'revise' and 'approve' pass through (revise = minor issues, acceptable)
       } catch (_) {
         recordIncident('evaluator_rejection', 'low', 'Evaluator call failed').catch(() => {});
       }
+      _te('stage9_evaluator');
     }
 
-    // ── STAGE 10: Self-Reflection (complex/safety queries, legacy gate) ──
-    if (intentPlan.needs_reflection && !evaluationResult) {
+    // ── STAGE 10: Self-Reflection (DEEP only, legacy gate) ──
+    if (intentPlan.needs_reflection && !evaluationResult && pipelineTier === 'deep') {
       try {
         const reflection = await reflectOnResponse(
           message, finalContent, memoryData.flat.slice(0, 10),
@@ -415,16 +533,156 @@ export const sendMessage = async (req, res) => {
       meta: {
         intent: intentPlan.intent,
         mode: intentPlan.mode,
+        pipelineTier,
         memoriesUsed: memoryData.raw.length,
         toolsUsed: toolResults.filter(t => t.data).map(t => t.tool),
         confidence: reasoningState?.confidence || null,
         evaluatorVerdict: evaluationResult?.verdict || null,
         pipelineMs: Date.now() - pipelineStart,
+        stageTimes: stageTimings,
       },
     });
   } catch (error) {
     console.error('Chat error:', error.message);
     return res.status(500).json({ message: 'AI service error', error: error.message });
+  }
+};
+
+/**
+ * POST /api/ai/chat/stream
+ * Streaming version of sendMessage — streams tokens via SSE for perceived low latency.
+ * Uses the same fast-path / depth-gating logic but streams the final generation.
+ */
+export const sendMessageStream = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { message, sessionId } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Message is required' });
+    }
+
+    const user = await User.findById(userId)
+      .select('name goal weight targetWeight height age gender dietPreference activityLevel subscriptionPlan')
+      .lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const plan = user.subscriptionPlan || 'free';
+    if (plan === 'free') {
+      return res.status(403).json({ message: 'AI Chat requires Pro or Pro Plus plan', upgrade: true });
+    }
+
+    let session;
+    if (sessionId) session = await ChatSession.findOne({ _id: sessionId, userId });
+    if (!session) session = new ChatSession({ userId, messages: [] });
+
+    session.messages.push({ role: 'user', content: message });
+
+    // Stage 1: Intent + Profile (parallel, using fast model)
+    const recentContext = session.messages.slice(-4).map(m => m.content);
+    const [intentPlan, learningProfile] = await Promise.all([
+      classifyIntent(message, recentContext).catch(() => ({
+        intent: 'coaching', mode: 'coach', knowledge_sources: ['user_memory'],
+        depth: 1, token_budget: 200, needs_reflection: false,
+      })),
+      getOrCreateProfile(userId),
+    ]);
+
+    // Memory (light for stream — skip embedding search for speed)
+    let compiledMemory = '';
+    try {
+      const memData = await getMemoriesForChat(userId, '', intentPlan.intent);
+      compiledMemory = memData.compiled || memData.flat.slice(0, 8).map(f => `- ${f}`).join('\n');
+    } catch (_) {}
+
+    const recentMessages = session.messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
+    const styleProfile = learningProfile.styleProfile || {};
+    const userContext = {
+      name: user.name, goal: user.goal, weight: user.weight,
+      activityLevel: user.activityLevel, dietPreference: user.dietPreference, plan,
+      preferredResponseLength: learningProfile.preferredResponseLength,
+      styleVerbosity: styleProfile.verbosity, styleMotivation: styleProfile.motivation,
+    };
+
+    const orchestration = {
+      mode: intentPlan.mode,
+      intent: intentPlan.intent,
+      token_budget: Math.min(intentPlan.token_budget, 400),
+      trajectory_context: '',
+    };
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    // Send session meta first
+    res.write(`data: ${JSON.stringify({ type: 'meta', sessionId: session._id, intent: intentPlan.intent, mode: intentPlan.mode })}\n\n`);
+
+    // Stream from AI service
+    let fullContent = '';
+    try {
+      const stream = await chatCompletionStream(recentMessages, userContext, [], compiledMemory, orchestration);
+
+      await new Promise((resolve, reject) => {
+        let buffer = '';
+        stream.on('data', (chunk) => {
+          buffer += chunk.toString();
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.token) {
+                fullContent += data.token;
+                res.write(`data: ${JSON.stringify({ type: 'token', token: data.token })}\n\n`);
+              }
+              if (data.done) resolve();
+              if (data.error) reject(new Error(data.error));
+            } catch (_) {}
+          }
+        });
+        stream.on('end', resolve);
+        stream.on('error', reject);
+      });
+    } catch (streamErr) {
+      // Fallback to non-streaming if stream fails
+      const fallback = await chatCompletion(recentMessages, userContext, [], compiledMemory, orchestration);
+      fullContent = fallback.content;
+      res.write(`data: ${JSON.stringify({ type: 'token', token: fullContent })}\n\n`);
+    }
+
+    // Save and finalize
+    session.messages.push({ role: 'assistant', content: fullContent });
+    if (session.messages.length <= 2) {
+      session.title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+    }
+    await session.save();
+
+    res.write(`data: ${JSON.stringify({ type: 'done', sessionId: session._id })}\n\n`);
+    res.end();
+
+    // Background learning
+    setImmediate(async () => {
+      try {
+        const lastMsgs = session.messages.slice(-4).map(m => ({ role: m.role, content: m.content }));
+        const extracted = await extractMemories(lastMsgs);
+        if (extracted.memories?.length > 0) await saveMemories(userId, extracted.memories, session._id);
+        await detectTopics(message).then(r => r.topics?.length > 0 && learningProfile.recordInteraction(r.topics)).catch(() => {});
+      } catch (_) {}
+    });
+
+  } catch (error) {
+    console.error('Stream chat error:', error.message);
+    if (!res.headersSent) {
+      return res.status(500).json({ message: 'AI service error', error: error.message });
+    }
+    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+    res.end();
   }
 };
 
@@ -562,6 +820,27 @@ export const submitFeedback = async (req, res) => {
       }
       profile.markModified('preferredPatterns');
       await profile.save();
+    }
+
+    // Record experience replay from feedback
+    if (sessionId && typeof messageIndex === 'number') {
+      setImmediate(async () => {
+        try {
+          const sess = await ChatSession.findOne({ _id: sessionId, userId }).lean();
+          if (sess && sess.messages[messageIndex]) {
+            const aiContent = sess.messages[messageIndex].content;
+            const userMsg = messageIndex > 0 ? sess.messages[messageIndex - 1]?.content : '';
+            await ExperienceReplay.recordExperience({
+              userId, userMessage: userMsg || '', intent: 'coaching', mode: 'coach',
+              originalResponse: aiContent, originalScore: isPositive ? 0.85 : 0.3,
+              correctedResponse: isPositive ? aiContent : undefined,
+              correctedScore: isPositive ? 0.85 : undefined,
+              replayType: isPositive ? 'user_positive_feedback' : 'user_negative_feedback',
+              feedbackReason: reason || undefined,
+            });
+          }
+        } catch (_) {}
+      });
     }
 
     // Feed into self-improving prompt performance system
@@ -969,5 +1248,41 @@ export const getMemoryHealthReport = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: 'Memory health error', error: error.message });
+  }
+};
+
+/**
+ * GET /api/ai/chat/learning
+ * Experience replay learning stats and insights.
+ */
+export const getLearningInsights = async (req, res) => {
+  try {
+    const [replayStats, cacheStats] = await Promise.all([
+      ExperienceReplay.getLearningStats(req.userId),
+      ReasoningCache.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(req.userId) } },
+        { $group: {
+          _id: '$cacheType',
+          count: { $sum: 1 },
+          totalHits: { $sum: '$hitCount' },
+          avgQuality: { $avg: '$qualityScore' },
+        }},
+      ]),
+    ]);
+
+    const recentFailures = await ExperienceReplay.getFailurePatterns(req.userId, '', 5);
+
+    return res.json({
+      experienceReplay: replayStats,
+      reasoningCache: cacheStats,
+      recentFailures: recentFailures.map(f => ({
+        message: f.userMessage?.substring(0, 100),
+        issues: f.issues,
+        guidance: f.revisionGuidance,
+        reason: f.feedbackReason,
+      })),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Learning insights error', error: error.message });
   }
 };

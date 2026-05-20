@@ -1,12 +1,28 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import health, chat, diet, video, pose, memory, embeddings, orchestrator, agent, evaluator
 from app.core.config import settings
+from app.core.llm import ollama
+import logging
+
+logger = logging.getLogger("getfit-ai")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: warm models into VRAM
+    logger.info("Warming up models...")
+    await ollama.warmup()
+    logger.info("Models warmed up — ready for low-latency inference")
+    yield
+
 
 app = FastAPI(
     title="GetFit AI Service",
     version="1.0.0",
     description="AI microservice for GetFit — chatbot, diet planning, video analysis, pose detection",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

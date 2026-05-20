@@ -9,6 +9,17 @@ class Settings(BaseSettings):
     API_PORT: int = 8100
     DEBUG: bool = True
 
+    # ── Multi-Model Specialization ──
+    # FAST: tiny model for routing, intent classification, topic detection (~1-2B params)
+    OLLAMA_FAST_MODEL: str = "qwen3:1.7b"
+    # MAIN: primary generation model (default OLLAMA_MODEL)
+    # EVALUATOR: independent evaluation model
+    OLLAMA_EVALUATOR_MODEL: str = "qwen3:8b"
+    # COMPRESSOR: lightweight model for memory summarization/compression
+    OLLAMA_COMPRESSOR_MODEL: str = "qwen3:1.7b"
+    # Keep-alive duration (seconds) — keeps models loaded in VRAM
+    OLLAMA_KEEP_ALIVE: int = 300
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

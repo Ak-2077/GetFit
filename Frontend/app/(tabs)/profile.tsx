@@ -48,8 +48,8 @@ function getBmiCategory(bmi: number) {
 }
 
 function formatSubscription(plan: string) {
-  if (plan === 'pro') return 'AI Trainer Pro';
-  if (plan === 'pro_plus') return 'AI Trainer Pro Plus';
+  if (plan === 'pro') return 'Kyro Pro';
+  if (plan === 'pro_plus') return 'Kyro Pro Plus';
   return 'Free Plan';
 }
 

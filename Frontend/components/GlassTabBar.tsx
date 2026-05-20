@@ -24,7 +24,7 @@ const TC = {
 const TAB_CONFIG: Record<string, { label: string; icon: string }> = {
   index: { label: 'Home', icon: 'home' },
   workout: { label: 'Workout', icon: 'male' },
-  'ai-trainer': { label: 'AI Trainer', icon: 'reddit-alien' },
+  'ai-trainer': { label: 'Kyro', icon: 'reddit-alien' },
   calories: { label: 'Calories', icon: 'fire' },
   profile: { label: 'Profile', icon: 'user-circle' },
 };

@@ -115,6 +115,46 @@ export const withDiagnostics = (stageName) => {
   };
 };
 
+// ── Per-stage latency budgets (ms) ──
+// If a stage exceeds its budget, it's killed and fallback is used
+export const STAGE_BUDGETS = {
+  intent_classification: 3000,
+  memory_retrieval: 4000,
+  tool_routing: 5000,
+  tool_execution: 8000,
+  structured_reasoning: 6000,
+  trajectory_analysis: 4000,
+  response_generation: 15000,
+  evaluator: 6000,
+  reflection: 5000,
+  memory_compilation: 3000,
+  planner_context: 3000,
+  twin_context: 3000,
+};
+
+/**
+ * Wrap a promise with a timeout. Returns fallback value if timeout exceeded.
+ * Records timeout incident for circuit breaker learning.
+ */
+export const withTimeout = async (promise, budgetMs, stageName, fallback = null) => {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${stageName} exceeded ${budgetMs}ms budget`)), budgetMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeout]);
+    clearTimeout(timer);
+    return result;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.message?.includes('budget')) {
+      recordIncident('timeout', 'medium', err.message, { stage: stageName, budgetMs }).catch(() => {});
+    }
+    return fallback;
+  }
+};
+
 // ── Auto-recovery map ──
 const AUTO_RECOVERY_MAP = {
   retrieval_failure: 'skip_memory_retrieval_use_profile_only',
