@@ -230,7 +230,7 @@ export default function AIChatScreen() {
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: C.accentDim, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
               <Ionicons name="sparkles" size={12} color={C.accent} />
             </View>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: C.accent }}>AI Coach</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: C.accent }}>Kyro</Text>
           </View>
         )}
         <View style={{
@@ -302,7 +302,7 @@ export default function AIChatScreen() {
         <Ionicons name="sparkles" size={28} color={C.accent} />
       </View>
       <Text style={{ fontSize: 20, fontWeight: '800', color: C.white, textAlign: 'center', marginBottom: 8 }}>
-        AI Fitness Coach
+        Kyro
       </Text>
       <Text style={{ fontSize: 13, color: C.label, textAlign: 'center', lineHeight: 20, marginBottom: 28 }}>
         Ask me anything about workouts, nutrition, form correction, or get personalized plans.
@@ -354,7 +354,7 @@ export default function AIChatScreen() {
             <Ionicons name="chevron-back" size={20} color={C.white} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>AI Coach</Text>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: C.white }}>Kyro</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent, marginRight: 6 }} />
               <Text style={{ fontSize: 11, color: C.accent }}>Online • qwen3:14b</Text>
@@ -423,7 +423,7 @@ export default function AIChatScreen() {
               <TextInput
                 value={input}
                 onChangeText={setInput}
-                placeholder="Message AI Coach..."
+                placeholder="Message Kyro..."
                 placeholderTextColor={C.muted}
                 style={{ flex: 1, fontSize: 14, color: C.white, maxHeight: 100 }}
                 multiline

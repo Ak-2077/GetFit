@@ -53,8 +53,8 @@ const GRID_CARDS = [
 
 const AI_CARD = {
   key: 'ai',
-  title: 'AI Trainer',
-  subtitle: 'Personalized AI-powered guidance',
+  title: 'Kyro',
+  subtitle: 'Your personal AI trainer',
   icon: require('../../assets/icons/ai.png'),
   iconSize: 28,
   count: '30+',

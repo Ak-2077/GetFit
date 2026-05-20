@@ -36,24 +36,24 @@ type Spot = { id: string; label: string; apiKey: string; x: number; y: number; s
 const FRONT: Spot[] = [
   { id: 'shoulders', label: 'Shoulders', apiKey: 'shoulders', x: 24, y: 16, side: 'L' },
   { id: 'chest',     label: 'Chest',     apiKey: 'chest',     x: 50, y: 22, side: 'R' },
-  { id: 'biceps',    label: 'Biceps',    apiKey: 'arms',      x: 21, y: 27, side: 'L' },
-  { id: 'triceps',   label: 'Triceps',   apiKey: 'arms',      x: 79, y: 27, side: 'R' },
+  { id: 'biceps',    label: 'Biceps',    apiKey: 'biceps',    x: 21, y: 27, side: 'L' },
+  { id: 'triceps',   label: 'Triceps',   apiKey: 'triceps',   x: 79, y: 27, side: 'R' },
   { id: 'abs',       label: 'Abs',       apiKey: 'abs',       x: 50, y: 33, side: 'R' },
-  { id: 'forearms',  label: 'Forearms',  apiKey: 'arms',      x: 17, y: 37, side: 'L' },
-  { id: 'obliques',  label: 'Obliques',  apiKey: 'abs',       x: 38, y: 38, side: 'L' },
-  { id: 'quads',     label: 'Quads',     apiKey: 'legs',      x: 40, y: 54, side: 'L' },
-  { id: 'adductors', label: 'Adductors', apiKey: 'legs',      x: 50, y: 50, side: 'R' },
-  { id: 'calves_f',  label: 'Calves',    apiKey: 'legs',      x: 58, y: 74, side: 'R' },
+  { id: 'forearms',  label: 'Forearms',  apiKey: 'forearms',  x: 17, y: 37, side: 'L' },
+  { id: 'obliques',  label: 'Obliques',  apiKey: 'obliques',  x: 38, y: 38, side: 'L' },
+  { id: 'quads',     label: 'Quads',     apiKey: 'quads',     x: 40, y: 54, side: 'L' },
+  { id: 'adductors', label: 'Adductors', apiKey: 'adductors', x: 50, y: 50, side: 'R' },
+  { id: 'calves_f',  label: 'Calves',    apiKey: 'calves',    x: 58, y: 74, side: 'R' },
 ];
 
 const BACK: Spot[] = [
-  { id: 'traps',      label: 'Traps',      apiKey: 'shoulders', x: 42, y: 13, side: 'L' },
-  { id: 'upper_back', label: 'Upper Back', apiKey: 'back',      x: 50, y: 21, side: 'R' },
-  { id: 'triceps_b',  label: 'Triceps',    apiKey: 'arms',      x: 78, y: 27, side: 'R' },
-  { id: 'lower_back', label: 'Lower Back', apiKey: 'back',      x: 50, y: 35, side: 'R' },
-  { id: 'glutes',     label: 'Glutes',     apiKey: 'legs',      x: 50, y: 44, side: 'L' },
-  { id: 'hamstrings', label: 'Hamstrings', apiKey: 'legs',      x: 42, y: 58, side: 'L' },
-  { id: 'calves_b',   label: 'Calves',     apiKey: 'legs',      x: 58, y: 74, side: 'R' },
+  { id: 'traps',      label: 'Traps',      apiKey: 'traps',      x: 42, y: 13, side: 'L' },
+  { id: 'upper_back', label: 'Back',       apiKey: 'back',       x: 50, y: 21, side: 'R' },
+  { id: 'lats',       label: 'Lats',       apiKey: 'lats',       x: 78, y: 27, side: 'R' },
+  { id: 'lower_back', label: 'Lower Back', apiKey: 'back',       x: 50, y: 35, side: 'R' },
+  { id: 'glutes',     label: 'Glutes',     apiKey: 'glutes',     x: 50, y: 44, side: 'L' },
+  { id: 'hamstrings', label: 'Hamstrings', apiKey: 'hamstrings', x: 42, y: 58, side: 'L' },
+  { id: 'calves_b',   label: 'Calves',     apiKey: 'calves',     x: 58, y: 74, side: 'R' },
 ];
 
 /* ── Pulsing dot component ── */
