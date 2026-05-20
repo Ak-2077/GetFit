@@ -118,7 +118,8 @@ export const getWorkoutModel = (mode, bodyPart) =>
   API.get('/api/workout/model', { params: { mode, bodyPart } });
 
 // Workout list endpoints (subscription-filtered)
-export const getWorkoutsByType = (type) => API.get(`/api/workout/${type}`);
+export const getWorkoutsByType = (type, bodyPart = null) =>
+  API.get(`/api/workout/${type}`, bodyPart ? { params: { bodyPart } } : undefined);
 export const getAllWorkoutsList = () => API.get('/api/workout/all');
 
 // Feature access endpoints

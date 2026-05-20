@@ -99,7 +99,8 @@ export default function WorkoutListScreen() {
       const token = await AsyncStorage.getItem('token');
       if (token) setAuthToken(token);
 
-      const res = await getWorkoutsByType(workoutType);
+      const bodyPartParam = typeof selectedBodyPart === 'string' && selectedBodyPart ? selectedBodyPart : undefined;
+      const res = await (getWorkoutsByType as any)(String(workoutType), bodyPartParam);
       const data = res.data;
       setAllWorkouts(data?.workouts || []);
       setCurrentPlan(data?.userPlan || paramPlan);
@@ -110,7 +111,7 @@ export default function WorkoutListScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [workoutType, paramPlan]);
+  }, [workoutType, paramPlan, selectedBodyPart]);
 
   useEffect(() => { load(false); }, [load]);
 
@@ -160,14 +161,39 @@ export default function WorkoutListScreen() {
 
     // NOTE: Order matters! More specific matches first to avoid overlaps.
     // e.g. 'leg raise' is abs, not legs; 'overhead press' is shoulders, not legs.
-    const abs = ['plank', 'crunch', 'situp', 'sit-up', 'sit up', 'leg raise', 'dragon', 'l-sit', 'core', 'mountain climber', 'abs', 'v-up', 'flutter', 'russian twist'];
-    const shoulders = ['shoulder', 'overhead press', 'military press', 'viking', 'arnold', 'lateral raise', 'front raise', 'face pull', 'shrug'];
-    const chest = ['bench', 'push-up', 'push up', 'pushup', 'fly', 'chest', 'incline press', 'decline press', 'dumbbell press'];
-    const back = ['row', 'pull-up', 'pullup', 'pull up', 'lat pulldown', 'pulldown', 'lat ', 'pendlay', 'barbell row', 'cable row', 'back '];
-    const arms = ['curl', 'tricep', 'triceps', 'bicep', 'biceps', 'dip', 'dips', 'skull', 'hammer', 'preacher', 'concentration'];
-    const legs = ['squat', 'lunge', 'leg press', 'leg extension', 'leg curl', 'deadlift', 'pistol', 'hack squat', 'calf', 'glute', 'hip thrust'];
+    // Granular muscle groups (checked first — more specific)
+    const biceps = ['preacher curl', 'bayesian curl', 'spider curl', 'drag curl', 'concentration curl', 'cross body hammer', 'reverse ez bar', 'machine preacher', 'bicep', 'biceps', 'dumbbell curl', 'ez bar curl', 'incline dumbbell curl', 'cable curl', 'hammer curl'];
+    const triceps = ['skull crusher', 'tate press', 'jm press', 'ring tricep', 'tricep extension', 'tricep pushdown', 'close grip bench', 'weighted dips', 'single arm reverse pushdown', 'cable kickback', 'tricep', 'triceps', 'diamond push'];
+    const forearms = ['wrist curl', 'wrist roller', 'plate pinch', 'dead hang', 'towel pull', 'lever bar', 'fat grip', 'forearm', 'farmer carry', 'farmer walk'];
+    const obliques = ['oblique', 'landmine rotation', 'windshield wiper', 'wood chopper', 'side bend', 'russian twist', 'side plank hip', 'medicine ball twist', 'hanging oblique'];
+    const quads = ['hack squat', 'sissy squat', 'front squat', 'pause front squat', 'smith machine squat', 'jump squat', 'goblet squat', 'wall sit', 'leg extension', 'pistol squat', 'quad', 'walking barbell lunge', 'deficit bulgarian'];
+    const adductors = ['adductor', 'adduction', 'sumo', 'cossack', 'copenhagen', 'wide stance leg press', 'lateral lunge', 'sliding side lunge'];
+    const calves = ['calf raise', 'calf burn', 'donkey calf', 'tibialis', 'calf hop', 'stair calf', 'jump rope calf', 'single leg box jump', 'calf'];
+    const lats = ['lat pulldown', 'lat pull', 'pull-up', 'pull up', 'pullup', 'pulldown', 'muscle-up', 'archer pull', 'neutral grip pull', 'one arm lat', 'straight arm cable', 'close grip pull', 'resistance band pull', 'lat '];
+    const traps = ['shrug', 'snatch grip', 'power shrug', 'rack pull shrug', 'incline shrug', 'trap bar', 'upright row', 'farmer'];
+    const glutes = ['hip thrust', 'glute bridge', 'donkey kick', 'frog pump', 'curtsy lunge', 'deficit reverse lunge', 'glute', 'cable kickback'];
+    const hamstrings = ['leg curl', 'nordic ham', 'glute ham raise', 'stiff leg', 'good morning', 'kettlebell swing', 'deficit romanian', 'hamstring', 'stability ball leg'];
+
+    // Broad categories (fallback)
+    const abs = ['plank', 'crunch', 'situp', 'sit-up', 'sit up', 'leg raise', 'dragon flag', 'l-sit', 'core', 'mountain climber', 'abs', 'v-up', 'flutter', 'ab wheel', 'toes to bar', 'decline sit'];
+    const shoulders = ['shoulder', 'overhead press', 'military press', 'viking', 'arnold', 'lateral raise', 'front raise', 'face pull'];
+    const chest = ['bench', 'push-up', 'push up', 'pushup', 'fly', 'chest', 'incline press', 'decline press', 'dumbbell press', 'pec deck'];
+    const back = ['row', 'pendlay', 'barbell row', 'cable row', 'seal row', 'meadows row', 'back ', 't-bar', 'rack pull', 'machine high row'];
+    const arms = ['dip'];
+    const legs = ['squat', 'lunge', 'leg press', 'deadlift', 'romanian deadlift'];
 
     const match = (keywords: string[]) => keywords.some(k => name.includes(k));
+    if (match(biceps)) return 'biceps';
+    if (match(triceps)) return 'triceps';
+    if (match(forearms)) return 'forearms';
+    if (match(obliques)) return 'obliques';
+    if (match(calves)) return 'calves';
+    if (match(adductors)) return 'adductors';
+    if (match(glutes)) return 'glutes';
+    if (match(hamstrings)) return 'hamstrings';
+    if (match(quads)) return 'quads';
+    if (match(lats)) return 'lats';
+    if (match(traps)) return 'traps';
     if (match(abs)) return 'abs';
     if (match(shoulders)) return 'shoulders';
     if (match(chest)) return 'chest';
@@ -615,8 +641,24 @@ export default function WorkoutListScreen() {
                 }
 
                 const ORDER = [
+                  // Chest
                   'Upper Chest', 'Middle Chest', 'Lower Chest', 'Isolation Exercises',
+                  // Shoulders
                   'Front Delts', 'Side Delts', 'Rear Delts',
+                  // Biceps
+                  'Long Head', 'Short Head', 'Brachialis',
+                  // Triceps
+                  'Lateral Head', 'Medial Head',
+                  // Arms / Other
+                  'Biceps', 'Triceps', 'Forearms',
+                  // Core
+                  'Upper Abs', 'Middle Abs', 'Lower Abs', 'Abs', 'Obliques',
+                  // Legs
+                  'Quads', 'Adductors', 'Calves',
+                  // Back
+                  'Back', 'Lats', 'Traps',
+                  // Posterior
+                  'Glutes', 'Hamstrings',
                   'Other'
                 ];
                 const sortedKeys = Object.keys(grouped).sort((a, b) => {
