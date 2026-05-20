@@ -1,4 +1,5 @@
 import User from '../models/user.js';
+import { generateAIDietPlan } from '../services/aiClient.js';
 
 const DIET_PLANS = {
   lose: {
@@ -108,5 +109,76 @@ export const getDietPlan = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to generate diet plan', error: error.message });
+  }
+};
+
+/**
+ * POST /api/diet/generate
+ * AI-powered diet plan generation from questionnaire answers.
+ */
+export const generateDiet = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { goal, mealsPerDay, cuisine, cookingTime, budget, allergies, healthConditions, additionalNotes } = req.body;
+
+    if (!goal) return res.status(400).json({ message: 'Goal is required' });
+
+    const user = await User.findById(userId)
+      .select('name weight height age gender goal goalCalories maintenanceCalories dietPreference activityLevel')
+      .lean();
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Calculate calorie target
+    let calorieTarget = user.goalCalories || user.maintenanceCalories || null;
+    if (!calorieTarget && user.weight && user.height && user.age) {
+      const w = parseFloat(user.weight);
+      const h = parseFloat(user.height);
+      const bmr = user.gender === 'female'
+        ? 10 * w + 6.25 * h - 5 * user.age - 161
+        : 10 * w + 6.25 * h - 5 * user.age + 5;
+      const multiplier = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
+      const tdee = Math.round(bmr * (multiplier[user.activityLevel] || 1.55));
+      if (goal === 'lose') calorieTarget = tdee - 400;
+      else if (goal === 'gain') calorieTarget = tdee + 400;
+      else calorieTarget = tdee;
+    }
+
+    console.log(`[DIET] Generating for user=${userId} goal=${goal} meals=${mealsPerDay} cuisine=${cuisine} cal=${calorieTarget}`);
+    const aiPayload = {
+      goal,
+      weight: user.weight ? parseFloat(user.weight) : null,
+      target_weight: null,
+      height: user.height ? parseFloat(user.height) : null,
+      age: user.age || null,
+      gender: user.gender || null,
+      activity_level: user.activityLevel || 'moderate',
+      diet_preference: user.dietPreference === 'veg' ? 'vegetarian' : 'non-vegetarian',
+      calorie_target: calorieTarget,
+      allergies: allergies || [],
+      meals_per_day: mealsPerDay || 4,
+      cuisine: cuisine || 'indian',
+      cooking_time: cookingTime || 'moderate',
+      budget: budget || 'medium',
+      health_conditions: healthConditions || [],
+      additional_notes: additionalNotes || '',
+    };
+
+    console.log(`[DIET] Calling AI service...`);
+    const aiResult = await generateAIDietPlan(aiPayload);
+    console.log(`[DIET] AI response received | totalCal=${aiResult.total_calories}`);
+
+    return res.status(200).json({
+      userName: user.name || 'User',
+      dietPreference: aiPayload.diet_preference,
+      goalCalories: calorieTarget,
+      currentGoal: goal,
+      plan: aiResult.plan,
+      totalCalories: aiResult.total_calories,
+      source: 'ai',
+    });
+  } catch (error) {
+    console.error(`[DIET] Error:`, error.message);
+    return res.status(500).json({ message: 'AI diet generation failed', error: error.message });
   }
 };

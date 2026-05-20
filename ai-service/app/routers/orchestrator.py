@@ -88,6 +88,7 @@ async def classify_intent(request: ClassifyRequest):
         response = await ollama.generate_json(
             prompt=f"Classify this user message:{context}\n\nMessage: \"{request.message}\"",
             system=CLASSIFY_PROMPT,
+            model="fast",
         )
 
         plan = json.loads(response)
@@ -188,6 +189,7 @@ async def reflect_on_response(request: ReflectRequest):
         response = await ollama.generate_json(
             prompt=f"User asked: \"{request.user_message}\"\n\nAI responded:\n\"{request.ai_response}\"\n\nIntent: {request.intent}\nMode: {request.mode}\n\nEvaluate:",
             system=prompt,
+            model="evaluator",
         )
 
         result = json.loads(response)
@@ -259,6 +261,7 @@ async def analyze_trajectory(request: TrajectoryRequest):
         response = await ollama.generate_json(
             prompt="Analyze the user's fitness trajectory:",
             system=prompt,
+            model="fast",
         )
 
         result = json.loads(response)

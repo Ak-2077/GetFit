@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from app.core.llm import ollama
 import json
+import re
 
 router = APIRouter()
 
@@ -132,8 +133,8 @@ async def extract_memories(request: MemoryExtractionRequest):
             {"role": "user", "content": f"Extract personal facts:\n\n{conversation}"},
         ]
 
-        response = await ollama.chat(messages)
-        cleaned = _clean_json(response)
+        response = await ollama.chat(messages, model="compressor", temperature=0.3)
+        cleaned = _strip_think(_clean_json(response))
         memories = json.loads(cleaned)
 
         valid_categories = ["injury", "goal", "preference", "body_stats", "experience", "limitation", "achievement", "routine", "nutrition", "progress", "episodic", "other"]
@@ -182,8 +183,8 @@ async def summarize_conversation(request: SummarizationRequest):
             {"role": "user", "content": conversation},
         ]
 
-        response = await ollama.chat(messages)
-        cleaned = _clean_json(response)
+        response = await ollama.chat(messages, model="compressor", temperature=0.3)
+        cleaned = _strip_think(_clean_json(response))
         data = json.loads(cleaned)
 
         return SummarizationResponse(
@@ -202,8 +203,8 @@ async def detect_topics(request: TopicRequest):
             {"role": "system", "content": TOPIC_PROMPT},
             {"role": "user", "content": request.message},
         ]
-        response = await ollama.chat(messages)
-        cleaned = _clean_json(response)
+        response = await ollama.chat(messages, model="fast", temperature=0.3)
+        cleaned = _strip_think(_clean_json(response))
         topics = json.loads(cleaned)
 
         if isinstance(topics, list):
@@ -216,9 +217,16 @@ async def detect_topics(request: TopicRequest):
 
 # ── Helpers ──
 
+def _strip_think(text: str) -> str:
+    """Remove <think>...</think> blocks from Qwen3 output."""
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
 def _clean_json(response: str) -> str:
-    """Strip markdown code fences and whitespace from LLM JSON output."""
+    """Strip markdown code fences, thinking blocks, and whitespace from LLM JSON output."""
     cleaned = response.strip()
+    # Remove thinking blocks first
+    cleaned = _strip_think(cleaned)
     if cleaned.startswith("```"):
         cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
         if cleaned.endswith("```"):
