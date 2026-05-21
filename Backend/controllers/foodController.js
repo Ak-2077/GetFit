@@ -2,6 +2,7 @@ import Food from '../models/food.js';
 import FoodLog from '../models/foodLog.js';
 import FoodCache from '../models/foodCache.js';
 import { lookupOpenFoodFacts, lookupUSDA, searchUSDA } from '../services/foodApiService.js';
+import { rankAndFilterResults, classifyFood } from '../services/foodMatchEngine.js';
 
 const LIQUID_KEYWORDS = /(drink|juice|soda|cola|water|beverage|milk|coffee|tea|energy|shake|smoothie)/i;
 
@@ -554,14 +555,12 @@ export const removeFoodFromLog = async (req, res) => {
   }
 };
 
-// Search foods by name or barcode
+// Search foods by name or barcode — USDA is primary data source
 export const searchFoods = async (req, res) => {
   try {
     const queryFromQ = typeof req.query?.q === 'string' ? req.query.q.trim() : '';
     const queryFromQuery = typeof req.query?.query === 'string' ? req.query.query.trim() : '';
-    const rawQuery = queryFromQ || queryFromQuery;
-    const query = rawQuery;
-    const userId = req.userId;
+    const query = queryFromQ || queryFromQuery;
     const limitRaw = Number(req.query?.limit);
     const limit = Number.isFinite(limitRaw) ? clamp(Math.round(limitRaw), 1, 30) : 15;
 
@@ -569,93 +568,95 @@ export const searchFoods = async (req, res) => {
       return res.status(400).json({ message: 'Query must be at least 2 characters' });
     }
 
-    // Barcode scans should be global and tolerant to leading-zero variations.
+    // Barcode lookup via APIs
     const normalizedBarcodeQuery = normalizeBarcode(query);
-    if (normalizedBarcodeQuery.length >= 8) {
-      const noLeadingZeroBarcode = normalizedBarcodeQuery.replace(/^0+/, '') || normalizedBarcodeQuery;
-      const leadingZeroTolerantPattern = new RegExp(`^0*${escapeRegex(noLeadingZeroBarcode)}$`);
-      const barcodeMatch = await Food.findOne({ barcode: { $regex: leadingZeroTolerantPattern } });
-      if (barcodeMatch) {
-        return res.status(200).json([toFoodResponse(barcodeMatch)]);
-      }
-    }
-
-    // First, search in our database
-    const visibilityFilter = {
-      $or: [{ source: { $in: ['openfoodfacts', 'custom'] } }, { userId }],
-    };
-
-    let foods = [];
-
-    try {
-      foods = await Food.find({
-        $and: [{ $text: { $search: query } }, visibilityFilter],
-      })
-        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
-        .sort({ score: { $meta: 'textScore' }, updatedAt: -1 })
-        .limit(limit)
-        .lean();
-    } catch (textSearchError) {
-      foods = [];
-    }
-
-    if (foods.length === 0) {
-      foods = await Food.find({
-        $and: [
-          {
-            $or: [
-              { searchKeywords: { $in: [query.toLowerCase()] } },
-              { name: { $regex: query, $options: 'i' } },
-              { barcode: { $regex: query, $options: 'i' } },
-              { brand: { $regex: query, $options: 'i' } },
-            ],
-          },
-          visibilityFilter,
-        ],
-      })
-        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
-        .sort({ updatedAt: -1 })
-        .limit(limit)
-        .lean();
-    }
-
-    // If no results and query looks like a barcode, try APIs via service layer
-    if (foods.length === 0 && /^\d{8,14}$/.test(normalizedBarcodeQuery)) {
+    if (/^\d{8,14}$/.test(normalizedBarcodeQuery)) {
       try {
         let apiResult = await lookupOpenFoodFacts(normalizedBarcodeQuery);
         if (!apiResult) apiResult = await lookupUSDA(normalizedBarcodeQuery);
-
         if (apiResult) {
-          const [, foodDoc] = await Promise.all([
-            upsertCache(apiResult),
-            persistToFoodCollection(apiResult),
-          ]);
-          if (foodDoc) foods = [foodDoc];
+          return res.status(200).json([{
+            _id: apiResult.barcode || `usda_${Date.now()}`,
+            name: apiResult.name || query,
+            brand: apiResult.brand || '',
+            calories: apiResult.calories || 0,
+            protein: apiResult.protein || 0,
+            carbs: apiResult.carbs || 0,
+            fat: apiResult.fat || 0,
+            fiber: apiResult.fiber || 0,
+            sugar: apiResult.sugar || 0,
+            sodium: apiResult.sodium || 0,
+            servingSize: apiResult.servingSize || '100g',
+            source: apiResult.source || 'usda',
+            barcode: apiResult.barcode || '',
+          }]);
         }
       } catch (apiError) {
-        console.warn('API barcode lookup error:', apiError.message);
+        console.warn('[SearchFoods] Barcode API error:', apiError.message);
       }
     }
 
-    // If still no results and query is text, try USDA text search
-    if (foods.length === 0 && !/^\d{8,14}$/.test(query)) {
+    // USDA text search (primary source)
+    let foods = [];
+    try {
+      const category = classifyFood(query);
+      const isNatural = category !== 'supplement' && category !== 'packaged_food';
+      const dataTypes = isNatural ? 'Foundation,SR Legacy' : '';
+      const usdaResults = await searchUSDA(query, limit, dataTypes);
+      if (usdaResults && usdaResults.length > 0) {
+        foods = usdaResults.map(u => ({
+          _id: u.fdcId || `usda_${u.productName || query}_${Date.now()}`,
+          name: u.productName || query,
+          brand: u.brand || '',
+          calories: u.calories || 0,
+          protein: u.protein || 0,
+          carbs: u.carbs || 0,
+          fat: u.fat || 0,
+          fiber: u.fiber || 0,
+          sugar: u.sugar || 0,
+          sodium: u.sodium || 0,
+          servingSize: u.servingSize || '100g',
+          servingUnit: u.servingUnit || 'g',
+          source: 'usda',
+          type: u.type || 'food',
+          category: u.category || 'general',
+          origin: u.origin || '',
+        }));
+      }
+    } catch (usdaErr) {
+      console.warn('[SearchFoods] USDA search error:', usdaErr.message);
+    }
+
+    // If USDA returns nothing, try broader search (no dataType filter)
+    if (foods.length === 0) {
       try {
-        const usdaResults = await searchUSDA(query, limit);
-        if (usdaResults.length > 0) {
-          const persisted = await Promise.all(
-            usdaResults.map(async (r) => {
-              const doc = await persistToFoodCollection(r);
-              return doc;
-            })
-          );
-          foods = persisted.filter(Boolean);
+        const usdaResults = await searchUSDA(query, limit, '');
+        if (usdaResults && usdaResults.length > 0) {
+          foods = usdaResults.map(u => ({
+            _id: u.fdcId || `usda_${u.productName || query}_${Date.now()}`,
+            name: u.productName || query,
+            brand: u.brand || '',
+            calories: u.calories || 0,
+            protein: u.protein || 0,
+            carbs: u.carbs || 0,
+            fat: u.fat || 0,
+            fiber: u.fiber || 0,
+            sugar: u.sugar || 0,
+            sodium: u.sodium || 0,
+            servingSize: u.servingSize || '100g',
+            servingUnit: u.servingUnit || 'g',
+            source: 'usda',
+            type: u.type || 'food',
+            category: u.category || 'general',
+            origin: u.origin || '',
+          }));
         }
-      } catch (usdaErr) {
-        console.warn('USDA text search fallback error:', usdaErr.message);
+      } catch (e) {
+        console.warn('[SearchFoods] USDA broad search error:', e.message);
       }
     }
 
-    res.status(200).json(foods.map(toFoodResponse));
+    res.status(200).json(foods);
   } catch (err) {
     res.status(500).json({ message: 'Error searching foods', error: err.message });
   }
@@ -681,11 +682,10 @@ export const getFoodById = async (req, res) => {
   }
 };
 
-// Manual food search by name — searches local DB first, USDA fallback
+// Manual food search by name — USDA is primary data source
 export const searchFoodsByName = async (req, res) => {
   try {
     const rawQuery = typeof req.query?.q === 'string' ? req.query.q.trim() : '';
-    const userId = req.userId;
     const limitRaw = Number(req.query?.limit);
     const limit = Number.isFinite(limitRaw) ? clamp(Math.round(limitRaw), 1, 30) : 15;
 
@@ -693,70 +693,67 @@ export const searchFoodsByName = async (req, res) => {
       return res.status(400).json({ message: 'Query must be at least 2 characters' });
     }
 
-    // Search local DB first
-    const visibilityFilter = {
-      $or: [{ source: { $in: ['openfoodfacts', 'custom'] } }, { userId }],
-    };
-
+    // USDA search (primary source)
     let foods = [];
     try {
-      foods = await Food.find({
-        $and: [{ $text: { $search: rawQuery } }, visibilityFilter],
-      })
-        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
-        .sort({ score: { $meta: 'textScore' }, updatedAt: -1 })
-        .limit(limit)
-        .lean();
-    } catch (_) {
-      foods = [];
+      const detectedCategory = classifyFood(rawQuery);
+      const isNatural = detectedCategory !== 'supplement' && detectedCategory !== 'packaged_food';
+      const usdaDataTypes = isNatural ? 'Foundation,SR Legacy' : '';
+      const usdaResults = await searchUSDA(rawQuery, limit, usdaDataTypes);
+      if (usdaResults && usdaResults.length > 0) {
+        foods = usdaResults.map(u => ({
+          _id: u.fdcId || `usda_${u.productName || rawQuery}_${Date.now()}`,
+          name: u.productName || rawQuery,
+          brand: u.brand || '',
+          calories: u.calories || 0,
+          protein: u.protein || 0,
+          carbs: u.carbs || 0,
+          fat: u.fat || 0,
+          fiber: u.fiber || 0,
+          sugar: u.sugar || 0,
+          sodium: u.sodium || 0,
+          servingSize: u.servingSize || '100g',
+          servingUnit: u.servingUnit || 'g',
+          source: 'usda',
+          type: u.type || 'food',
+          category: u.category || 'general',
+          origin: u.origin || '',
+        }));
+      }
+    } catch (usdaErr) {
+      console.warn('[SearchFoodsByName] USDA search error:', usdaErr.message);
     }
 
+    // Broader USDA search if Foundation/SR Legacy returned nothing
     if (foods.length === 0) {
-      foods = await Food.find({
-        $and: [
-          {
-            $or: [
-              { searchKeywords: { $in: [rawQuery.toLowerCase()] } },
-              { name: { $regex: rawQuery, $options: 'i' } },
-              { brand: { $regex: rawQuery, $options: 'i' } },
-            ],
-          },
-          visibilityFilter,
-        ],
-      })
-        .select('name brand category type calories protein carbs fat fiber sugar servingSize servingUnit unit barcode source origin')
-        .sort({ updatedAt: -1 })
-        .limit(limit)
-        .lean();
-    }
-
-    // USDA fallback for text search
-    if (foods.length < 3) {
       try {
-        const usdaResults = await searchUSDA(rawQuery, limit - foods.length);
-        if (usdaResults.length > 0) {
-          const persisted = await Promise.all(
-            usdaResults.map(async (r) => {
-              const doc = await persistToFoodCollection(r);
-              return doc ? (typeof doc.toObject === 'function' ? doc.toObject() : doc) : null;
-            })
-          );
-          const newFoods = persisted.filter(Boolean);
-          // Deduplicate by _id
-          const existingIds = new Set(foods.map((f) => String(f._id)));
-          for (const nf of newFoods) {
-            if (!existingIds.has(String(nf._id))) {
-              foods.push(nf);
-              existingIds.add(String(nf._id));
-            }
-          }
+        const usdaResults = await searchUSDA(rawQuery, limit, '');
+        if (usdaResults && usdaResults.length > 0) {
+          foods = usdaResults.map(u => ({
+            _id: u.fdcId || `usda_${u.productName || rawQuery}_${Date.now()}`,
+            name: u.productName || rawQuery,
+            brand: u.brand || '',
+            calories: u.calories || 0,
+            protein: u.protein || 0,
+            carbs: u.carbs || 0,
+            fat: u.fat || 0,
+            fiber: u.fiber || 0,
+            sugar: u.sugar || 0,
+            sodium: u.sodium || 0,
+            servingSize: u.servingSize || '100g',
+            servingUnit: u.servingUnit || 'g',
+            source: 'usda',
+            type: u.type || 'food',
+            category: u.category || 'general',
+            origin: u.origin || '',
+          }));
         }
-      } catch (usdaErr) {
-        console.warn('USDA search fallback error:', usdaErr.message);
+      } catch (e) {
+        console.warn('[SearchFoodsByName] USDA broad search error:', e.message);
       }
     }
 
-    res.status(200).json(foods.slice(0, limit).map(toFoodResponse));
+    res.status(200).json(foods.slice(0, limit));
   } catch (err) {
     res.status(500).json({ message: 'Error searching foods by name', error: err.message });
   }

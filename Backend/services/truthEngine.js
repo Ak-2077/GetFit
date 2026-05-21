@@ -168,10 +168,40 @@ export const getMemoryHealth = async (userId) => {
   const memories = await UserMemory.find({ userId, active: true }).lean();
   if (memories.length === 0) return { health: 1.0, total: 0 };
 
+  const now = Date.now();
+  const STALE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
   const avgTruth = memories.reduce((s, m) => s + (m.truthScore || 0.7), 0) / memories.length;
   const needsVerification = memories.filter(m => m.needsVerification).length;
   const lowConfidence = memories.filter(m => (m.confidence || 0.8) < 0.4).length;
   const contradicted = memories.filter(m => (m.contradictionHistory || []).some(c => c.resolution === 'unresolved')).length;
+
+  // Stale ratio
+  const stale = memories.filter(m => {
+    const age = now - new Date(m.updatedAt || m.createdAt).getTime();
+    return age > STALE_MS;
+  }).length;
+
+  // Duplicate detection (same category + high content similarity by length)
+  const contentMap = new Map();
+  let duplicates = 0;
+  for (const m of memories) {
+    const key = `${m.category}:${(m.content || '').substring(0, 40).toLowerCase().trim()}`;
+    if (contentMap.has(key)) duplicates++;
+    else contentMap.set(key, true);
+  }
+
+  // Growth rate (memories added in last 7 / 30 days)
+  const addedLastWeek = memories.filter(m => now - new Date(m.createdAt).getTime() < WEEK_MS).length;
+  const addedLastMonth = memories.filter(m => now - new Date(m.createdAt).getTime() < MONTH_MS).length;
+
+  // Category breakdown
+  const categories = {};
+  for (const m of memories) {
+    categories[m.category || 'unknown'] = (categories[m.category || 'unknown'] || 0) + 1;
+  }
 
   return {
     health: avgTruth,
@@ -180,6 +210,11 @@ export const getMemoryHealth = async (userId) => {
     lowConfidence,
     contradicted,
     avgConfidence: memories.reduce((s, m) => s + (m.confidence || 0.8), 0) / memories.length,
+    staleCount: stale,
+    staleRatio: `${(stale / memories.length * 100).toFixed(1)}%`,
+    duplicates,
+    growth: { lastWeek: addedLastWeek, lastMonth: addedLastMonth },
+    categories,
   };
 };
 

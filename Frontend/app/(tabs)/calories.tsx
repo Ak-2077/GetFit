@@ -2633,21 +2633,20 @@ export default function CaloriesScreen() {
                 <View style={{ marginTop: 4 }}>
 
                   <Text style={{ color: C.subtext, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Results</Text>
-
-                  {results.map((food) => (
+                  {results.map((food: any, idx: number) => (
 
                     <TouchableOpacity
 
-                      key={food._id}
-
+                      key={food._id || `usda-${idx}`}
                       activeOpacity={0.85}
 
                       onPress={() => {
 
                         closeSearch();
-
-                        router.push(`/food-details?id=${food._id}`);
-
+                        router.push({
+                          pathname: '/food-details',
+                          params: { foodData: JSON.stringify(food), source: food.source || 'usda' },
+                        });
                       }}
 
                       style={{
@@ -2677,9 +2676,7 @@ export default function CaloriesScreen() {
                         <Text style={{ color: C.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{food.name || 'Food'}</Text>
 
                         <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-
-                          {food.brand || 'Unknown brand'} • {Math.round(Number(food.calories || 0))} kcal • {food.servingSize || 'Serving not set'}
-
+                          {food.brand || 'USDA'} • {Math.round(Number(food.calories || 0))} kcal • {food.servingSize || '100g'}
                         </Text>
 
                       </View>
@@ -2689,19 +2686,16 @@ export default function CaloriesScreen() {
                         onPress={(e: import('react-native').GestureResponderEvent) => {
 
                           e?.stopPropagation?.();
-
-                          showMealPicker(food._id);
-
+                          closeSearch();
+                          router.push({
+                            pathname: '/food-details',
+                            params: { foodData: JSON.stringify(food), source: food.source || 'usda' },
+                          });
                         }}
-
-                        disabled={addingFoodId === food._id}
-
                         style={{ backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}
 
                       >
-
-                        <Text style={{ color: C.accent, fontSize: 12, fontWeight: '700' }}>{addingFoodId === food._id ? 'Adding...' : '+ Add'}</Text>
-
+                        <Text style={{ color: C.accent, fontSize: 12, fontWeight: '700' }}>+ Add</Text>
                       </TouchableOpacity>
 
                     </TouchableOpacity>
