@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard,
+  KeyboardAvoidingView, Platform, Animated, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +52,63 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+// Fade-in + slide-up animation wrapper for new messages
+function MessageEntryAnim({ children }: { children: React.ReactNode }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(8)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
+  );
+}
+
+// Animated typing dots
+function TypingDots() {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animate = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.delay(400 - delay),
+        ])
+      );
+    const a1 = animate(dot1, 0);
+    const a2 = animate(dot2, 150);
+    const a3 = animate(dot3, 300);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, []);
+
+  const dotStyle = (anim: Animated.Value) => ({
+    width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.accent, marginHorizontal: 2,
+    opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
+    transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
+  });
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <Animated.View style={dotStyle(dot1)} />
+      <Animated.View style={dotStyle(dot2)} />
+      <Animated.View style={dotStyle(dot3)} />
+    </View>
+  );
+}
+
 export default function AIChatScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ initialMessage?: string; sessionId?: string }>();
@@ -59,6 +116,7 @@ export default function AIChatScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(params.sessionId || null);
   const flatListRef = useRef<FlatList>(null);
   const sessionIdRef = useRef<string | null>(params.sessionId || null);
@@ -129,43 +187,70 @@ export default function AIChatScreen() {
     setInput('');
     Keyboard.dismiss();
 
-    // Try streaming first — only works in web/environments with ReadableStream
-    const canStream = typeof globalThis !== 'undefined' && typeof (globalThis as any).ReadableStream !== 'undefined';
+    // Always use streaming (XHR-based, works in React Native)
+    setStreaming(true);
+    setStatusText(null);
+    streamContentRef.current = '';
+    let messageAdded = false;
 
-    if (canStream) {
-      setStreaming(true);
-      streamContentRef.current = '';
+    streamAbortRef.current = (streamChatMessage as any)(msg, sessionId, {
+      onToken: (token: string) => {
+        streamContentRef.current += token;
+        const current = streamContentRef.current;
 
-      // Add empty streaming AI message
-      const streamingMsg: Message = {
-        id: aiMsgId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        streaming: true,
-        feedback: null,
-      };
-      setMessages(prev => [...prev, streamingMsg]);
-
-      streamAbortRef.current = (streamChatMessage as any)(msg, sessionId, {
-        onToken: (token: string) => {
-          streamContentRef.current += token;
-          const current = streamContentRef.current;
+        if (!messageAdded) {
+          // First token arrived — clear status, add the AI message
+          messageAdded = true;
+          setStatusText(null);
+          const streamingMsg: Message = {
+            id: aiMsgId,
+            role: 'assistant',
+            content: stripMarkdown(current),
+            timestamp: new Date(),
+            streaming: true,
+            feedback: null,
+          };
+          setMessages(prev => [...prev, streamingMsg]);
+        } else {
           setMessages(prev =>
             prev.map(m => m.id === aiMsgId ? { ...m, content: stripMarkdown(current) } : m)
           );
-        },
-        onMeta: (meta: any) => {
-          if (meta.sessionId) {
-            setSessionId(meta.sessionId);
-            sessionIdRef.current = meta.sessionId;
-          }
-        },
-        onDone: (sid: string) => {
-          if (sid) {
-            setSessionId(sid);
-            sessionIdRef.current = sid;
-          }
+        }
+      },
+      onMeta: (meta: any) => {
+        if (meta.sessionId) {
+          setSessionId(meta.sessionId);
+          sessionIdRef.current = meta.sessionId;
+        }
+      },
+      onDone: (sid: string, latency?: any, trace?: any) => {
+        if (sid) {
+          setSessionId(sid);
+          sessionIdRef.current = sid;
+        }
+        setMessages(prev =>
+          prev.map((m, i) => m.id === aiMsgId
+            ? { ...m, streaming: false, index: i }
+            : { ...m, index: i }
+          )
+        );
+        setStreaming(false);
+        setStatusText(null);
+        streamAbortRef.current = null;
+        if (__DEV__ && latency) {
+          console.log(`[Kyro perf] ${latency.tokensPerSec} tok/s | first=${latency.firstTokenMs}ms | total=${latency.totalMs}ms | tokens=${latency.tokenCount}`, trace || '');
+        }
+      },
+      onStatus: (text: string | null, _tier?: string) => {
+        if (text) setStatusText(text);
+      },
+      onError: (err: string) => {
+        setStatusText(null);
+        if (!streamContentRef.current) {
+          // No tokens received — fall back to regular endpoint
+          setStreaming(false);
+          handleSendRegular(msg, aiMsgId);
+        } else {
           setMessages(prev =>
             prev.map((m, i) => m.id === aiMsgId
               ? { ...m, streaming: false, index: i }
@@ -173,28 +258,9 @@ export default function AIChatScreen() {
             )
           );
           setStreaming(false);
-          streamAbortRef.current = null;
-        },
-        onError: (err: string) => {
-          // If streaming failed with empty content, fall back to regular
-          if (!streamContentRef.current) {
-            setMessages(prev => prev.filter(m => m.id !== aiMsgId));
-            setStreaming(false);
-            handleSendRegular(msg, aiMsgId);
-          } else {
-            setMessages(prev =>
-              prev.map((m, i) => m.id === aiMsgId
-                ? { ...m, streaming: false, index: i }
-                : { ...m, index: i }
-              )
-            );
-            setStreaming(false);
-          }
-        },
-      });
-    } else {
-      handleSendRegular(msg, aiMsgId);
-    }
+        }
+      },
+    });
   }, [input, loading, streaming, sessionId, handleSendRegular]);
 
   // Handle thumbs up/down
@@ -219,6 +285,7 @@ export default function AIChatScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user';
     return (
+      <MessageEntryAnim>
       <View style={{
         alignSelf: isUser ? 'flex-end' : 'flex-start',
         maxWidth: '80%',
@@ -293,6 +360,7 @@ export default function AIChatScreen() {
           </Text>
         )}
       </View>
+      </MessageEntryAnim>
     );
   };
 
@@ -384,16 +452,17 @@ export default function AIChatScreen() {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           />
 
-          {/* Typing / streaming indicator */}
-          {(loading || (streaming && !streamContentRef.current)) && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: C.accentDim, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
+          {/* Typing indicator — only show when waiting for first token */}
+          {(loading || streaming) && !streamContentRef.current && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: C.accentDim, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
                 <Ionicons name="sparkles" size={12} color={C.accent} />
               </View>
-              <ActivityIndicator size="small" color={C.accent} />
-              <Text style={{ fontSize: 12, color: C.muted, marginLeft: 8 }}>
-                {streaming ? 'Connecting...' : 'Thinking...'}
-              </Text>
+              {statusText ? (
+                <Text style={{ fontSize: 12, color: C.accent, fontWeight: '600' }}>{statusText}</Text>
+              ) : (
+                <TypingDots />
+              )}
             </View>
           )}
 

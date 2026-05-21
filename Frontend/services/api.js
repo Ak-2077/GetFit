@@ -190,64 +190,62 @@ export const sendChatMessage = (message, sessionId = null) =>
   API.post('/api/ai/chat', { message, sessionId });
 
 /**
- * Stream a chat message via SSE — returns an abort controller and processes tokens via callback.
+ * Stream chat via SSE using XMLHttpRequest (works in React Native + web).
+ * XHR.onprogress fires incrementally as chunks arrive.
  * @param {string} message
  * @param {string|null} sessionId
- * @param {function} onToken - Called with each token chunk: (token: string) => void
- * @param {function} onMeta - Called with session meta: (meta: object) => void
- * @param {function} onDone - Called when streaming is complete: (sessionId: string) => void
- * @param {function} onError - Called on error: (error: string) => void
+ * @param {{ onToken, onMeta, onDone, onError }} callbacks
  * @returns {{ abort: () => void }}
  */
-export const streamChatMessage = (message, sessionId, { onToken, onMeta, onDone, onError }) => {
-  const controller = new AbortController();
-  const token = API.defaults.headers?.common?.Authorization;
+export const streamChatMessage = (message, sessionId, { onToken, onMeta, onDone, onError, onStatus }) => {
+  const authToken = API.defaults.headers?.common?.Authorization;
+  const xhr = new XMLHttpRequest();
+  let lastIndex = 0;
 
-  fetch(`${resolvedBaseURL}/api/ai/chat/stream`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: token } : {}),
-    },
-    body: JSON.stringify({ message, sessionId }),
-    signal: controller.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ message: 'Stream failed' }));
-        onError?.(err.message || 'Stream error');
-        return;
-      }
+  xhr.open('POST', `${resolvedBaseURL}/api/ai/chat/stream`);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  if (authToken) xhr.setRequestHeader('Authorization', authToken);
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+  const parseSSE = (text) => {
+    const chunk = text.substring(lastIndex);
+    lastIndex = text.length;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    const lines = chunk.split('\n\n');
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'token' && data.token) onToken?.(data.token);
+        else if (data.type === 'meta') onMeta?.(data);
+        else if (data.type === 'done') onDone?.(data.sessionId, data.latency, data.trace);
+        else if (data.type === 'error') onError?.(data.error);
+        else if (data.type === 'status') onStatus?.(data.text);
+        else if (data.type === 'tier') onStatus?.(null, data.tier);
+      } catch (_) {}
+    }
+  };
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
+  xhr.onprogress = () => {
+    if (xhr.responseText) parseSSE(xhr.responseText);
+  };
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.type === 'token' && data.token) onToken?.(data.token);
-            else if (data.type === 'meta') onMeta?.(data);
-            else if (data.type === 'done') onDone?.(data.sessionId);
-            else if (data.type === 'error') onError?.(data.error);
-          } catch (_) {}
-        }
-      }
-    })
-    .catch((err) => {
-      if (err.name !== 'AbortError') onError?.(err.message);
-    });
+  xhr.onload = () => {
+    // Parse any remaining data
+    if (xhr.responseText) parseSSE(xhr.responseText);
+  };
 
-  return { abort: () => controller.abort() };
+  xhr.onerror = () => {
+    onError?.('Connection failed');
+  };
+
+  xhr.ontimeout = () => {
+    onError?.('Request timed out');
+  };
+
+  xhr.timeout = 60000; // 60s total timeout
+  xhr.send(JSON.stringify({ message, sessionId }));
+
+  return { abort: () => xhr.abort() };
 };
 export const getChatSessions = () =>
   API.get('/api/ai/chat/sessions');

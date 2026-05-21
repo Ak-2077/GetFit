@@ -147,22 +147,61 @@ class OllamaClient:
         return _THINK_RE.sub("", content).strip()
 
     async def embed(self, text: str) -> list[float]:
-        """Generate embedding vector for text using nomic-embed-text."""
+        """Generate embedding vector — Redis cached to avoid repeated GPU calls."""
+        from app.core.cache import embed_cache_get, embed_cache_set
+        # Check Redis cache first
+        cached = await embed_cache_get(text)
+        if cached:
+            return cached
+
         response = await self.fast_client.post(
             f"{self.base_url}/api/embed",
             json={"model": self.embed_model, "input": text, "keep_alive": self.keep_alive},
         )
         response.raise_for_status()
-        return response.json()["embeddings"][0]
+        embedding = response.json()["embeddings"][0]
+
+        # Store in Redis (non-blocking)
+        try:
+            await embed_cache_set(text, embedding)
+        except Exception:
+            pass
+        return embedding
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts in one call."""
-        response = await self.client.post(
-            f"{self.base_url}/api/embed",
-            json={"model": self.embed_model, "input": texts, "keep_alive": self.keep_alive},
-        )
-        response.raise_for_status()
-        return response.json()["embeddings"]
+        """Generate embeddings for multiple texts — with per-text Redis caching."""
+        from app.core.cache import embed_cache_get, embed_cache_set
+
+        results = [None] * len(texts)
+        uncached_indices = []
+        uncached_texts = []
+
+        # Check cache for each text
+        for i, text in enumerate(texts):
+            cached = await embed_cache_get(text)
+            if cached:
+                results[i] = cached
+            else:
+                uncached_indices.append(i)
+                uncached_texts.append(text)
+
+        # Batch-embed only uncached texts
+        if uncached_texts:
+            response = await self.client.post(
+                f"{self.base_url}/api/embed",
+                json={"model": self.embed_model, "input": uncached_texts, "keep_alive": self.keep_alive},
+            )
+            response.raise_for_status()
+            new_embeddings = response.json()["embeddings"]
+
+            for j, idx in enumerate(uncached_indices):
+                results[idx] = new_embeddings[j]
+                try:
+                    await embed_cache_set(uncached_texts[j], new_embeddings[j])
+                except Exception:
+                    pass
+
+        return results
 
     async def warmup(self):
         """Pre-load all models into VRAM for instant first response."""
