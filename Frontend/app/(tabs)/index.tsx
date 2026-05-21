@@ -10,6 +10,7 @@ import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadN
 import { useFitness } from '../../hooks/useFitness';
 import { HomeSkeleton } from '../../components/SkeletonScreens';
 import NutritionStreak from '../../components/NutritionStreak';
+import SwipeableTabView from '../../components/SwipeableTabView';
 
 const C = {
   bg: '#060D09', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(29,36,31,0.18)', accent: '#1FA463',
@@ -102,6 +103,7 @@ export default function HomeScreen() {
   };
 
   return (
+    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
       <SafeAreaView style={{ flex: 1 }}>
@@ -268,5 +270,6 @@ export default function HomeScreen() {
         </ScrollView>
       </SafeAreaView>
     </View>
+    </SwipeableTabView>
   );
 }

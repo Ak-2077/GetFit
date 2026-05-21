@@ -22,6 +22,7 @@ import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Text as S
 import { getUserProfile, getWeeklyCalories, setAuthToken, updateUserProfile } from '../../services/api';
 
 import { ProfileSkeleton } from '../../components/SkeletonScreens';
+import SwipeableTabView from '../../components/SwipeableTabView';
 
 // ─── THEME ──────────────────────────────────────────────
 const C = {
@@ -48,8 +49,8 @@ function getBmiCategory(bmi: number) {
 }
 
 function formatSubscription(plan: string) {
-  if (plan === 'pro') return 'AI Trainer Pro';
-  if (plan === 'pro_plus') return 'AI Trainer Pro Plus';
+  if (plan === 'pro') return 'Kyro Pro';
+  if (plan === 'pro_plus') return 'Kyro Pro Plus';
   return 'Free Plan';
 }
 
@@ -321,6 +322,7 @@ export default function ProfileScreen() {
   const bodyTypeLabel = (b: string) => b === 'ectomorph' ? 'Ectomorph' : b === 'mesomorph' ? 'Mesomorph' : b === 'endomorph' ? 'Endomorph' : '—';
 
   return (
+    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {/* Subtle top-right radial glow */}
       <View style={{
@@ -572,5 +574,6 @@ export default function ProfileScreen() {
 
       </SafeAreaView>
     </View>
+    </SwipeableTabView>
   );
 }

@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Text, TextInput } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_500Medium } from '@expo-google-fonts/poppins';
 import * as SplashScreen from 'expo-splash-screen';
@@ -92,6 +93,7 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
         screenOptions={{
@@ -120,5 +122,6 @@ export default function RootLayout() {
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

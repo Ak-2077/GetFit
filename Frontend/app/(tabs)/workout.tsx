@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserProfile, setAuthToken } from '../../services/api';
 import { WorkoutSkeleton } from '../../components/SkeletonScreens';
+import SwipeableTabView from '../../components/SwipeableTabView';
 
 
 // ── Design tokens ──
@@ -53,8 +54,8 @@ const GRID_CARDS = [
 
 const AI_CARD = {
   key: 'ai',
-  title: 'AI Trainer',
-  subtitle: 'Personalized AI-powered guidance',
+  title: 'Kyro',
+  subtitle: 'Your personal AI trainer',
   icon: require('../../assets/icons/ai.png'),
   iconSize: 28,
   count: '30+',
@@ -235,6 +236,7 @@ export default function WorkoutScreen() {
   };
 
   return (
+    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {/* Ambient glow */}
       <View
@@ -450,5 +452,6 @@ export default function WorkoutScreen() {
         </ScrollView>
       </SafeAreaView>
     </View>
+    </SwipeableTabView>
   );
 }

@@ -82,7 +82,7 @@ export default function TabLayout() {
       tabBar={(props: React.ComponentProps<typeof GlassTabBar>) => <GlassTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        lazy: true,
+        lazy: false,
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',
@@ -101,7 +101,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="ai-trainer"
-        options={{ title: 'AI Trainer' }}
+        options={{ title: 'Kyro' }}
       />
       <Tabs.Screen
         name="calories"

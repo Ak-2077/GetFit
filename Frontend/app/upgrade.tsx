@@ -440,7 +440,7 @@ export default function UpgradeScreen() {
       {/* Cancellation confirmation modal */}
       <CancelSubscriptionModal
         visible={cancelModalVisible}
-        planName={subscription.tier === 'pro_plus' ? 'AI Trainer Pro Plus' : 'AI Trainer Pro'}
+        planName={subscription.tier === 'pro_plus' ? 'Kyro Pro Plus' : 'Kyro Pro'}
         expiryDate={subscription.expiryDate}
         onConfirm={async () => {
           const r = await subscription.cancel();
