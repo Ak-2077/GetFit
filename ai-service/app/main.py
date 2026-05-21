@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import health, chat, diet, video, pose, memory, embeddings, orchestrator, agent, evaluator
+from app.routers import health, chat, diet, video, pose, memory, embeddings, orchestrator, agent, evaluator, food_vision
 from app.core.config import settings
 from app.core.llm import ollama
 import logging
@@ -44,6 +44,7 @@ app.include_router(embeddings.router, prefix="/embeddings", tags=["Embeddings"])
 app.include_router(orchestrator.router, prefix="/orchestrate", tags=["Orchestrator"])
 app.include_router(agent.router, prefix="/agent", tags=["Agent"])
 app.include_router(evaluator.router, prefix="/evaluator", tags=["Evaluator"])
+app.include_router(food_vision.router, tags=["Food Vision"])
 
 
 @app.get("/")
@@ -72,5 +73,7 @@ async def root():
             "evaluator_evaluate": "/evaluator/evaluate",
             "evaluator_simulate": "/evaluator/simulate",
             "evaluator_causal": "/evaluator/causal",
+            "food_recognize": "/food-vision/recognize",
+            "food_vision_health": "/food-vision/health",
         },
     }

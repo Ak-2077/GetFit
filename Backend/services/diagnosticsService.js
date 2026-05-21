@@ -118,18 +118,18 @@ export const withDiagnostics = (stageName) => {
 // ── Per-stage latency budgets (ms) ──
 // If a stage exceeds its budget, it's killed and fallback is used
 export const STAGE_BUDGETS = {
-  intent_classification: 3000,
-  memory_retrieval: 4000,
-  tool_routing: 5000,
-  tool_execution: 8000,
-  structured_reasoning: 6000,
-  trajectory_analysis: 4000,
-  response_generation: 15000,
-  evaluator: 6000,
-  reflection: 5000,
-  memory_compilation: 3000,
-  planner_context: 3000,
-  twin_context: 3000,
+  intent_classification: 2000,   // was 3000 — fast model, should be quick
+  memory_retrieval: 2500,        // was 4000 — DB + optional embedding
+  tool_routing: 3000,            // was 5000 — LLM routing call
+  tool_execution: 5000,          // was 8000 — external tool calls
+  structured_reasoning: 4000,    // was 6000 — single LLM call
+  trajectory_analysis: 3000,     // was 4000 — analysis call
+  response_generation: 12000,    // was 15000 — main generation
+  evaluator: 4000,               // was 6000 — evaluation model
+  reflection: 3000,              // was 5000 — reflection model
+  memory_compilation: 2000,      // was 3000 — compressor model
+  planner_context: 2000,         // was 3000 — DB lookup
+  twin_context: 2000,            // was 3000 — DB lookup
 };
 
 /**

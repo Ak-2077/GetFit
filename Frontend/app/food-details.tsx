@@ -28,9 +28,11 @@ type FoodItem = {
 
 export default function FoodDetailsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ barcode?: string; id?: string }>();
+  const params = useLocalSearchParams<{ barcode?: string; id?: string; foodData?: string; source?: string }>();
   const barcode = typeof params.barcode === 'string' ? params.barcode : '';
   const idParam = typeof params.id === 'string' ? params.id : '';
+  const foodDataParam = typeof params.foodData === 'string' ? params.foodData : '';
+  const sourceParam = typeof params.source === 'string' ? params.source : '';
 
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -62,6 +64,18 @@ export default function FoodDetailsScreen() {
       try {
         setLoading(true);
         setLoadError(false);
+
+        // Inline food data from AI scan — no API call needed
+        if (foodDataParam) {
+          try {
+            const parsed = JSON.parse(foodDataParam);
+            if (sourceParam) parsed.source = sourceParam;
+            setFood(parsed);
+          } catch {
+            setFood(null);
+          }
+          return;
+        }
 
         if (idParam) {
           const res = await getFoodById(idParam);
@@ -105,7 +119,7 @@ export default function FoodDetailsScreen() {
     };
 
     loadFood();
-  }, [barcode, idParam]);
+  }, [barcode, idParam, foodDataParam]);
 
   const parseServing = (servingSize?: string, fallbackName?: string) => {
     const source = `${servingSize || ''}`.trim();
@@ -171,7 +185,7 @@ export default function FoodDetailsScreen() {
   }, [food, servingMultiplier]);
 
   const handleAddFood = () => {
-    if (!food?._id) return;
+    if (!food?.name && !food?._id) return;
     if (!servingAmount || servingAmount <= 0) {
       Alert.alert('Invalid Serving', 'Please enter a valid serving amount.');
       return;
@@ -181,11 +195,35 @@ export default function FoodDetailsScreen() {
 
   const handleMealTypeSelected = async (mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack') => {
     setMealPickerVisible(false);
-    if (!food?._id) return;
+    if (!food) return;
     try {
       setAdding(true);
+
+      let foodId = food._id;
+
+      // If food has no DB _id (from AI scan), create it first
+      if (!foodId || foodId.startsWith('usda_') || foodId.startsWith('fallback_')) {
+        const createRes = await addBrandFood({
+          name: food.name || 'Unknown Food',
+          brand: food.brand || undefined,
+          calories: Math.round(food.calories || 0),
+          protein: Number((food.protein || 0).toFixed(1)),
+          carbs: Number((food.carbs || 0).toFixed(1)),
+          fat: Number((food.fat || 0).toFixed(1)),
+          barcode: food.barcode || undefined,
+        });
+        const createdFood = createRes?.data?.food;
+        if (createdFood?._id) {
+          foodId = createdFood._id;
+          setFood(prev => prev ? { ...prev, _id: createdFood._id } : prev);
+        } else {
+          Alert.alert('Error', 'Could not save food to database.');
+          return;
+        }
+      }
+
       await addFoodToLog({
-        foodId: food._id,
+        foodId,
         quantity: servingMultiplier,
         meal: mealType,
         mealType,

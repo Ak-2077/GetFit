@@ -212,10 +212,20 @@ export const sendMessage = async (req, res) => {
     );
     _te('stage3_memory');
 
-    // ── STAGE 4: Dynamic Context Builder ──
-    const recentMessages = session.messages.slice(
-      intentPlan.depth === 1 ? -6 : -20
-    ).map(m => ({ role: m.role, content: m.content }));
+    // ── STAGE 4: Dynamic Context Builder (with strict context budgets) ──
+    const MSG_HISTORY_LIMITS = { fast: 4, medium: 8, deep: 16 };
+    const MEMORY_TOKEN_LIMITS = { fast: 200, medium: 500, deep: 1200 };
+    const msgLimit = MSG_HISTORY_LIMITS[pipelineTier] || 8;
+    const memTokenLimit = MEMORY_TOKEN_LIMITS[pipelineTier] || 500;
+
+    const recentMessages = session.messages.slice(-msgLimit)
+      .map(m => ({ role: m.role, content: m.content }));
+
+    // Prune compiled memory to token budget (rough: 1 token ≈ 4 chars)
+    let compiledMemory = memoryData.compiled || memoryData.flat.slice(0, 10).map(f => `- ${f}`).join('\n');
+    if (compiledMemory.length > memTokenLimit * 4) {
+      compiledMemory = compiledMemory.slice(0, memTokenLimit * 4);
+    }
 
     const styleProfile = learningProfile.styleProfile || {};
     const userContext = {
@@ -352,9 +362,13 @@ export const sendMessage = async (req, res) => {
 
     const fullTrajectory = [trajectoryContext, toolContext, reasoningContext, graphContext].filter(Boolean).join('\n---\n');
 
-    // Token budget caps per tier
-    const TIER_TOKEN_CAPS = { fast: 200, medium: 400, deep: 800 };
-    const cappedBudget = Math.min(intentPlan.token_budget, TIER_TOKEN_CAPS[pipelineTier] || 400);
+    // Strict token budget caps per tier (hard limits)
+    const TIER_TOKEN_CAPS = { fast: 250, medium: 600, deep: 1200 };
+    const TIER_TOKEN_FLOORS = { fast: 100, medium: 200, deep: 400 };
+    const cappedBudget = Math.max(
+      TIER_TOKEN_FLOORS[pipelineTier] || 100,
+      Math.min(intentPlan.token_budget, TIER_TOKEN_CAPS[pipelineTier] || 500)
+    );
 
     const orchestration = {
       mode: intentPlan.mode,
@@ -364,7 +378,7 @@ export const sendMessage = async (req, res) => {
     };
 
     const aiResponse = await chatCompletion(
-      recentMessages, userContext, memoryData.flat, memoryData.compiled, orchestration
+      recentMessages, userContext, memoryData.flat, compiledMemory, orchestration
     );
     _te('stage8_generation');
 
@@ -550,10 +564,21 @@ export const sendMessage = async (req, res) => {
 
 /**
  * POST /api/ai/chat/stream
- * Streaming version of sendMessage — streams tokens via SSE for perceived low latency.
- * Uses the same fast-path / depth-gating logic but streams the final generation.
+ * Ultra-low-latency streaming pipeline.
+ * Goal: First token to user in <1.5s for simple queries.
+ *
+ * Strategy:
+ * 1. Parallelize ALL pre-generation work (user, session, profile, memory)
+ * 2. Use inline intent heuristic (no LLM call) to avoid 1-3s classification
+ * 3. Start SSE immediately, send meta, then stream tokens
+ * 4. Save session + background learning AFTER stream ends
  */
 export const sendMessageStream = async (req, res) => {
+  const t0 = Date.now(); // request received
+  let tContextReady = 0;  // after DB + intent
+  let tFirstToken = 0;    // first token to client
+  let tokenCount = 0;
+
   try {
     const userId = req.userId;
     const { message, sessionId } = req.body;
@@ -562,67 +587,93 @@ export const sendMessageStream = async (req, res) => {
       return res.status(400).json({ message: 'Message is required' });
     }
 
-    const user = await User.findById(userId)
-      .select('name goal weight targetWeight height age gender dietPreference activityLevel subscriptionPlan')
-      .lean();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const plan = user.subscriptionPlan || 'free';
-    if (plan === 'free') {
-      return res.status(403).json({ message: 'AI Chat requires Pro or Pro Plus plan', upgrade: true });
-    }
-
-    let session;
-    if (sessionId) session = await ChatSession.findOne({ _id: sessionId, userId });
-    if (!session) session = new ChatSession({ userId, messages: [] });
-
-    session.messages.push({ role: 'user', content: message });
-
-    // Stage 1: Intent + Profile (parallel, using fast model)
-    const recentContext = session.messages.slice(-4).map(m => m.content);
-    const [intentPlan, learningProfile] = await Promise.all([
-      classifyIntent(message, recentContext).catch(() => ({
-        intent: 'coaching', mode: 'coach', knowledge_sources: ['user_memory'],
-        depth: 1, token_budget: 200, needs_reflection: false,
-      })),
-      getOrCreateProfile(userId),
-    ]);
-
-    // Memory (light for stream — skip embedding search for speed)
-    let compiledMemory = '';
-    try {
-      const memData = await getMemoriesForChat(userId, '', intentPlan.intent);
-      compiledMemory = memData.compiled || memData.flat.slice(0, 8).map(f => `- ${f}`).join('\n');
-    } catch (_) {}
-
-    const recentMessages = session.messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
-    const styleProfile = learningProfile.styleProfile || {};
-    const userContext = {
-      name: user.name, goal: user.goal, weight: user.weight,
-      activityLevel: user.activityLevel, dietPreference: user.dietPreference, plan,
-      preferredResponseLength: learningProfile.preferredResponseLength,
-      styleVerbosity: styleProfile.verbosity, styleMotivation: styleProfile.motivation,
-    };
-
-    const orchestration = {
-      mode: intentPlan.mode,
-      intent: intentPlan.intent,
-      token_budget: Math.min(intentPlan.token_budget, 400),
-      trajectory_context: '',
-    };
-
-    // Set SSE headers
+    // ── Set SSE headers IMMEDIATELY (reduces perceived latency) ──
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    // Send session meta first
-    res.write(`data: ${JSON.stringify({ type: 'meta', sessionId: session._id, intent: intentPlan.intent, mode: intentPlan.mode })}\n\n`);
+    // ── INLINE INTENT HEURISTIC (0ms, no LLM call) ──
+    const msgLower = message.toLowerCase();
+    let mode = 'coach';
+    let intent = 'coaching';
+    let tokenBudget = 300;
 
-    // Stream from AI service
+    if (/^(hi|hey|hello|yo|sup|what'?s up|how are you|love|thank|thanks|bye|ok|okay|cool|nice|great)\b/i.test(msgLower) || msgLower.length < 20) {
+      intent = 'casual_chat'; mode = 'concise'; tokenBudget = 150;
+    } else if (/diet|meal|food|eat|calori|protein|carb|fat|macro|nutrition|recipe/i.test(msgLower)) {
+      intent = 'nutrition_question'; mode = 'planner'; tokenBudget = 400;
+    } else if (/workout|program|routine|split|plan|exercise.*for|build.*muscle|mass|bulk|cut/i.test(msgLower)) {
+      intent = 'workout_planning'; mode = 'planner'; tokenBudget = 400;
+    } else if (/form|technique|how to.*do|correct|posture|cue/i.test(msgLower)) {
+      intent = 'form_correction'; mode = 'technical'; tokenBudget = 300;
+    } else if (/injur|pain|hurt|sore|strain|tear|rehab/i.test(msgLower)) {
+      intent = 'injury_concern'; mode = 'supportive'; tokenBudget = 350;
+    } else if (/progress|plateau|stuck|not growing|not losing|stall/i.test(msgLower)) {
+      intent = 'progress_analysis'; mode = 'coach'; tokenBudget = 350;
+    } else if (/motivat|tired|lazy|don'?t feel|struggling|give up/i.test(msgLower)) {
+      intent = 'motivation'; mode = 'supportive'; tokenBudget = 200;
+    }
+
+    // ── PARALLEL: user + session + profile + memory (all at once) ──
+    const sessionPromise = sessionId
+      ? ChatSession.findOne({ _id: sessionId, userId })
+      : Promise.resolve(null);
+
+    const [user, existingSession, learningProfile, memoryData] = await Promise.all([
+      User.findById(userId).select('name goal weight targetWeight activityLevel dietPreference subscriptionPlan').lean(),
+      sessionPromise,
+      getOrCreateProfile(userId).catch(() => ({ styleProfile: {}, preferredResponseLength: null })),
+      getMemoriesForChat(userId, '', intent).catch(() => ({ compiled: '', flat: [] })),
+    ]);
+
+    tContextReady = Date.now();
+
+    if (!user) { res.write(`data: ${JSON.stringify({ type: 'error', error: 'User not found' })}\n\n`); res.end(); return; }
+    const plan = user.subscriptionPlan || 'free';
+    if (plan === 'free') { res.write(`data: ${JSON.stringify({ type: 'error', error: 'Upgrade required' })}\n\n`); res.end(); return; }
+
+    // Session setup
+    const session = existingSession || new ChatSession({ userId, messages: [] });
+    session.messages.push({ role: 'user', content: message });
+
+    // ── Build minimal context for fast generation ──
+    const recentMessages = session.messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
+    const styleProfile = learningProfile.styleProfile || {};
+    const compiledMemory = memoryData.compiled || memoryData.flat.slice(0, 6).map(f => `- ${f}`).join('\n');
+
+    const userContext = {
+      name: user.name, goal: user.goal, weight: user.weight,
+      activityLevel: user.activityLevel, dietPreference: user.dietPreference, plan,
+      preferredResponseLength: learningProfile.preferredResponseLength || null,
+      styleVerbosity: styleProfile.verbosity, styleMotivation: styleProfile.motivation,
+    };
+
+    const orchestration = { mode, intent, token_budget: tokenBudget, trajectory_context: '' };
+
+    // ── Send meta (session ID available now) ──
+    res.write(`data: ${JSON.stringify({ type: 'meta', sessionId: session._id, intent, mode })}\n\n`);
+
+    // ── Early preview for non-trivial queries (reduce perceived latency) ──
+    const PREVIEW_MAP = {
+      workout_planning: 'Building your workout plan...',
+      nutrition_question: 'Analyzing nutrition data...',
+      injury_concern: 'Reviewing recovery guidance...',
+      progress_analysis: 'Checking your progress trends...',
+      recovery_analysis: 'Analyzing recovery patterns...',
+      form_correction: 'Reviewing movement cues...',
+      coaching: 'Thinking about your situation...',
+      emotional_support: 'Here for you...',
+      factual_query: 'Looking that up...',
+    };
+    if (PREVIEW_MAP[intent]) {
+      res.write(`data: ${JSON.stringify({ type: 'status', text: PREVIEW_MAP[intent] })}\n\n`);
+    }
+
+    // ── Stream tokens from AI service ──
     let fullContent = '';
+    let aiPerf = null;
     try {
       const stream = await chatCompletionStream(recentMessages, userContext, [], compiledMemory, orchestration);
 
@@ -638,36 +689,73 @@ export const sendMessageStream = async (req, res) => {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.token) {
+                if (!tFirstToken) tFirstToken = Date.now();
+                tokenCount++;
                 fullContent += data.token;
                 res.write(`data: ${JSON.stringify({ type: 'token', token: data.token })}\n\n`);
               }
-              if (data.done) resolve();
+              if (data.done) {
+                if (data.perf) aiPerf = data.perf;
+                resolve();
+              }
               if (data.error) reject(new Error(data.error));
             } catch (_) {}
           }
         });
         stream.on('end', resolve);
         stream.on('error', reject);
+        // Safety timeout: if stream hangs > 30s, resolve
+        setTimeout(() => resolve(), 30000);
       });
     } catch (streamErr) {
-      // Fallback to non-streaming if stream fails
-      const fallback = await chatCompletion(recentMessages, userContext, [], compiledMemory, orchestration);
-      fullContent = fallback.content;
-      res.write(`data: ${JSON.stringify({ type: 'token', token: fullContent })}\n\n`);
+      // Fallback: non-streaming
+      try {
+        const fallback = await chatCompletion(recentMessages, userContext, [], compiledMemory, orchestration);
+        fullContent = fallback.content;
+        res.write(`data: ${JSON.stringify({ type: 'token', token: fullContent })}\n\n`);
+      } catch (fbErr) {
+        res.write(`data: ${JSON.stringify({ type: 'error', error: 'AI service unavailable' })}\n\n`);
+        res.end();
+        return;
+      }
     }
 
-    // Save and finalize
-    session.messages.push({ role: 'assistant', content: fullContent });
-    if (session.messages.length <= 2) {
-      session.title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
-    }
-    await session.save();
-
-    res.write(`data: ${JSON.stringify({ type: 'done', sessionId: session._id })}\n\n`);
+    // ── Finalize stream with latency analytics + AI trace ──
+    const tDone = Date.now();
+    const latency = {
+      contextMs: tContextReady - t0,
+      firstTokenMs: tFirstToken ? tFirstToken - t0 : null,
+      totalMs: tDone - t0,
+      tokenCount,
+      tokensPerSec: tokenCount > 0 && tFirstToken ? (tokenCount / ((tDone - tFirstToken) / 1000)).toFixed(1) : null,
+      ...(aiPerf ? { aiService: aiPerf } : {}),
+    };
+    const trace = {
+      intent,
+      mode,
+      tier: 'fast',
+      memoriesInjected: memoryData.flat?.length || 0,
+      compiledMemoryLen: compiledMemory?.length || 0,
+      contextMessages: recentMessages.length,
+      tokenBudget: tokenBudget,
+      route: 'stream_fast',
+    };
+    res.write(`data: ${JSON.stringify({ type: 'done', sessionId: session._id, latency, trace })}\n\n`);
     res.end();
 
-    // Background learning
+    // Record pipeline metric for health dashboard
+    recordStageExecution('stream_pipeline', t0, true).catch(() => {});
+
+    // ── POST-STREAM: Save session + background learning (non-blocking) ──
     setImmediate(async () => {
+      try {
+        session.messages.push({ role: 'assistant', content: fullContent });
+        if (session.messages.length <= 2) {
+          session.title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+        }
+        await session.save();
+      } catch (_) {}
+
       try {
         const lastMsgs = session.messages.slice(-4).map(m => ({ role: m.role, content: m.content }));
         const extracted = await extractMemories(lastMsgs);
@@ -681,7 +769,7 @@ export const sendMessageStream = async (req, res) => {
     if (!res.headersSent) {
       return res.status(500).json({ message: 'AI service error', error: error.message });
     }
-    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+    try { res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`); } catch(_) {}
     res.end();
   }
 };

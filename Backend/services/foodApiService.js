@@ -187,23 +187,45 @@ export const lookupUSDA = async (barcode) => {
  * Search USDA FoodData Central by text query (for manual food search).
  * Returns array of normalized food objects.
  */
-export const searchUSDA = async (query, limit = 15) => {
+export const searchUSDA = async (query, limit = 15, dataType = '') => {
   const apiKey = getUsdaApiKey();
-  if (!apiKey) return [];
+  if (!apiKey) {
+    console.warn('[USDA] No USDA_API_KEY in environment. Get one free at https://fdc.nal.usda.gov/api-key-signup.html');
+    return [];
+  }
 
   const q = `${query || ''}`.trim();
   if (q.length < 2) return [];
 
   try {
-    const res = await fetchWithTimeout(
-      `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(q)}&pageSize=${limit}&api_key=${apiKey}`
-    );
+    let url = `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(q)}&pageSize=${limit}&api_key=${apiKey}`;
+    if (dataType) {
+      // Don't encodeURIComponent the whole thing — commas are valid separators for USDA
+      // Only encode spaces within each type name
+      const encodedTypes = dataType.split(',').map(t => encodeURIComponent(t.trim())).join(',');
+      url += `&dataType=${encodedTypes}`;
+    }
+    const res = await fetchWithTimeout(url);
     if (!res.ok) return [];
 
     const data = await res.json();
     if (!Array.isArray(data.foods)) return [];
 
-    return data.foods.map((f) => normalizeUsdaFood(f)).filter(Boolean);
+    let results = data.foods.map((f) => normalizeUsdaFood(f)).filter(Boolean);
+
+    // If dataType-filtered search returned nothing, retry without filter
+    if (results.length === 0 && dataType) {
+      const fallbackUrl = `${USDA_BASE_URL}/foods/search?query=${encodeURIComponent(q)}&pageSize=${limit}&api_key=${apiKey}`;
+      const fallbackRes = await fetchWithTimeout(fallbackUrl);
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        if (Array.isArray(fallbackData.foods)) {
+          results = fallbackData.foods.map((f) => normalizeUsdaFood(f)).filter(Boolean);
+        }
+      }
+    }
+
+    return results;
   } catch (err) {
     console.warn('[USDA search] error:', err.message);
     return [];

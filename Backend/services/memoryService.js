@@ -143,12 +143,32 @@ export const getMemoriesForChat = async (userId, userMessage = "", intent = "coa
   // Get all active memories with composite scoring
   let memories = await UserMemory.getActiveMemories(userId, 50);
 
+  // ── STALENESS PRUNING: Remove memories older than 90 days with low importance ──
+  const STALE_DAYS = 90;
+  const now = Date.now();
+  memories = memories.filter(m => {
+    const ageMs = now - new Date(m.updatedAt || m.createdAt).getTime();
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+    // Keep if: recent, high importance, or high-priority category
+    if (ageDays < 14) return true; // always keep recent
+    if ((m.importanceScore || 5) >= 7) return true; // always keep important
+    const priorityCats = ['injury', 'limitation', 'goal', 'body_stats', 'routine'];
+    if (priorityCats.includes(m.category)) return true; // always keep critical categories
+    if (ageDays > STALE_DAYS && (m.importanceScore || 5) < 4) return false; // prune stale+low
+    return true;
+  });
+
   // Dynamic attention weights based on intent
-  const attention = ATTENTION_PROFILES[intent] || ATTENTION_PROFILES.default;
+  const attention = { ...(ATTENTION_PROFILES[intent] || ATTENTION_PROFILES.default) };
+  attention.boostCategories = [...(attention.boostCategories || [])];
 
   // Boost injury/limitation memories when injury risk is elevated
   if (userStateMeta?.injuryRisk > 0.4) {
     attention.boostCategories = [...new Set([...attention.boostCategories, 'injury', 'limitation'])];
+  }
+  // Boost fatigue-related memories when fatigue is high
+  if (userStateMeta?.fatigue > 0.6) {
+    attention.boostCategories = [...new Set([...attention.boostCategories, 'routine', 'recovery'])];
   }
 
   // If user message provided and we have embeddings, re-rank with dynamic blend
@@ -176,6 +196,14 @@ export const getMemoriesForChat = async (userId, userMessage = "", intent = "coa
           if ((mem.importanceScore || 5) < attention.importanceFloor) {
             score *= 0.5;
           }
+
+          // ── RECENCY BOOST: memories from last 7 days get a 20% boost ──
+          const memAge = now - new Date(mem.updatedAt || mem.createdAt).getTime();
+          if (memAge < 7 * 24 * 60 * 60 * 1000) score *= 1.2;
+          else if (memAge < 30 * 24 * 60 * 60 * 1000) score *= 1.05;
+
+          // ── CONFIRMATION BOOST: user-confirmed memories rank higher ──
+          if (mem.confirmed) score *= 1.15;
 
           mem.finalScore = score;
         }
