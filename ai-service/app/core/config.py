@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     OLLAMA_EVALUATOR_MODEL: str = "qwen3:8b"
     # COMPRESSOR: lightweight model for memory summarization/compression
     OLLAMA_COMPRESSOR_MODEL: str = "qwen3:1.7b"
+    # VISION: model for food image recognition (pull with: ollama pull moondream)
+    OLLAMA_VISION_MODEL: str = "moondream"
     # Keep-alive duration (seconds) — keeps models loaded in VRAM
     # 24h = models stay warm, avoids cold-start latency on first request
     OLLAMA_KEEP_ALIVE: int = 86400

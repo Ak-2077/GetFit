@@ -98,6 +98,13 @@ export const getFoodById = (id) => API.get(`/api/food/${id}`);
 export const addFoodToLog = (data) => API.post('/api/food/log', data);
 export const getTodaysFoodLog = () => API.get('/api/food/log/today');
 export const removeFoodFromLog = (logId) => API.delete(`/api/food/log/${logId}`);
+export const recognizeFood = (image_base64, mime_type = 'image/jpeg', food_type = 'homemade', cooking_methods = []) =>
+  API.post('/api/food/recognize', { image_base64, mime_type, food_type, cooking_methods }, { timeout: 55000 });
+export const smartFoodSearch = (foods, cooking_methods = []) =>
+  API.post('/api/food/smart-search', { foods, cooking_methods }, { timeout: 30000 });
+export const trackFoodMemory = (data) => API.post('/api/food/memory/track', data);
+export const getFrequentFoods = () => API.get('/api/food/memory/frequent');
+export const getRecentFoodMemory = () => API.get('/api/food/memory/recent');
 
 // Calories tab endpoints
 export const searchFoodsAutocomplete = (q, limit = 12) => API.get('/api/foods/search', { params: { q, limit } });
