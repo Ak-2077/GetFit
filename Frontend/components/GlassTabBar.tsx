@@ -1,12 +1,229 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Pressable, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-// ─── CONSTANTS ──────────────────────────────────────────
+// ─── SAFE LIQUID GLASS IMPORT ───────────────────────────
+let LiquidGlassViewComponent: React.ComponentType<any> = View;
+let _isLiquidGlassSupported = false;
+
+try {
+  const lg = require('@callstack/liquid-glass');
+  if (lg.isLiquidGlassSupported) {
+    LiquidGlassViewComponent = lg.LiquidGlassView;
+    _isLiquidGlassSupported = true;
+  }
+} catch {
+  // Native module not available — fallback tab bar will render
+}
+
+// ─── TAB CONFIG ─────────────────────────────────────────
+const TAB_CONFIG: Record<string, { label: string; icon: string }> = {
+  index: { label: 'Home', icon: 'home' },
+  workout: { label: 'Workout', icon: 'male' },
+  'ai-trainer': { label: 'Kyro', icon: 'reddit-alien' },
+  calories: { label: 'Calories', icon: 'fire' },
+  profile: { label: 'Profile', icon: 'user-circle' },
+};
+
+// ─── iOS 26 — CRITICALLY DAMPED SPRING ──────────────────
+const APPLE_SPRING = {
+  damping: 24,
+  stiffness: 260,
+  mass: 0.8,
+  overshootClamping: true,
+};
+
+const TAP_SPRING = { damping: 22, stiffness: 400 };
+
+// ─── iOS 26 COLORS ──────────────────────────────────────
+const LG = {
+  active: '#1FA463',
+  inactive: 'rgba(255,255,255,0.55)',
+  capsule: 'rgba(255,255,255,0.06)',
+  capsuleBorder: 'rgba(255,255,255,0.04)',
+};
+
+// ═══════════════════════════════════════════════════════════
+// TAB ITEM (iOS 26) — subtle press response
+// ═══════════════════════════════════════════════════════════
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function TabItem({
+  route,
+  isFocused,
+  onPress,
+  onLongPress,
+}: {
+  route: any;
+  isFocused: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  const config = TAB_CONFIG[route.name] || { label: route.name, icon: 'circle' };
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={isFocused ? { selected: true } : {}}
+      onPressIn={() => {
+        scale.value = withSpring(0.96, TAP_SPRING);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, TAP_SPRING);
+      }}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={[
+        {
+          flex: 1,
+          alignItems: 'center' as const,
+          justifyContent: 'center' as const,
+          paddingVertical: 7,
+        },
+        animStyle,
+      ]}
+    >
+      <FontAwesome
+        name={config.icon as any}
+        size={22}
+        color={isFocused ? LG.active : LG.inactive}
+      />
+      <Text
+        style={{
+          fontSize: 10,
+          fontWeight: isFocused ? '600' : '400',
+          color: isFocused ? LG.active : LG.inactive,
+          marginTop: 3,
+          letterSpacing: -0.1,
+        }}
+      >
+        {config.label}
+      </Text>
+    </AnimatedPressable>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// iOS 26 LIQUID GLASS DOCK — TAP-BASED, RESTRAINED
+// Uses @callstack/liquid-glass native view for real glass material
+// ═══════════════════════════════════════════════════════════
+function LiquidGlassDock({ state, descriptors, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const [barWidth, setBarWidth] = useState(0);
+  const numTabs = state.routes.length;
+  const tabWidth = numTabs > 0 ? barWidth / numTabs : 0;
+
+  const capsuleX = useSharedValue(0);
+
+  useEffect(() => {
+    if (barWidth > 0) {
+      capsuleX.value = withSpring(state.index * tabWidth, APPLE_SPRING);
+    }
+  }, [state.index, barWidth, tabWidth]);
+
+  const capsuleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: capsuleX.value }],
+  }));
+
+  const handlePress = useCallback(
+    (route: any, index: number) => {
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+      if (state.index !== index && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    },
+    [navigation, state.index],
+  );
+
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        bottom: Math.max(insets.bottom, 8) + 4,
+        left: 16,
+        right: 16,
+      }}
+    >
+      <LiquidGlassViewComponent
+        effect="regular"
+        colorScheme="dark"
+        style={{
+          borderRadius: 36,
+          overflow: 'hidden' as const,
+        }}
+      >
+        <View
+          onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 4,
+            paddingHorizontal: 4,
+          }}
+        >
+          {barWidth > 0 && (
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  top: 3,
+                  bottom: 3,
+                  left: 4,
+                  width: tabWidth - 8,
+                  borderRadius: 30,
+                  backgroundColor: LG.capsule,
+                  borderWidth: 0.5,
+                  borderColor: LG.capsuleBorder,
+                },
+                capsuleStyle,
+              ]}
+            />
+          )}
+
+          {state.routes.map((route, index) => (
+            <TabItem
+              key={route.key}
+              route={route}
+              isFocused={state.index === index}
+              onPress={() => handlePress(route, index)}
+              onLongPress={() =>
+                navigation.emit({ type: 'tabLongPress', target: route.key })
+              }
+            />
+          ))}
+        </View>
+      </LiquidGlassViewComponent>
+    </View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// FALLBACK TAB BAR — existing design, UNCHANGED
+// For Android + iOS < 26 + unsupported devices
+// ═══════════════════════════════════════════════════════════
 const NOTCH_SIZE = 80;
 const CENTER_BTN_SIZE = 68;
 const BAR_RADIUS = 35;
@@ -20,17 +237,7 @@ const TC = {
   screenBg: '#050505',
 };
 
-// ─── TAB CONFIG ─────────────────────────────────────────
-const TAB_CONFIG: Record<string, { label: string; icon: string }> = {
-  index: { label: 'Home', icon: 'home' },
-  workout: { label: 'Workout', icon: 'male' },
-  'ai-trainer': { label: 'Kyro', icon: 'reddit-alien' },
-  calories: { label: 'Calories', icon: 'fire' },
-  profile: { label: 'Profile', icon: 'user-circle' },
-};
-
-// ─── COMPONENT ──────────────────────────────────────────
-export default function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function FallbackTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const centerIndex = Math.floor(state.routes.length / 2);
 
   const getHandlers = (route: any, isFocused: boolean) => ({
@@ -256,4 +463,14 @@ export default function GlassTabBar({ state, descriptors, navigation }: BottomTa
       </View>
     </View>
   );
+}
+
+// ═══════════════════════════════════════════════════════════
+// SMART GATE — LiquidGlassDock on iOS 26, fallback elsewhere
+// ═══════════════════════════════════════════════════════════
+export default function GlassTabBar(props: BottomTabBarProps) {
+  if (_isLiquidGlassSupported) {
+    return <LiquidGlassDock {...props} />;
+  }
+  return <FallbackTabBar {...props} />;
 }

@@ -7,9 +7,13 @@
     "icon": "./assets/images/RealLogo.png",
     "scheme": "client",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.getfit.fitness",
+      "icon": {
+        "source": "./assets/images/RealLogo.png",
+        "backgroundColor": "#1B4332"
+      },
       "supportsTablet": true,
       "infoPlist": {
         "NSHealthShareUsageDescription": "GetFit reads your step count and active energy burned to display accurate fitness data",
