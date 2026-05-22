@@ -22,7 +22,6 @@ import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Text as S
 import { getUserProfile, getWeeklyCalories, setAuthToken, updateUserProfile } from '../../services/api';
 
 import { ProfileSkeleton } from '../../components/SkeletonScreens';
-import SwipeableTabView from '../../components/SwipeableTabView';
 
 // ─── THEME ──────────────────────────────────────────────
 const C = {
@@ -322,7 +321,6 @@ export default function ProfileScreen() {
   const bodyTypeLabel = (b: string) => b === 'ectomorph' ? 'Ectomorph' : b === 'mesomorph' ? 'Mesomorph' : b === 'endomorph' ? 'Endomorph' : '—';
 
   return (
-    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {/* Subtle top-right radial glow */}
       <View style={{
@@ -574,6 +572,5 @@ export default function ProfileScreen() {
 
       </SafeAreaView>
     </View>
-    </SwipeableTabView>
   );
 }

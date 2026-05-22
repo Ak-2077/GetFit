@@ -82,7 +82,7 @@ export default function TabLayout() {
       tabBar={(props: React.ComponentProps<typeof GlassTabBar>) => <GlassTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        lazy: false,
+        lazy: true,
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',

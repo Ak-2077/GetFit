@@ -10,7 +10,6 @@ import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadN
 import { useFitness } from '../../hooks/useFitness';
 import { HomeSkeleton } from '../../components/SkeletonScreens';
 import NutritionStreak from '../../components/NutritionStreak';
-import SwipeableTabView from '../../components/SwipeableTabView';
 
 const C = {
   bg: '#060D09', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(29,36,31,0.18)', accent: '#1FA463',
@@ -103,7 +102,6 @@ export default function HomeScreen() {
   };
 
   return (
-    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
       <SafeAreaView style={{ flex: 1 }}>
@@ -233,24 +231,6 @@ export default function HomeScreen() {
           {/* ═══ MONTHLY NUTRITION STREAK ═══ */}
           <NutritionStreak />
 
-          {/* ═══ TODAY'S WORKOUT ═══ */}
-          <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Today's Workout</Text>
-          <View style={{ backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, padding: 18, marginBottom: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,107,107,0.12)', justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-                <Ionicons name="barbell-outline" size={22} color={C.burn} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.white, fontSize: 15, fontWeight: '700' }}>Full  Workout</Text>
-                <Text style={{ color: C.label, fontSize: 12, marginTop: 2 }}>45 min • {user?.level || 'Intermediate'}</Text>
-              </View>
-            </View>
-            <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/home-workout' as any)} style={{ borderRadius: 14, overflow: 'hidden' }}>
-              <LinearGradient colors={[C.accent, '#178A52']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={{ height: 46, justifyContent: 'center', alignItems: 'center', borderRadius: 14 }}>
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Start Workout</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
 
           {/* ═══ QUICK ACTIONS ═══ */}
           <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Quick Actions</Text>
@@ -270,6 +250,5 @@ export default function HomeScreen() {
         </ScrollView>
       </SafeAreaView>
     </View>
-    </SwipeableTabView>
   );
 }

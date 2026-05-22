@@ -10,7 +10,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserProfile, setAuthToken } from '../../services/api';
 import { WorkoutSkeleton } from '../../components/SkeletonScreens';
-import SwipeableTabView from '../../components/SwipeableTabView';
 
 
 // ── Design tokens ──
@@ -236,7 +235,6 @@ export default function WorkoutScreen() {
   };
 
   return (
-    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {/* Ambient glow */}
       <View
@@ -452,6 +450,5 @@ export default function WorkoutScreen() {
         </ScrollView>
       </SafeAreaView>
     </View>
-    </SwipeableTabView>
   );
 }

@@ -11,7 +11,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserProfile, setAuthToken } from '../../services/api';
 import { AITrainerSkeleton } from '../../components/SkeletonScreens';
-import SwipeableTabView from '../../components/SwipeableTabView';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -91,7 +90,6 @@ export default function AITrainerScreen() {
   // ═══════════════════════════════════════
   if (!isUnlocked) {
     return (
-      <SwipeableTabView>
       <View style={s.root}>
         <View style={{ position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
         <SafeAreaView style={{ flex: 1 }}>
@@ -176,7 +174,6 @@ export default function AITrainerScreen() {
           </ScrollView>
         </SafeAreaView>
       </View>
-      </SwipeableTabView>
     );
   }
 
@@ -193,7 +190,6 @@ export default function AITrainerScreen() {
   };
 
   return (
-    <SwipeableTabView>
     <View style={s.root}>
       <View style={{ position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
       <View style={{ position: 'absolute', bottom: -80, left: -80, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(100,231,241,0.03)' }} />
@@ -391,7 +387,6 @@ export default function AITrainerScreen() {
         </ScrollView>
       </SafeAreaView>
     </View>
-    </SwipeableTabView>
   );
 }
 

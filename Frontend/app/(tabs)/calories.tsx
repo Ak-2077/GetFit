@@ -81,7 +81,6 @@ import { FitnessService } from '../../services/fitness';
 import { HealthKitPermissionCard } from '../../components/HealthKitPermissionCard';
 
 import { AndroidActivityPermissionCard } from '../../components/AndroidActivityPermissionCard';
-import SwipeableTabView from '../../components/SwipeableTabView';
 
 
 
@@ -1509,7 +1508,6 @@ export default function CaloriesScreen() {
 
   return (
 
-    <SwipeableTabView>
     <View style={{ flex: 1, backgroundColor: C.bg }}>
 
       {/* Top-right radial glow — same as Profile */}
@@ -2983,7 +2981,6 @@ export default function CaloriesScreen() {
       </Modal>
 
     </View>
-    </SwipeableTabView>
 
   );
 
