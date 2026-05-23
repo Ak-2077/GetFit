@@ -201,8 +201,10 @@ export default function FoodDetailsScreen() {
 
       let foodId = food._id;
 
-      // If food has no DB _id (from AI scan), create it first
-      if (!foodId || foodId.startsWith('usda_') || foodId.startsWith('fallback_')) {
+      // If food has no DB _id (from AI scan / USDA), create it first
+      // Valid Mongo ObjectIds are 24-char hex strings; anything else needs to be created
+      const isValidMongoId = typeof foodId === 'string' && /^[a-f0-9]{24}$/i.test(foodId);
+      if (!foodId || !isValidMongoId) {
         const createRes = await addBrandFood({
           name: food.name || 'Unknown Food',
           brand: food.brand || undefined,
@@ -210,7 +212,12 @@ export default function FoodDetailsScreen() {
           protein: Number((food.protein || 0).toFixed(1)),
           carbs: Number((food.carbs || 0).toFixed(1)),
           fat: Number((food.fat || 0).toFixed(1)),
+          fiber: Number((food.fiber || 0).toFixed(1)),
+          sugar: Number((food.sugar || 0).toFixed(1)),
+          servingSize: food.servingSize || `${servingAmount}${servingUnit}`,
+          servingUnit,
           barcode: food.barcode || undefined,
+          origin: food.source === 'usda' ? 'USDA' : undefined,
         });
         const createdFood = createRes?.data?.food;
         if (createdFood?._id) {
@@ -234,8 +241,9 @@ export default function FoodDetailsScreen() {
       Alert.alert('Added', `${food.name || 'Food'} added to your log.`, [
         { text: 'OK', onPress: () => router.replace('/(tabs)/calories') },
       ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add food to log.');
+    } catch (error: any) {
+      console.log('[ADD-TO-LOG-ERROR]', error?.response?.data || error?.message || error);
+      Alert.alert('Error', error?.response?.data?.message || 'Failed to add food to log.');
     } finally {
       setAdding(false);
     }
