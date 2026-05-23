@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Dimensions, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Dimensions, Alert, Animated, Easing } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -49,6 +50,8 @@ export default function AIDietScreen() {
   const [step, setStep] = useState<Step>('goal');
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Questionnaire state
   const [goal, setGoal] = useState('');
@@ -93,39 +96,136 @@ export default function AIDietScreen() {
 
   const [error, setError] = useState('');
 
+  const progressTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const startProgressAnimation = () => {
+    // Clear any existing timers
+    progressTimers.current.forEach(t => clearTimeout(t));
+    progressTimers.current = [];
+
+    setLoadProgress(0);
+    progressAnim.setValue(0);
+
+    // Simulate realistic loading stages
+    const stages = [
+      { target: 15, delay: 300 },
+      { target: 30, delay: 1200 },
+      { target: 45, delay: 2500 },
+      { target: 60, delay: 4000 },
+      { target: 72, delay: 6000 },
+      { target: 85, delay: 8500 },
+      { target: 92, delay: 11000 },
+      { target: 95, delay: 14000 },
+    ];
+
+    stages.forEach(({ target, delay }) => {
+      const timer = setTimeout(() => {
+        setLoadProgress(target);
+        Animated.timing(progressAnim, {
+          toValue: target,
+          duration: 800,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+      }, delay);
+      progressTimers.current.push(timer);
+    });
+  };
+
+  const completeProgress = (callback: () => void) => {
+    progressTimers.current.forEach(t => clearTimeout(t));
+    progressTimers.current = [];
+    setLoadProgress(100);
+    Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(() => {
+      setTimeout(callback, 300);
+    });
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     setError('');
+    startProgressAnimation();
     try {
       const res = await generateAIDiet({
         goal, mealsPerDay, cuisine, cookingTime, budget,
         allergies, healthConditions, additionalNotes: notes,
       });
-      setResult(res.data);
+      completeProgress(() => {
+        setResult(res.data);
+        setGenerating(false);
+      });
     } catch (e: any) {
+      progressTimers.current.forEach(t => clearTimeout(t));
+      progressTimers.current = [];
       const msg = e?.response?.data?.message || e?.message || 'Something went wrong';
       console.warn('Diet generation error:', msg, e?.response?.status);
       setError(msg);
+      setGenerating(false);
       Alert.alert('Generation Failed', `${msg}\n\nPlease try again.`, [
         { text: 'Retry', onPress: () => handleGenerate() },
         { text: 'Back', onPress: () => setStep('restrictions'), style: 'cancel' },
       ]);
-    } finally {
-      setGenerating(false);
     }
   };
 
   // ── Loading Screen ──
+  const CIRCLE_SIZE = 140;
+  const STROKE_WIDTH = 8;
+  const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+  const getLoadingMessage = () => {
+    if (loadProgress < 20) return 'Analyzing your profile...';
+    if (loadProgress < 45) return 'Calculating macros & calories...';
+    if (loadProgress < 65) return `Building ${cuisine} meal options...`;
+    if (loadProgress < 85) return 'Optimizing your meal plan...';
+    if (loadProgress < 100) return 'Finalizing your diet plan...';
+    return 'Done!';
+  };
+
   if (generating) {
+    const strokeDashoffset = CIRCUMFERENCE - (CIRCUMFERENCE * loadProgress) / 100;
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: C.accentDim, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
-          <Ionicons name="nutrition" size={36} color={C.accent} />
+        {/* Circular Progress Ring */}
+        <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE, justifyContent: 'center', alignItems: 'center', marginBottom: 28 }}>
+          <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} style={{ transform: [{ rotate: '-90deg' }] }}>
+            {/* Background circle */}
+            <Circle
+              cx={CIRCLE_SIZE / 2}
+              cy={CIRCLE_SIZE / 2}
+              r={RADIUS}
+              stroke="rgba(255,255,255,0.08)"
+              strokeWidth={STROKE_WIDTH}
+              fill="transparent"
+            />
+            {/* Progress circle */}
+            <Circle
+              cx={CIRCLE_SIZE / 2}
+              cy={CIRCLE_SIZE / 2}
+              r={RADIUS}
+              stroke={C.accent}
+              strokeWidth={STROKE_WIDTH}
+              fill="transparent"
+              strokeDasharray={`${CIRCUMFERENCE}`}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+            />
+          </Svg>
+          {/* Percentage text in center */}
+          <View style={{ position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: C.white, fontSize: 32, fontWeight: '800' }}>{loadProgress}%</Text>
+          </View>
         </View>
-        <ActivityIndicator size="large" color={C.accent} />
-        <Text style={{ color: C.white, fontSize: 16, fontWeight: '700', marginTop: 16 }}>Generating Your Plan</Text>
-        <Text style={{ color: C.label, fontSize: 13, marginTop: 6, textAlign: 'center', paddingHorizontal: 40 }}>
-          AI is creating a personalized {cuisine} diet plan for your {goal} goal...
+
+        <Text style={{ color: C.white, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Generating Your Plan</Text>
+        <Text style={{ color: C.label, fontSize: 13, textAlign: 'center', paddingHorizontal: 40, marginBottom: 4 }}>
+          {getLoadingMessage()}
         </Text>
       </View>
     );

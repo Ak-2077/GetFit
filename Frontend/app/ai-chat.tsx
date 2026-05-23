@@ -439,8 +439,8 @@ export default function AIChatScreen() {
         {/* Messages */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
           <FlatList
             ref={flatListRef}
@@ -492,7 +492,7 @@ export default function AIChatScreen() {
               <TextInput
                 value={input}
                 onChangeText={setInput}
-                placeholder="Message Kyro..."
+                placeholder="Ask anything to Kyro..."
                 placeholderTextColor={C.muted}
                 style={{ flex: 1, fontSize: 14, color: C.white, maxHeight: 100 }}
                 multiline
