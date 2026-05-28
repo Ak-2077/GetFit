@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Text, TextInput } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, Poppins_400Regular, Poppins_500Medium } from '@expo-google-fonts/poppins';
 import * as SplashScreen from 'expo-splash-screen';
 

@@ -333,7 +333,9 @@ export const getFoodByBarcode = async (req, res) => {
 
     if (cached) {
       // Auto-fix stale cache: OFF values are per 100g, servingSize must be '100g'
-      needsRefresh = cached.source === 'openfoodfacts' && cached.servingSize !== '100g';
+      // Also refresh if all nutrition values are 0 (incomplete OFF entry)
+      const hasNutrition = (cached.calories || 0) + (cached.protein || 0) + (cached.carbs || 0) + (cached.fat || 0) > 0;
+      needsRefresh = !hasNutrition || (cached.source === 'openfoodfacts' && cached.servingSize !== '100g');
       if (!needsRefresh) {
         const foodDoc = await persistToFoodCollection(cached.toObject ? cached.toObject() : cached);
         return res.status(200).json({ food: cacheToResponse(cached, foodDoc), source: 'cache' });
@@ -378,9 +380,29 @@ export const getFoodByBarcode = async (req, res) => {
     // ── 3. Open Food Facts API ──
     let apiResult = await lookupOpenFoodFacts(normalizedBarcode);
 
-    // ── 4. USDA fallback ──
-    if (!apiResult) {
-      apiResult = await lookupUSDA(normalizedBarcode);
+    // ── 4. USDA fallback — also when OFF has no nutrition data ──
+    const offHasNutrition = apiResult && ((apiResult.calories || 0) + (apiResult.protein || 0) + (apiResult.carbs || 0) + (apiResult.fat || 0) > 0);
+    if (!apiResult || !offHasNutrition) {
+      const offMeta = apiResult; // keep OFF metadata (name, image, brand) if available
+      const usdaResult = await lookupUSDA(normalizedBarcode);
+      if (usdaResult && ((usdaResult.calories || 0) + (usdaResult.protein || 0) + (usdaResult.carbs || 0) + (usdaResult.fat || 0) > 0)) {
+        // Merge: prefer OFF metadata (name, image, brand, origin) but use USDA nutrition
+        if (offMeta) {
+          apiResult = {
+            ...usdaResult,
+            productName: offMeta.productName || usdaResult.productName,
+            brand: offMeta.brand || usdaResult.brand,
+            image: offMeta.image || usdaResult.image,
+            origin: offMeta.origin || usdaResult.origin,
+            category: offMeta.category || usdaResult.category,
+            source: 'usda',
+          };
+        } else {
+          apiResult = usdaResult;
+        }
+      }
+      // If USDA also has nothing, keep whatever OFF returned (even if 0)
+      if (!apiResult) apiResult = offMeta;
     }
 
     if (!apiResult) {
