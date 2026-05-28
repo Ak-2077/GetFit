@@ -5,7 +5,7 @@ from app.core.llm import ollama
 from app.core.cache import cache_get, cache_set
 import json as _json
 import logging
-
+  
 logger = logging.getLogger("getfit-ai")
 
 router = APIRouter()

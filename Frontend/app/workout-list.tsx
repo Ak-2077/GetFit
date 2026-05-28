@@ -129,7 +129,7 @@ export default function WorkoutListScreen() {
   }, [allWorkouts]);
 
   if (loading) return <WorkoutListSkeleton />;
-
+         
   const planRank = PLAN_RANK[currentPlan] ?? 0;
   const isTabLocked = (tabKey: string) => (PLAN_RANK[tabKey] ?? 0) > planRank;
   const isWorkoutLocked = (workout: any) => (PLAN_RANK[String(workout?.level || 'basic')] ?? 0) > planRank;
@@ -482,4 +482,3 @@ export default function WorkoutListScreen() {
     </View>
   );
 }
- 

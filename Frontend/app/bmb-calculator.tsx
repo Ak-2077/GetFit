@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { calculateBMB, generateBMBPlan } from '../services/api';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 
-const C = { bg: '#060D09', card: '#0F1A13', cardBorder: 'rgba(31,164,99,0.12)', accent: '#1FA463', white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)' };
+const C = { bg: '#050505', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(255,255,255,0.06)', accent: '#1FA463', white: '#F0F0F0', label: 'rgba(255,255,255,0.50)', muted: 'rgba(255,255,255,0.30)' };
 
 const GOALS = [
   { key: 'lose', label: 'Lose Weight', icon: 'trending-down-outline' as const, color: '#FF6B6B' },
@@ -122,7 +122,7 @@ export default function BMBScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <View style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(31,164,99,0.06)' }} />
+      <View style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(31,164,99,0.04)' }} />
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
@@ -141,8 +141,8 @@ export default function BMBScreen() {
             {/* ═══ SETUP MODE ═══ */}
             {mode === 'setup' && !setupResult && (
               <>
-                <View style={{ backgroundColor: 'rgba(31,164,99,0.08)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(31,164,99,0.15)', padding: 14, marginBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(31,164,99,0.15)', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 14, marginBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
                     <Ionicons name="information-circle-outline" size={18} color={C.accent} />
                   </View>
                   <Text style={{ fontSize: 11, color: C.label, flex: 1, lineHeight: 16 }}>Fill your details to get personalized daily macros</Text>
@@ -158,7 +158,7 @@ export default function BMBScreen() {
                         </View>
                         <Text style={{ fontSize: 12, fontWeight: '700', color: C.white }}>{l}</Text>
                       </View>
-                      <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(31,164,99,0.1)', paddingHorizontal: 14, height: 48, justifyContent: 'center' }}>
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, paddingHorizontal: 14, height: 48, justifyContent: 'center' }}>
                         <TextInput style={{ color: C.white, fontSize: 16, fontWeight: '600' }} placeholder={p} placeholderTextColor={C.muted} keyboardType="numeric" value={v} onChangeText={s} />
                       </View>
                     </View>
@@ -170,7 +170,7 @@ export default function BMBScreen() {
                 <View style={{ marginBottom: 24 }}>
                   {GOALS.map((g) => (
                     <TouchableOpacity key={g.key} onPress={() => setGoal(g.key)} activeOpacity={0.7} style={{ marginBottom: 10 }}>
-                      <View style={{ backgroundColor: goal === g.key ? 'rgba(31,164,99,0.15)' : C.card, borderRadius: 14, borderWidth: 2, borderColor: goal === g.key ? C.accent : C.cardBorder, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ backgroundColor: goal === g.key ? 'rgba(31,164,99,0.10)' : C.card, borderRadius: 14, borderWidth: 2, borderColor: goal === g.key ? C.accent : C.cardBorder, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: `${g.color}20`, justifyContent: 'center', alignItems: 'center' }}>
                           <Ionicons name={g.icon} size={18} color={g.color} />
                         </View>
@@ -254,8 +254,8 @@ export default function BMBScreen() {
             {/* ═══ METER MODE ═══ */}
             {mode === 'meter' && !meterResult && (
               <>
-                <View style={{ backgroundColor: 'rgba(31,164,99,0.08)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(31,164,99,0.15)', padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(31,164,99,0.15)', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
                     <Ionicons name="nutrition-outline" size={18} color={C.accent} />
                   </View>
                   <Text style={{ fontSize: 11, color: C.label, flex: 1, lineHeight: 16 }}>Enter your meal macros to analyze balance</Text>
@@ -270,7 +270,7 @@ export default function BMBScreen() {
                         </View>
                         <Text style={{ fontSize: 12, fontWeight: '700', color: C.white }}>{l}</Text>
                       </View>
-                      <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(31,164,99,0.1)', paddingHorizontal: 14, height: 48, justifyContent: 'center' }}>
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder, paddingHorizontal: 14, height: 48, justifyContent: 'center' }}>
                         <TextInput style={{ color: C.white, fontSize: 16, fontWeight: '600' }} placeholder={p} placeholderTextColor={C.muted} keyboardType="numeric" value={v} onChangeText={s} />
                       </View>
                     </View>
@@ -325,7 +325,7 @@ export default function BMBScreen() {
                     <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>💡 Tips</Text>
                     {meterResult.tips.map((t: string, i: number) => (
                       <View key={i} style={{ flexDirection: 'row', marginBottom: 10, alignItems: 'flex-start' }}>
-                        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(31,164,99,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 10, marginTop: 2, flexShrink: 0 }}>
+                        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center', marginRight: 10, marginTop: 2, flexShrink: 0 }}>
                           <Ionicons name="checkmark" size={12} color={C.accent} />
                         </View>
                         <Text style={{ color: C.white, fontSize: 12, flex: 1, lineHeight: 18 }}>{t}</Text>
