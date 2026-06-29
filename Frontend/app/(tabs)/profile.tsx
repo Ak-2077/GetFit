@@ -124,25 +124,6 @@ function UniformCard({ icon, iconSource, label, value, badge, badgeColor, onPres
   return content;
 }
 
-// ─── INSIGHT CARD (compact snippet) ─────────────────────
-function InsightCard({ goal, diff }: { goal: string; diff: number }) {
-  const isGain = goal === 'gain';
-  const isLose = goal === 'lose';
-  const emoji = isGain ? '' : isLose ? '' : '';
-  const insight = isGain
-    ? `+${diff} kcal surplus for muscle gain`
-    : isLose
-    ? `${diff} kcal deficit for fat loss`
-    : 'Balanced intake for maintenance';
-  // return (
-  //   <DarkCard style={{ flex: 1, padding: 14, justifyContent: 'center' }}>
-  //     <Text style={{ fontSize: 18, marginBottom: 4 }}>{emoji}</Text>
-  //     <Text style={{ fontSize: 11, color: C.label, marginBottom: 2 }}>Goal Insight</Text>
-  //     <Text style={{ fontSize: 12, fontWeight: '600', color: C.accent, lineHeight: 16 }}>{insight}</Text>
-  //   </DarkCard>
-  // );
-}
-
 // ─── WEEKLY CHART (PRESERVED + RESTYLED) ────────────────
 interface WeeklyDataPoint { day: string; calories: number; }
 interface ChartProps { weeklyData: WeeklyDataPoint[]; goalCalories: number; bmi: number | null; loading: boolean; }
@@ -334,7 +315,7 @@ export default function ProfileScreen() {
         backgroundColor: 'rgba(31,164,99,0.04)',
       }} />
 
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
@@ -410,10 +391,11 @@ export default function ProfileScreen() {
                   </LinearGradient>
                 )}
               </View>
-              {/* Initial */}
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: C.muted }}>{(user?.name || '?').charAt(0).toUpperCase()}</Text>
-              </View>
+              {/* Edit profile affordance */}
+              <TouchableOpacity onPress={() => router.push('/auth/profile-settings' as any)} activeOpacity={0.7}
+                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(31,164,99,0.10)', borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center' }}>
+                <FontAwesome name="pencil" size={14} color={C.accent} />
+              </TouchableOpacity>
             </View>
           </DarkCard>
 
@@ -511,6 +493,27 @@ export default function ProfileScreen() {
               /upgrade page. The Profile tab only shows the avatar border /
               member badge in the header — see "USER CARD" above. */}
 
+
+          {/* ═══ ACCOUNT ═══ */}
+          <Text style={{ fontSize: 13, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
+            Account
+          </Text>
+          <DarkCard style={{ marginBottom: 24, overflow: 'hidden' }}>
+            {[
+              { icon: 'star', label: user?.subscriptionPlan && user.subscriptionPlan !== 'free' ? 'Manage Subscription' : 'Upgrade to Premium', color: C.gold, route: '/upgrade' },
+              { icon: 'cog', label: 'Settings & Privacy', color: C.label, route: '/auth/profile-settings' },
+              { icon: 'bell', label: 'Notifications', color: '#60A5FA', route: '/auth/profile-settings' },
+            ].map((row, i, arr) => (
+              <TouchableOpacity key={row.label} onPress={() => router.push(row.route as any)} activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${row.color === C.label ? 'rgba(255,255,255,0.06)' : `${row.color}18`}`, justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
+                  <FontAwesome name={row.icon as any} size={15} color={row.color} />
+                </View>
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: C.white }}>{row.label}</Text>
+                <FontAwesome name="chevron-right" size={12} color={C.muted} />
+              </TouchableOpacity>
+            ))}
+          </DarkCard>
 
           {/* ═══ INCOMPLETE PROFILE BANNER ═══ */}
           {user?.onboardingCompleted === false && (

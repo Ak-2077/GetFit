@@ -7,16 +7,15 @@ import { resolveActivePlan } from '../services/subscriptionService.js';
  * trivial premium-bypass exploit.
  *
  * Real upgrades now go through:
- *   POST /api/payments/razorpay/create-order
- *   POST /api/payments/razorpay/verify
- *
- * This stub is kept only so older client builds get a clean,
- * informative error instead of a silent unlock.
+ *   POST /api/payments/google/verify
+ *   POST /api/payments/apple/verify
+ * ──────────────────────────────────────────────────────────────
  */
-export const upgradePlan = async (_req, res) => {
+
+export const upgradeSubscription = async (req, res) => {
   return res.status(410).json({
     message:
-      'This endpoint is deprecated. Use /api/payments/razorpay/create-order to start a real payment.',
+      'This endpoint is deprecated. Use the native platform billing endpoints (/api/payments/google/verify or /api/payments/apple/verify) to verify real payments.',
     code: 'UPGRADE_FLOW_CHANGED',
   });
 };

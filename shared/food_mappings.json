@@ -1,0 +1,777 @@
+{
+  "_meta": {
+    "version": "2.0.0",
+    "description": "Single source of truth for food name resolution, USDA mapping, and categorization. ALL other inline maps are REMOVED.",
+    "updated": "2026-05-29",
+    "total_foods": 95,
+    "usage": "Loaded by ai-service (Python) and Backend (Node.js). Do NOT duplicate mappings elsewhere."
+  },
+  "foods": {
+    "hard_boiled_egg": {
+      "canonical": "hard_boiled_egg",
+      "usda_term": "Egg, whole, cooked, hard-boiled",
+      "category": "protein",
+      "per_unit_grams": 50,
+      "aliases": ["egg", "boiled egg", "hard boiled egg", "hard-boiled egg"],
+      "micronutrients_per_100g": {"iron": 1.2, "calcium": 50, "vitamin_d": 2.2, "vitamin_b12": 1.1, "potassium": 126, "magnesium": 10, "zinc": 1.0}
+    },
+    "soft_boiled_egg": {
+      "canonical": "soft_boiled_egg",
+      "usda_term": "Egg, whole, cooked, hard-boiled",
+      "category": "protein",
+      "per_unit_grams": 50,
+      "aliases": ["soft boiled egg", "soft-boiled egg", "runny egg"]
+    },
+    "fried_egg": {
+      "canonical": "fried_egg",
+      "usda_term": "Egg, whole, cooked, fried",
+      "category": "protein",
+      "per_unit_grams": 55,
+      "aliases": ["fried egg", "sunny side up", "over easy egg"]
+    },
+    "scrambled_egg": {
+      "canonical": "scrambled_egg",
+      "usda_term": "Egg, whole, cooked, scrambled",
+      "category": "protein",
+      "per_unit_grams": 60,
+      "aliases": ["scrambled egg", "scrambled eggs"]
+    },
+    "omelette": {
+      "canonical": "omelette",
+      "usda_term": "Egg, whole, cooked, omelet",
+      "category": "protein",
+      "per_unit_grams": 120,
+      "aliases": ["omelette", "omelet", "egg omelette"]
+    },
+    "poached_egg": {
+      "canonical": "poached_egg",
+      "usda_term": "Egg, whole, cooked, poached",
+      "category": "protein",
+      "per_unit_grams": 50,
+      "aliases": ["poached egg"]
+    },
+    "egg_white": {
+      "canonical": "egg_white",
+      "usda_term": "Egg, white, raw, fresh",
+      "category": "protein",
+      "per_unit_grams": 33,
+      "aliases": ["egg white"]
+    },
+    "egg_curry": {
+      "canonical": "egg_curry",
+      "usda_term": "Egg curry",
+      "category": "protein",
+      "per_unit_grams": 200,
+      "aliases": ["egg curry"]
+    },
+    "white_rice": {
+      "canonical": "white_rice",
+      "usda_term": "Rice, white, long-grain, regular, cooked",
+      "category": "grain",
+      "per_unit_grams": 200,
+      "aliases": ["rice", "white rice", "steamed rice", "cooked rice", "basmati rice"],
+      "micronutrients_per_100g": {"iron": 0.2, "calcium": 10, "potassium": 35, "magnesium": 12, "zinc": 0.5}
+    },
+    "brown_rice": {
+      "canonical": "brown_rice",
+      "usda_term": "Rice, brown, long-grain, cooked",
+      "category": "grain",
+      "per_unit_grams": 200,
+      "aliases": ["brown rice"]
+    },
+    "fried_rice": {
+      "canonical": "fried_rice",
+      "usda_term": "Rice, fried, Chinese restaurant",
+      "category": "grain",
+      "per_unit_grams": 250,
+      "aliases": ["fried rice", "egg fried rice"]
+    },
+    "biryani": {
+      "canonical": "biryani",
+      "usda_term": "Rice, fried, Chinese restaurant",
+      "category": "grain",
+      "per_unit_grams": 300,
+      "aliases": ["biryani", "chicken biryani", "veg biryani", "mutton biryani"]
+    },
+    "pulao": {
+      "canonical": "pulao",
+      "usda_term": "Rice, white, long-grain, regular, cooked",
+      "category": "grain",
+      "per_unit_grams": 200,
+      "aliases": ["pulao", "rice pilaf", "jeera rice", "lemon rice", "curd rice"]
+    },
+    "khichdi": {
+      "canonical": "khichdi",
+      "usda_term": "Lentils, mature seeds, cooked, boiled",
+      "category": "grain",
+      "per_unit_grams": 250,
+      "aliases": ["khichdi"]
+    },
+    "chicken_breast": {
+      "canonical": "chicken_breast",
+      "usda_term": "Chicken, broilers or fryers, breast, meat only, cooked, roasted",
+      "category": "protein",
+      "per_unit_grams": 120,
+      "aliases": ["chicken", "chicken breast", "grilled chicken", "grilled chicken breast", "roasted chicken"],
+      "micronutrients_per_100g": {"iron": 0.7, "calcium": 15, "vitamin_b12": 0.3, "potassium": 256, "magnesium": 29, "zinc": 1.0}
+    },
+    "chicken_fried": {
+      "canonical": "chicken_fried",
+      "usda_term": "Chicken, broilers or fryers, breast, meat and skin, cooked, fried, batter",
+      "category": "protein",
+      "per_unit_grams": 140,
+      "aliases": ["fried chicken", "crispy chicken"]
+    },
+    "chicken_tandoori": {
+      "canonical": "chicken_tandoori",
+      "usda_term": "Chicken, broilers or fryers, leg, meat only, cooked, roasted",
+      "category": "protein",
+      "per_unit_grams": 150,
+      "aliases": ["tandoori chicken", "chicken tikka"]
+    },
+    "chicken_curry": {
+      "canonical": "chicken_curry",
+      "usda_term": "Chicken curry",
+      "category": "protein",
+      "per_unit_grams": 200,
+      "aliases": ["chicken curry"]
+    },
+    "butter_chicken": {
+      "canonical": "butter_chicken",
+      "usda_term": "Butter chicken",
+      "category": "protein",
+      "per_unit_grams": 200,
+      "aliases": ["butter chicken"]
+    },
+    "chicken_thigh": {
+      "canonical": "chicken_thigh",
+      "usda_term": "Chicken, broilers or fryers, thigh, meat only, cooked, roasted",
+      "category": "protein",
+      "per_unit_grams": 100,
+      "aliases": ["chicken thigh"]
+    },
+    "chicken_leg": {
+      "canonical": "chicken_leg",
+      "usda_term": "Chicken, broilers or fryers, leg, meat only, cooked, roasted",
+      "category": "protein",
+      "per_unit_grams": 180,
+      "aliases": ["chicken leg"]
+    },
+    "chicken_wing": {
+      "canonical": "chicken_wing",
+      "usda_term": "Chicken, broilers or fryers, wing, meat and skin, cooked, roasted",
+      "category": "protein",
+      "per_unit_grams": 60,
+      "aliases": ["chicken wing"]
+    },
+    "seekh_kebab": {
+      "canonical": "seekh_kebab",
+      "usda_term": "Lamb, ground, cooked, broiled",
+      "category": "protein",
+      "per_unit_grams": 80,
+      "aliases": ["seekh kebab", "kebab", "keema"]
+    },
+    "mutton_curry": {
+      "canonical": "mutton_curry",
+      "usda_term": "Lamb, cooked, braised",
+      "category": "protein",
+      "per_unit_grams": 200,
+      "aliases": ["mutton curry", "lamb curry", "mutton"]
+    },
+    "fish_cooked": {
+      "canonical": "fish_cooked",
+      "usda_term": "Fish, tilapia, cooked, dry heat",
+      "category": "protein",
+      "per_unit_grams": 100,
+      "aliases": ["fish", "grilled fish", "fish curry"]
+    },
+    "fish_fried": {
+      "canonical": "fish_fried",
+      "usda_term": "Fish, cod, cooked, battered and fried",
+      "category": "protein",
+      "per_unit_grams": 120,
+      "aliases": ["fried fish"]
+    },
+    "salmon": {
+      "canonical": "salmon",
+      "usda_term": "Fish, salmon, Atlantic, cooked, dry heat",
+      "category": "protein",
+      "per_unit_grams": 150,
+      "aliases": ["salmon", "grilled salmon", "baked salmon"],
+      "micronutrients_per_100g": {"iron": 0.3, "calcium": 9, "vitamin_d": 11.0, "vitamin_b12": 3.2, "potassium": 384, "magnesium": 30, "zinc": 0.4}
+    },
+    "tuna": {
+      "canonical": "tuna",
+      "usda_term": "Fish, tuna, light, canned in water, drained",
+      "category": "protein",
+      "per_unit_grams": 100,
+      "aliases": ["tuna"]
+    },
+    "shrimp": {
+      "canonical": "shrimp",
+      "usda_term": "Shrimp, cooked",
+      "category": "protein",
+      "per_unit_grams": 100,
+      "aliases": ["shrimp", "prawn", "prawns"]
+    },
+    "roti": {
+      "canonical": "roti",
+      "usda_term": "Bread, chapati or roti, whole-wheat",
+      "category": "grain",
+      "per_unit_grams": 35,
+      "aliases": ["roti", "chapati", "phulka", "whole wheat flatbread"]
+    },
+    "naan": {
+      "canonical": "naan",
+      "usda_term": "Bread, naan, plain, commercially prepared",
+      "category": "grain",
+      "per_unit_grams": 90,
+      "aliases": ["naan", "naan bread", "garlic naan", "kulcha"]
+    },
+    "paratha": {
+      "canonical": "paratha",
+      "usda_term": "Bread, paratha, whole wheat, cooked",
+      "category": "grain",
+      "per_unit_grams": 60,
+      "aliases": ["paratha", "aloo paratha", "stuffed paratha"]
+    },
+    "puri": {
+      "canonical": "puri",
+      "usda_term": "Bread, puri, fried, whole wheat",
+      "category": "grain",
+      "per_unit_grams": 25,
+      "aliases": ["puri", "poori", "bhatura"]
+    },
+    "dosa": {
+      "canonical": "dosa",
+      "usda_term": "Crepe, plain",
+      "category": "grain",
+      "per_unit_grams": 80,
+      "aliases": ["dosa", "masala dosa", "plain dosa", "rava dosa"]
+    },
+    "idli": {
+      "canonical": "idli",
+      "usda_term": "Rice cake, steamed",
+      "category": "grain",
+      "per_unit_grams": 30,
+      "aliases": ["idli", "steamed idli"]
+    },
+    "uttapam": {
+      "canonical": "uttapam",
+      "usda_term": "Rice cake, steamed",
+      "category": "grain",
+      "per_unit_grams": 80,
+      "aliases": ["uttapam", "appam"]
+    },
+    "vada": {
+      "canonical": "vada",
+      "usda_term": "Lentil fritter, fried",
+      "category": "snack",
+      "per_unit_grams": 50,
+      "aliases": ["vada", "medu vada"]
+    },
+    "bread_white": {
+      "canonical": "bread_white",
+      "usda_term": "Bread, white, commercially prepared",
+      "category": "grain",
+      "per_unit_grams": 30,
+      "aliases": ["bread", "white bread", "bread slice", "toast", "sandwich"]
+    },
+    "bread_whole_wheat": {
+      "canonical": "bread_whole_wheat",
+      "usda_term": "Bread, whole-wheat, commercially prepared",
+      "category": "grain",
+      "per_unit_grams": 30,
+      "aliases": ["whole wheat bread", "brown bread"]
+    },
+    "oats_cooked": {
+      "canonical": "oats_cooked",
+      "usda_term": "Cereals, oats, regular, cooked",
+      "category": "grain",
+      "per_unit_grams": 240,
+      "aliases": ["oats", "oatmeal", "porridge", "cooked oats"],
+      "micronutrients_per_100g": {"iron": 1.5, "calcium": 9, "potassium": 61, "magnesium": 27, "zinc": 0.9}
+    },
+    "pasta_cooked": {
+      "canonical": "pasta_cooked",
+      "usda_term": "Pasta, cooked, enriched",
+      "category": "grain",
+      "per_unit_grams": 200,
+      "aliases": ["pasta", "spaghetti", "penne", "noodles", "maggi", "instant noodles"]
+    },
+    "upma": {
+      "canonical": "upma",
+      "usda_term": "Semolina, cooked",
+      "category": "grain",
+      "per_unit_grams": 200,
+      "aliases": ["upma", "semolina porridge"]
+    },
+    "poha": {
+      "canonical": "poha",
+      "usda_term": "Rice, puffed, plain",
+      "category": "grain",
+      "per_unit_grams": 150,
+      "aliases": ["poha", "flattened rice"]
+    },
+    "dal": {
+      "canonical": "dal",
+      "usda_term": "Lentils, mature seeds, cooked, boiled",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["dal", "daal", "lentils", "dal fry", "dal tadka", "moong dal", "toor dal", "masoor dal", "chana dal", "urad dal"],
+      "micronutrients_per_100g": {"iron": 3.3, "calcium": 19, "potassium": 369, "magnesium": 36, "zinc": 1.3}
+    },
+    "dal_makhani": {
+      "canonical": "dal_makhani",
+      "usda_term": "Lentils, mature seeds, cooked, boiled",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["dal makhani", "black lentil curry"]
+    },
+    "rajma": {
+      "canonical": "rajma",
+      "usda_term": "Beans, kidney, red, mature seeds, cooked, boiled",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["rajma", "kidney beans", "kidney bean curry"]
+    },
+    "chole": {
+      "canonical": "chole",
+      "usda_term": "Chickpeas, mature seeds, cooked, boiled",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["chole", "chana", "chana masala", "chickpeas", "chickpea curry"]
+    },
+    "sambar": {
+      "canonical": "sambar",
+      "usda_term": "Lentils, mature seeds, cooked, boiled",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["sambar", "sambhar"]
+    },
+    "kadhi": {
+      "canonical": "kadhi",
+      "usda_term": "Yogurt, plain, whole milk",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["kadhi", "yogurt curry"]
+    },
+    "rasam": {
+      "canonical": "rasam",
+      "usda_term": "Soup, vegetable, canned",
+      "category": "legume",
+      "per_unit_grams": 200,
+      "aliases": ["rasam", "tamarind soup"]
+    },
+    "paneer": {
+      "canonical": "paneer",
+      "usda_term": "Cheese, cottage, creamed",
+      "category": "dairy",
+      "per_unit_grams": 100,
+      "aliases": ["paneer", "cottage cheese", "paneer tikka", "paneer bhurji"],
+      "micronutrients_per_100g": {"iron": 0.1, "calcium": 208, "vitamin_b12": 0.4, "potassium": 104, "magnesium": 8, "zinc": 0.4}
+    },
+    "palak_paneer": {
+      "canonical": "palak_paneer",
+      "usda_term": "Cheese, cottage, creamed",
+      "category": "dairy",
+      "per_unit_grams": 200,
+      "aliases": ["palak paneer", "spinach paneer", "saag paneer"]
+    },
+    "paneer_butter_masala": {
+      "canonical": "paneer_butter_masala",
+      "usda_term": "Cheese, cottage, creamed",
+      "category": "dairy",
+      "per_unit_grams": 200,
+      "aliases": ["paneer butter masala", "shahi paneer", "kadai paneer", "matar paneer"]
+    },
+    "milk_whole": {
+      "canonical": "milk_whole",
+      "usda_term": "Milk, whole, 3.25% milkfat",
+      "category": "dairy",
+      "per_unit_grams": 244,
+      "aliases": ["milk", "whole milk", "full cream milk"],
+      "micronutrients_per_100g": {"iron": 0.0, "calcium": 113, "vitamin_d": 1.3, "vitamin_b12": 0.4, "potassium": 132, "magnesium": 10, "zinc": 0.4}
+    },
+    "skim_milk": {
+      "canonical": "skim_milk",
+      "usda_term": "Milk, nonfat, fluid",
+      "category": "dairy",
+      "per_unit_grams": 244,
+      "aliases": ["skim milk", "low fat milk"]
+    },
+    "yogurt": {
+      "canonical": "yogurt",
+      "usda_term": "Yogurt, plain, whole milk",
+      "category": "dairy",
+      "per_unit_grams": 200,
+      "aliases": ["yogurt", "curd", "dahi", "plain yogurt"]
+    },
+    "lassi": {
+      "canonical": "lassi",
+      "usda_term": "Yogurt, plain, whole milk",
+      "category": "dairy",
+      "per_unit_grams": 250,
+      "aliases": ["lassi", "buttermilk", "chaas"]
+    },
+    "cheese": {
+      "canonical": "cheese",
+      "usda_term": "Cheese, cheddar",
+      "category": "dairy",
+      "per_unit_grams": 30,
+      "aliases": ["cheese", "cheddar"]
+    },
+    "butter": {
+      "canonical": "butter",
+      "usda_term": "Butter, salted",
+      "category": "dairy",
+      "per_unit_grams": 14,
+      "aliases": ["butter"]
+    },
+    "ghee": {
+      "canonical": "ghee",
+      "usda_term": "Butter, clarified (ghee)",
+      "category": "dairy",
+      "per_unit_grams": 14,
+      "aliases": ["ghee", "clarified butter"]
+    },
+    "potato_boiled": {
+      "canonical": "potato_boiled",
+      "usda_term": "Potatoes, boiled, cooked in skin",
+      "category": "vegetable",
+      "per_unit_grams": 150,
+      "aliases": ["potato", "boiled potato", "aloo"],
+      "micronutrients_per_100g": {"iron": 0.3, "calcium": 5, "potassium": 379, "magnesium": 20, "zinc": 0.3}
+    },
+    "mashed_potato": {
+      "canonical": "mashed_potato",
+      "usda_term": "Potatoes, mashed, prepared with whole milk and butter",
+      "category": "vegetable",
+      "per_unit_grams": 200,
+      "aliases": ["mashed potato", "mashed potatoes"]
+    },
+    "sweet_potato": {
+      "canonical": "sweet_potato",
+      "usda_term": "Sweet potato, cooked, baked in skin",
+      "category": "vegetable",
+      "per_unit_grams": 150,
+      "aliases": ["sweet potato"]
+    },
+    "spinach": {
+      "canonical": "spinach",
+      "usda_term": "Spinach, cooked, boiled, drained",
+      "category": "vegetable",
+      "per_unit_grams": 100,
+      "aliases": ["spinach", "palak", "sarson ka saag"]
+    },
+    "broccoli": {
+      "canonical": "broccoli",
+      "usda_term": "Broccoli, cooked, boiled, drained",
+      "category": "vegetable",
+      "per_unit_grams": 100,
+      "aliases": ["broccoli"]
+    },
+    "cauliflower": {
+      "canonical": "cauliflower",
+      "usda_term": "Cauliflower, cooked, boiled, drained",
+      "category": "vegetable",
+      "per_unit_grams": 100,
+      "aliases": ["cauliflower", "gobi", "aloo gobi"]
+    },
+    "carrot": {
+      "canonical": "carrot",
+      "usda_term": "Carrots, cooked, boiled, drained",
+      "category": "vegetable",
+      "per_unit_grams": 80,
+      "aliases": ["carrot", "carrots"]
+    },
+    "tomato": {
+      "canonical": "tomato",
+      "usda_term": "Tomatoes, red, ripe, raw",
+      "category": "vegetable",
+      "per_unit_grams": 120,
+      "aliases": ["tomato", "tomatoes"]
+    },
+    "onion": {
+      "canonical": "onion",
+      "usda_term": "Onions, raw",
+      "category": "vegetable",
+      "per_unit_grams": 100,
+      "aliases": ["onion", "onions"]
+    },
+    "mushroom": {
+      "canonical": "mushroom",
+      "usda_term": "Mushrooms, white, cooked",
+      "category": "vegetable",
+      "per_unit_grams": 80,
+      "aliases": ["mushroom", "mushrooms"]
+    },
+    "corn": {
+      "canonical": "corn",
+      "usda_term": "Corn, sweet, yellow, cooked, boiled",
+      "category": "vegetable",
+      "per_unit_grams": 100,
+      "aliases": ["corn", "sweet corn"]
+    },
+    "mixed_veg": {
+      "canonical": "mixed_veg",
+      "usda_term": "Vegetables, mixed, cooked, boiled, drained",
+      "category": "vegetable",
+      "per_unit_grams": 200,
+      "aliases": ["sabzi", "mixed veg", "mixed vegetables", "aloo matar", "aloo palak", "bhindi masala", "baingan bharta", "lauki", "tinda", "karela", "methi"]
+    },
+    "banana": {
+      "canonical": "banana",
+      "usda_term": "Bananas, raw",
+      "category": "fruit",
+      "per_unit_grams": 120,
+      "aliases": ["banana"],
+      "micronutrients_per_100g": {"iron": 0.3, "calcium": 5, "potassium": 358, "magnesium": 27, "zinc": 0.2}
+    },
+    "apple": {
+      "canonical": "apple",
+      "usda_term": "Apples, raw, with skin",
+      "category": "fruit",
+      "per_unit_grams": 180,
+      "aliases": ["apple"]
+    },
+    "mango": {
+      "canonical": "mango",
+      "usda_term": "Mangos, raw",
+      "category": "fruit",
+      "per_unit_grams": 200,
+      "aliases": ["mango"]
+    },
+    "orange": {
+      "canonical": "orange",
+      "usda_term": "Oranges, raw, all commercial varieties",
+      "category": "fruit",
+      "per_unit_grams": 130,
+      "aliases": ["orange"]
+    },
+    "grapes": {
+      "canonical": "grapes",
+      "usda_term": "Grapes, red or green, raw",
+      "category": "fruit",
+      "per_unit_grams": 150,
+      "aliases": ["grapes"]
+    },
+    "watermelon": {
+      "canonical": "watermelon",
+      "usda_term": "Watermelon, raw",
+      "category": "fruit",
+      "per_unit_grams": 200,
+      "aliases": ["watermelon"]
+    },
+    "papaya": {
+      "canonical": "papaya",
+      "usda_term": "Papayas, raw",
+      "category": "fruit",
+      "per_unit_grams": 150,
+      "aliases": ["papaya"]
+    },
+    "pineapple": {
+      "canonical": "pineapple",
+      "usda_term": "Pineapple, raw, all varieties",
+      "category": "fruit",
+      "per_unit_grams": 150,
+      "aliases": ["pineapple"]
+    },
+    "strawberry": {
+      "canonical": "strawberry",
+      "usda_term": "Strawberries, raw",
+      "category": "fruit",
+      "per_unit_grams": 150,
+      "aliases": ["strawberry", "strawberries"]
+    },
+    "blueberry": {
+      "canonical": "blueberry",
+      "usda_term": "Blueberries, raw",
+      "category": "fruit",
+      "per_unit_grams": 100,
+      "aliases": ["blueberry", "blueberries"]
+    },
+    "samosa": {
+      "canonical": "samosa",
+      "usda_term": "Samosa, vegetable, fried",
+      "category": "snack",
+      "per_unit_grams": 80,
+      "aliases": ["samosa"]
+    },
+    "pakora": {
+      "canonical": "pakora",
+      "usda_term": "Vegetable fritter, fried",
+      "category": "snack",
+      "per_unit_grams": 25,
+      "aliases": ["pakora", "pakoda", "bhajia"]
+    },
+    "pav_bhaji": {
+      "canonical": "pav_bhaji",
+      "usda_term": "Potatoes, mashed, prepared with whole milk and butter",
+      "category": "snack",
+      "per_unit_grams": 300,
+      "aliases": ["pav bhaji"]
+    },
+    "bhel_puri": {
+      "canonical": "bhel_puri",
+      "usda_term": "Rice, puffed, plain",
+      "category": "snack",
+      "per_unit_grams": 150,
+      "aliases": ["bhel puri", "chaat", "sev puri", "pani puri"]
+    },
+    "aloo_tikki": {
+      "canonical": "aloo_tikki",
+      "usda_term": "Potatoes, boiled, cooked in skin",
+      "category": "snack",
+      "per_unit_grams": 80,
+      "aliases": ["aloo tikki", "potato patty", "kachori"]
+    },
+    "vada_pav": {
+      "canonical": "vada_pav",
+      "usda_term": "Potatoes, boiled, cooked in skin",
+      "category": "snack",
+      "per_unit_grams": 150,
+      "aliases": ["vada pav", "dabeli"]
+    },
+    "gulab_jamun": {
+      "canonical": "gulab_jamun",
+      "usda_term": "Gulab jamun",
+      "category": "sweet",
+      "per_unit_grams": 40,
+      "aliases": ["gulab jamun"]
+    },
+    "rasgulla": {
+      "canonical": "rasgulla",
+      "usda_term": "Rasgulla",
+      "category": "sweet",
+      "per_unit_grams": 50,
+      "aliases": ["rasgulla", "rasmalai"]
+    },
+    "jalebi": {
+      "canonical": "jalebi",
+      "usda_term": "Jalebi, fried sweet",
+      "category": "sweet",
+      "per_unit_grams": 50,
+      "aliases": ["jalebi"]
+    },
+    "kheer": {
+      "canonical": "kheer",
+      "usda_term": "Rice pudding",
+      "category": "sweet",
+      "per_unit_grams": 150,
+      "aliases": ["kheer", "rice pudding"]
+    },
+    "halwa": {
+      "canonical": "halwa",
+      "usda_term": "Halwa, semolina",
+      "category": "sweet",
+      "per_unit_grams": 100,
+      "aliases": ["halwa", "gajar halwa", "suji halwa"]
+    },
+    "ladoo": {
+      "canonical": "ladoo",
+      "usda_term": "Ladoo, sweet ball",
+      "category": "sweet",
+      "per_unit_grams": 35,
+      "aliases": ["ladoo", "laddoo", "barfi"]
+    },
+    "tea": {
+      "canonical": "tea",
+      "usda_term": "Tea, brewed, prepared with tap water",
+      "category": "beverage",
+      "per_unit_grams": 240,
+      "aliases": ["tea", "chai", "masala chai"]
+    },
+    "coffee": {
+      "canonical": "coffee",
+      "usda_term": "Coffee, brewed, prepared with tap water",
+      "category": "beverage",
+      "per_unit_grams": 240,
+      "aliases": ["coffee"]
+    },
+    "orange_juice": {
+      "canonical": "orange_juice",
+      "usda_term": "Orange juice, raw",
+      "category": "beverage",
+      "per_unit_grams": 250,
+      "aliases": ["orange juice", "juice", "nimbu pani", "lemonade", "jaljeera"]
+    },
+    "banana_shake": {
+      "canonical": "banana_shake",
+      "usda_term": "Milk, whole, 3.25% milkfat",
+      "category": "beverage",
+      "per_unit_grams": 300,
+      "aliases": ["banana shake", "milkshake"]
+    },
+    "almonds": {
+      "canonical": "almonds",
+      "usda_term": "Nuts, almonds",
+      "category": "nut",
+      "per_unit_grams": 28,
+      "aliases": ["almonds", "almond", "badam"]
+    },
+    "peanut_butter": {
+      "canonical": "peanut_butter",
+      "usda_term": "Peanut butter, smooth style",
+      "category": "nut",
+      "per_unit_grams": 32,
+      "aliases": ["peanut butter", "pb"]
+    },
+    "peanuts": {
+      "canonical": "peanuts",
+      "usda_term": "Peanuts, all types, raw",
+      "category": "nut",
+      "per_unit_grams": 28,
+      "aliases": ["peanuts"]
+    },
+    "walnuts": {
+      "canonical": "walnuts",
+      "usda_term": "Nuts, walnuts, English",
+      "category": "nut",
+      "per_unit_grams": 28,
+      "aliases": ["walnuts"]
+    },
+    "cashews": {
+      "canonical": "cashews",
+      "usda_term": "Nuts, cashew nuts, raw",
+      "category": "nut",
+      "per_unit_grams": 28,
+      "aliases": ["cashews", "kaju"]
+    },
+    "whey_protein": {
+      "canonical": "whey_protein",
+      "usda_term": "Protein supplement, whey based powder",
+      "category": "supplement",
+      "per_unit_grams": 30,
+      "aliases": ["whey protein", "whey", "protein shake", "protein powder"]
+    },
+    "creatine": {
+      "canonical": "creatine",
+      "usda_term": "Creatine monohydrate",
+      "category": "supplement",
+      "per_unit_grams": 5,
+      "aliases": ["creatine"]
+    },
+    "bcaa": {
+      "canonical": "bcaa",
+      "usda_term": "BCAA supplement",
+      "category": "supplement",
+      "per_unit_grams": 10,
+      "aliases": ["bcaa", "amino acids"]
+    },
+    "mass_gainer": {
+      "canonical": "mass_gainer",
+      "usda_term": "Mass gainer powder",
+      "category": "supplement",
+      "per_unit_grams": 50,
+      "aliases": ["mass gainer", "weight gainer"]
+    },
+    "pre_workout": {
+      "canonical": "pre_workout",
+      "usda_term": "Pre workout supplement",
+      "category": "supplement",
+      "per_unit_grams": 10,
+      "aliases": ["pre workout", "pre-workout"]
+    }
+  }
+}

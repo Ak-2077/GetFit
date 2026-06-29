@@ -99,8 +99,6 @@ const userLearningProfileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userLearningProfileSchema.index({ userId: 1 });
-
 // ── Methods ──
 
 // Record a new message interaction

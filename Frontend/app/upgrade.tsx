@@ -4,10 +4,9 @@
  * Real subscription flow:
  *   1. Fetch plans + current status from /api/payments/plans
  *   2. User selects monthly | yearly + plan tier
- *   3. POST /api/payments/razorpay/create-order → RZP order id
- *   4. Open Razorpay Checkout (Android only)
- *   5. POST /api/payments/razorpay/verify → backend HMAC verifies
- *   6. Backend activates Subscription → we refresh useSubscription
+ *   3. Open StoreKit/Play Billing Checkout native sheet
+ *   4. POST /api/payments/apple/verify or /google/verify → backend verifies
+ *   5. Backend activates Subscription → we refresh useSubscription
  *
  * Premium UX:
  *   • Monthly / yearly toggle with savings badge
@@ -38,6 +37,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 
 import {
   getPaymentPlans,
@@ -45,7 +45,6 @@ import {
   setAuthToken,
 } from '../services/api';
 import { useSubscription } from '../hooks/useSubscription';
-import RazorpayCheckoutService from '../services/payments/RazorpayCheckoutService';
 import IAPService from '../services/payments/IAPService';
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal';
 
@@ -105,6 +104,15 @@ export default function UpgradeScreen() {
   const [restoring, setRestoring] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
+  /* ---------- Legal docs (App Store compliance) ---------- */
+
+  const openLegalDoc = useCallback(async (docName: string) => {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (apiUrl) {
+      await WebBrowser.openBrowserAsync(`${apiUrl}/legal/${docName}`).catch(() => {});
+    }
+  }, []);
+
   /* ---------- Load ---------- */
 
   const load = useCallback(async () => {
@@ -153,44 +161,40 @@ export default function UpgradeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPaymentState({ kind: 'processing', planId: plan.id });
 
-    /* ---------- iOS: Apple IAP via StoreKit ---------- */
-    if (Platform.OS === 'ios') {
-      if (!IAPService.isAvailable()) {
-        setPaymentState({
-          kind: 'failed',
-          reason:
-            'StoreKit not available. Install react-native-iap, run `npx expo prebuild --platform ios`, then rebuild the dev client.',
-        });
-        return;
-      }
-      // Backend resolves the Apple SKU from `appleProductId`.
-      // The plan list endpoint includes it; fall back to a derived id
-      // if the backend hasn't redeployed yet.
-      const appleSku =
-        (plan as any).appleProductId ||
-        `com.getfit.fitness.${plan.tier === 'pro_plus' ? 'proplus' : 'pro'}.${plan.billingCycle}`;
+    if (!IAPService.isAvailable()) {
+      setPaymentState({
+        kind: 'failed',
+        reason:
+          'StoreKit/Play Billing not available. Install expo-iap, run `npx expo prebuild`, then rebuild the dev client.',
+      });
+      return;
+    }
 
-      // DIAGNOSTIC — log what Apple actually returns so we can debug
-      // E_SKU_NOT_FOUND vs "products not propagated yet".
-      try {
-        const allSkus = [
-          'com.getfit.fitness.pro.monthly',
-          'com.getfit.fitness.pro.yearly',
-          'com.getfit.fitness.proplus.monthly',
-          'com.getfit.fitness.proplus.yearly',
-        ];
-        const fetched = await IAPService.getProducts(allSkus);
-        console.log('[IAP] Requested SKU:', appleSku);
-        console.log('[IAP] Apple returned', fetched.length, 'products:');
-        fetched.forEach((p) => console.log('   -', p.productId, '|', p.localizedPrice));
-        if (!fetched.find((p) => p.productId === appleSku)) {
-          console.warn('[IAP] ⚠ Requested SKU not in Apple response!');
-        }
-      } catch (e) {
-        console.warn('[IAP] diagnostic fetch failed:', (e as Error).message);
-      }
+    const skuId =
+      (plan as any)[Platform.OS === 'ios' ? 'appleProductId' : 'googleProductId'] ||
+      `com.getfit.fitness.${plan.tier === 'pro_plus' ? 'proplus' : 'pro'}.${plan.billingCycle}`;
 
-      const result = await IAPService.purchase(appleSku);
+    // DIAGNOSTIC — log what Apple/Google actually returns so we can debug
+    // E_SKU_NOT_FOUND vs "products not propagated yet".
+    try {
+      const allSkus = [
+        'com.getfit.fitness.pro.monthly',
+        'com.getfit.fitness.pro.yearly',
+        'com.getfit.fitness.proplus.monthly',
+        'com.getfit.fitness.proplus.yearly',
+      ];
+      const fetched = await IAPService.getProducts(allSkus);
+      console.log('[IAP] Requested SKU:', skuId);
+      console.log('[IAP] Apple/Google returned', fetched.length, 'products:');
+      fetched.forEach((p) => console.log('   -', p.productId, '|', p.localizedPrice));
+      if (!fetched.find((p) => p.productId === skuId)) {
+        console.warn('[IAP] ⚠ Requested SKU not in response!');
+      }
+    } catch (e) {
+      console.warn('[IAP] diagnostic fetch failed:', (e as Error).message);
+    }
+
+    const result = await IAPService.purchase(skuId);
 
       if (result.kind === 'success') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -207,43 +211,12 @@ export default function UpgradeScreen() {
         setPaymentState({ kind: 'failed', reason: result.reason });
       }
       return;
-    }
-
-    /* ---------- Android: Razorpay ---------- */
-    if (!RazorpayCheckoutService.isAvailable()) {
-      setPaymentState({
-        kind: 'failed',
-        reason:
-          'Razorpay not bundled. Run `npx expo prebuild` after installing react-native-razorpay, then rebuild the dev client.',
-      });
-      return;
-    }
-
-    const result = await RazorpayCheckoutService.purchase(plan.id, user || {});
-
-    if (result.kind === 'success') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setPaymentState({
-        kind: 'success',
-        planTier: result.planTier,
-        expiryDate: result.expiryDate,
-      });
-      await subscription.refresh();
-    } else if (result.kind === 'cancelled') {
-      setPaymentState({ kind: 'cancelled' });
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      setPaymentState({ kind: 'failed', reason: result.reason });
-    }
   };
 
   const handleRestore = async () => {
     setRestoring(true);
     try {
-      // On iOS, hit StoreKit first to fetch the latest receipt, then
-      // backend-verify it. On Android, the backend cache is the source
-      // of truth so a simple refresh is enough.
-      if (Platform.OS === 'ios' && IAPService.isAvailable()) {
+      if (IAPService.isAvailable()) {
         const r = await IAPService.restore();
         if (r.ok) await subscription.refresh();
         Alert.alert(r.ok ? 'Subscription restored' : 'No active subscription', r.message);
@@ -257,26 +230,20 @@ export default function UpgradeScreen() {
   };
 
   /**
-   * iOS users can ONLY cancel via Apple's subscriptions page
-   * (App Review explicitly forbids in-app cancellation for IAP).
-   * Android users see the in-app modal which calls our backend.
+   * App Review explicitly forbids in-app cancellation for IAP.
    */
   const handleCancelTap = () => {
-    if (Platform.OS === 'ios') {
-      Alert.alert(
-        'Manage your subscription',
-        "To cancel, you'll be taken to your Apple subscriptions page. Your premium access stays active until the end of the billing period.",
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Open Settings',
-            onPress: () => IAPService.openManageSubscriptions().catch(() => {}),
-          },
-        ]
-      );
-      return;
-    }
-    setCancelModalVisible(true);
+    Alert.alert(
+      'Manage your subscription',
+      "To cancel, you'll be taken to your device's subscriptions page. Your premium access stays active until the end of the billing period.",
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => IAPService.openManageSubscriptions().catch(() => {}),
+        },
+      ]
+    );
   };
 
   /* ---------- Render ---------- */
@@ -386,54 +353,58 @@ export default function UpgradeScreen() {
           <View style={styles.secureRow}>
             <Ionicons name="lock-closed" size={12} color={C.muted} />
             <Text style={styles.secureText}>
-              Secure payments processed by Razorpay · 256-bit encryption
+              Secure payments processed by {Platform.OS === 'ios' ? 'Apple App Store' : 'Google Play'}
             </Text>
           </View>
 
-          {/* Restore + Cancel row — the two lifecycle CTAs */}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            <TouchableOpacity
-              onPress={handleRestore}
-              disabled={restoring}
-              style={[styles.restoreBtn, { flex: 1, marginTop: 0 }]}
-              activeOpacity={0.8}
-            >
-              {restoring ? (
-                <ActivityIndicator size="small" color={C.label} />
-              ) : (
+          {/* Restore — centered, primary lifecycle CTA (required by App Store) */}
+          <TouchableOpacity
+            onPress={handleRestore}
+            disabled={restoring}
+            style={styles.restoreBtn}
+            activeOpacity={0.7}
+          >
+            {restoring ? (
+              <ActivityIndicator size="small" color={C.label} />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="refresh" size={14} color={C.label} />
                 <Text style={styles.restoreText}>
                   {subscription.cancelled ? 'Restore Subscription' : 'Restore Purchases'}
                 </Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Cancel — only visible for active, non-cancelled premium users */}
-            {subscription.isPremium && !subscription.cancelled && (
-              <TouchableOpacity
-                onPress={handleCancelTap}
-                style={{
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 12,
-                  backgroundColor: 'rgba(255,69,58,0.10)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,69,58,0.30)',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={{ color: '#FF453A', fontSize: 13, fontWeight: '700' }}>
-                  Cancel Subscription
-                </Text>
-              </TouchableOpacity>
+              </View>
             )}
-          </View>
+          </TouchableOpacity>
+
+          {/* Cancel — only for active, non-cancelled premium users */}
+          {subscription.isPremium && !subscription.cancelled && (
+            <TouchableOpacity
+              onPress={handleCancelTap}
+              style={styles.cancelBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelText}>Cancel Subscription</Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.legal}>
-            Subscriptions auto-renew at the displayed price unless cancelled at
-            least 24h before the renewal date. Manage in your account settings.
+            Subscriptions are billed through your {Platform.OS === 'ios' ? 'Apple ID' : 'Google'} account and
+            automatically renew at the displayed price unless cancelled at least 24 hours before the end of the
+            current period. Your account is charged for renewal within 24 hours prior to the end of the current
+            period. You can manage or cancel anytime in your device's account settings. Any unused portion of a
+            free trial is forfeited when you purchase a subscription.
           </Text>
+
+          {/* Functional legal links — required by App Store Guideline 3.1.2 */}
+          <View style={styles.legalLinks}>
+            <TouchableOpacity onPress={() => openLegalDoc('terms-of-use')} activeOpacity={0.7}>
+              <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDot}>•</Text>
+            <TouchableOpacity onPress={() => openLegalDoc('privacy-policy')} activeOpacity={0.7}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </SafeAreaView>
 
@@ -613,10 +584,18 @@ const PlanCard: React.FC<{
           >
             <Ionicons name="flash" size={14} color="#fff" />
             <Text style={styles.ctaText}>
-              Subscribe – {plan.displayPrice}
-              {plan.period}
+              {plan.trialDays > 0 ? `Start ${plan.trialDays}-day free trial` : `Subscribe – ${plan.displayPrice}${plan.period}`}
             </Text>
           </TouchableOpacity>
+        )}
+
+        {/* Per-plan billing disclosure (App Store 3.1.2: length + price at point of purchase) */}
+        {!isCurrent && (
+          <Text style={styles.planTerms}>
+            {plan.trialDays > 0
+              ? `Then ${plan.displayPrice}${plan.period}, auto-renews. Cancel anytime.`
+              : `${plan.displayPrice} per ${plan.billingCycle === 'yearly' ? 'year' : 'month'}, auto-renews. Cancel anytime.`}
+          </Text>
         )}
       </LinearGradient>
     </View>
@@ -812,6 +791,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ctaText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
+  planTerms: {
+    color: C.muted,
+    fontSize: 10.5,
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 14,
+  },
   ctaCurrent: {
     height: 48,
     borderRadius: 14,
@@ -834,15 +820,30 @@ const styles = StyleSheet.create({
 
   restoreBtn: {
     alignSelf: 'center',
-    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    marginTop: 14,
+    marginTop: 16,
+    minHeight: 44,
   },
   restoreText: {
     color: C.label,
     fontSize: 13,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  cancelBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  cancelText: {
+    color: '#FF453A',
+    fontSize: 13,
+    fontWeight: '700',
   },
   legal: {
     color: C.muted,
@@ -852,6 +853,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     lineHeight: 15,
   },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 10,
+  },
+  legalLink: {
+    color: C.label,
+    fontSize: 12,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  legalDot: { color: C.muted, fontSize: 12 },
 
   modalBackdrop: {
     flex: 1,

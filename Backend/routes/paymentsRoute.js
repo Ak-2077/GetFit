@@ -1,17 +1,18 @@
 /**
  * Payments routes
  *
- * Note: the webhook route is mounted with express.raw() in index.js
- * (NOT json) because Razorpay's HMAC is computed over the raw bytes.
+ * Platform billing:
+ *   • iOS    → Apple In-App Purchase
+ *   • Android → Google Play Billing
+ *
+ * Webhooks are mounted separately in index.js with raw body parsers.
  */
 
 import express from 'express';
 import auth from '../middleware/authMiddleware.js';
 import {
   listPlans,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
-  razorpayWebhook,
+  verifyGooglePurchase,
   getSubscriptionStatus,
   restoreSubscription,
   cancelSubscription,
@@ -21,20 +22,18 @@ import {
 
 const router = express.Router();
 
-/* ── Public ─────────────────────────────────────────────────── */
-// Webhook is registered separately in index.js with raw body parser.
-
 /* ── Authenticated ──────────────────────────────────────────── */
 router.get('/plans', auth, listPlans);
-router.post('/razorpay/create-order', auth, createRazorpayOrder);
-router.post('/razorpay/verify', auth, verifyRazorpayPayment);
 router.get('/subscription/status', auth, getSubscriptionStatus);
 router.post('/subscription/restore', auth, restoreSubscription);
 router.post('/subscription/cancel', auth, cancelSubscription);
 
-/* ── Apple IAP (iOS) ───────────────────────────────────────── */
+/* ── Google Play Billing (Android) ──────────────────────────── */
+router.post('/google/verify', auth, verifyGooglePurchase);
+
+/* ── Apple IAP (iOS) ────────────────────────────────────────── */
 router.post('/apple/verify', auth, verifyAppleReceipt);
 
 /* Webhooks are mounted in index.js with raw body parsers. */
-export { razorpayWebhook, appleWebhook };
+export { appleWebhook };
 export default router;

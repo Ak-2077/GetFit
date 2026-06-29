@@ -6,11 +6,11 @@
  * collection is authoritative — every payment, renewal, refund,
  * and cancellation lives here as an immutable history.
  *
- * Index strategy:
- *   • { userId, status }              → fast active-plan resolution
- *   • { razorpayOrderId } unique      → idempotent verification
- *   • { razorpayPaymentId } unique sp → guard against replay
- *   • { expiryDate }                  → background expiry sweeps
+ * Security & Integrity:
+ *   • Single source of truth for "does this user have premium?"
+ *   • Status flips to 'expired' at exactly 00:00 UTC on expiry.
+ *   • { originalTransactionId } index → prevents duplicate Apple subscriptions
+ *   • { googleOrderId } index         → prevents duplicate Google subscriptionsund expiry sweeps
  * ──────────────────────────────────────────────────────────────
  */
 
@@ -53,7 +53,7 @@ const subscriptionSchema = new mongoose.Schema(
     },
     provider: {
       type: String,
-      enum: ['razorpay', 'apple', 'manual'],
+      enum: ['apple', 'google', 'manual'],
       required: true,
     },
 
@@ -85,29 +85,21 @@ const subscriptionSchema = new mongoose.Schema(
       default: 'INR',
     },
 
-    /* ── Razorpay (Android) ──────────────────────────────────── */
-
-    razorpayOrderId: {
-      type: String,
-      sparse: true,
-      unique: true,
-    },
-    razorpayPaymentId: {
-      type: String,
-      sparse: true,
-      unique: true,
-    },
-    razorpaySignature: {
-      type: String,
-    },
-
-    /* ── Apple IAP (iOS — populated in Phase 3) ─────────────── */
+    /* ── Apple IAP (iOS) ────────────────────────────────────── */
 
     appleProductId: { type: String, sparse: true },
     originalTransactionId: { type: String, sparse: true, index: true },
     transactionId: { type: String, sparse: true, unique: true },
     /** Latest base64 receipt blob from StoreKit. */
     latestReceipt: { type: String },
+
+    /* ── Google Play Billing (Android) ─────────────────────── */
+
+    googleProductId: { type: String, sparse: true },
+    /** Google Play order ID — unique per transaction (replay protection). */
+    googleOrderId: { type: String, sparse: true, unique: true },
+    /** Purchase token from Google Play — used for server-side re-verification. */
+    googlePurchaseToken: { type: String },
 
     /* ── Validity ────────────────────────────────────────────── */
 

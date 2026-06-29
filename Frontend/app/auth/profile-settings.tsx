@@ -4,6 +4,7 @@ import {
   Alert, TextInput, Switch, Modal, KeyboardAvoidingView, Platform, Linking, ActivityIndicator,
 } from 'react-native';
 import * as Location from 'expo-location';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -91,6 +92,13 @@ export default function ProfileSettingsScreen() {
   // Location tracking
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [locationPermStatus, setLocationPermStatus] = useState<'granted'|'denied'|'undetermined'>('undetermined');
+
+  const openLegalDoc = async (docName: string) => {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (apiUrl) {
+      await WebBrowser.openBrowserAsync(`${apiUrl}/legal/${docName}`);
+    }
+  };
 
   const loadProfile = useCallback(async () => {
     try {
@@ -204,15 +212,61 @@ export default function ProfileSettingsScreen() {
   };
 
   const onDeleteAccount = () => {
-    Alert.alert('Delete Account?', 'This will permanently delete your data. This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        setDeleting(true);
-        try { await deleteUserAccount(); await AsyncStorage.removeItem('token'); setAuthToken(null); router.replace('/auth'); }
-        catch (err: any) { Alert.alert('Error', err?.response?.data?.message || 'Failed to delete account'); }
-        finally { setDeleting(false); }
-      }},
-    ]);
+    // PART 8: Enhanced confirmation with subscription warning.
+    // Apple App Store and Google Play require clear disclosure before deletion.
+    const isPremium = user?.subscriptionPlan && user.subscriptionPlan !== 'free';
+
+    const deletionWarning =
+      'This will permanently delete ALL of your data including:\n\n' +
+      '• Profile and account information\n' +
+      '• Workouts, food logs, and calorie history\n' +
+      '• AI memories, chats, and coaching data\n' +
+      '• Nutrition streaks and progress\n' +
+      '• All saved preferences\n\n' +
+      'This action CANNOT be undone.';
+
+    const subscriptionWarning = isPremium
+      ? '\n\n⚠️ IMPORTANT: Deleting your GetFit account does NOT automatically cancel your Apple App Store or Google Play subscription. To stop future billing, cancel your subscription through your Apple ID or Google Play account settings BEFORE deleting your account.'
+      : '';
+
+    Alert.alert(
+      'Delete Account?',
+      deletionWarning + subscriptionWarning,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation — final check
+            Alert.alert(
+              'Are you absolutely sure?',
+              'All your data will be permanently erased. You will need to create a new account to use GetFit again.',
+              [
+                { text: 'Go Back', style: 'cancel' },
+                {
+                  text: 'Delete Forever',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeleting(true);
+                    try {
+                      await deleteUserAccount();
+                      await AsyncStorage.removeItem('token');
+                      setAuthToken(null);
+                      router.replace('/auth');
+                    } catch (err: any) {
+                      Alert.alert('Error', err?.response?.data?.message || 'Failed to delete account');
+                    } finally {
+                      setDeleting(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   // Email OTP
@@ -491,11 +545,16 @@ export default function ProfileSettingsScreen() {
               })()}
             </DarkCard>
 
-            {/* APP */}
-            <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>App</Text>
+            {/* LEGAL & ACCOUNT */}
+            <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>Legal & Account</Text>
             <DarkCard style={{ marginBottom: 20 }}>
-              <SettingsRow icon="shield" label="Privacy Policy" onPress={() => Linking.openURL('https://getfit.app/privacy')} />
-              <SettingsRow icon="trash" label="Delete My Account" onPress={onDeleteAccount}
+              <SettingsRow icon="shield" label="Privacy Policy" onPress={() => openLegalDoc('privacy-policy')} />
+              <SettingsRow icon="file-text" label="Terms of Use" onPress={() => openLegalDoc('terms-of-use')} />
+              <SettingsRow icon="file" label="EULA" onPress={() => openLegalDoc('eula')} />
+              <SettingsRow icon="credit-card" label="Refund Policy" onPress={() => openLegalDoc('refund-policy')} />
+              <SettingsRow icon="exclamation-circle" label="AI Disclaimer" onPress={() => openLegalDoc('ai-disclaimer')} />
+              <SettingsRow icon="heartbeat" label="Medical Disclaimer" onPress={() => openLegalDoc('medical-disclaimer')} />
+              <SettingsRow icon="trash" label="Delete Account" onPress={onDeleteAccount}
                 right={deleting ? <ActivityIndicator size="small" color="#DC2626" /> : <FontAwesome name="chevron-right" size={12} color="#DC2626" />} />
               <SettingsRow icon="sign-out" label="Sign Out" onPress={onSignOut} last />
             </DarkCard>

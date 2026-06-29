@@ -32,7 +32,7 @@ export interface SubscriptionState {
   expiryDate: Date | null;
   isActive: boolean;
   isPremium: boolean;
-  provider: 'razorpay' | 'apple' | null;
+  provider: 'apple' | 'google' | null;
   platform: 'android' | 'ios' | 'web' | null;
   allowedFeatures: string[];
   /** True when the user has cancelled but premium is still alive until expiryDate. */
@@ -56,7 +56,7 @@ export function useSubscription(): SubscriptionState {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | null>(null);
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [isActive, setIsActive] = useState(false);
-  const [provider, setProvider] = useState<'razorpay' | 'apple' | null>(null);
+  const [provider, setProvider] = useState<'apple' | 'google' | null>(null);
   const [platform, setPlatform] = useState<'android' | 'ios' | 'web' | null>(null);
   const [allowedFeatures, setAllowedFeatures] = useState<string[]>([]);
   const [cancelled, setCancelled] = useState(false);

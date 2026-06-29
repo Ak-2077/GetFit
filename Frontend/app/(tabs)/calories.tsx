@@ -1532,7 +1532,7 @@ export default function CaloriesScreen() {
 
 
 
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
 
         <ScrollView
 

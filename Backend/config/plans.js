@@ -1,12 +1,15 @@
 /**
  * Subscription Plans — single source of truth.
  * ──────────────────────────────────────────────────────────────
- * Every other surface (controller, frontend, Razorpay order) must
+ * Every other surface (controller, frontend, store listing) must
  * resolve plan details through getPlanById() so price + duration
- * cannot drift between the client UI and what we charge the card.
+ * cannot drift between the client UI and what we charge.
  *
- * Pricing is stored in **paise** (smallest INR unit) — Razorpay
- * expects orders in paise too, so no float math anywhere.
+ * Pricing is stored in **paise** (smallest INR unit).
+ *
+ * Platform billing:
+ *   • iOS  → Apple In-App Purchase (StoreKit)
+ *   • Android → Google Play Billing
  * ──────────────────────────────────────────────────────────────
  */
 
@@ -62,6 +65,8 @@ const PLANS = [
     amountPaise: 19900, // ₹199
     /** Apple App Store product identifier — must match App Store Connect. */
     appleProductId: 'com.getfit.fitness.pro.monthly',
+    /** Google Play product identifier — must match Google Play Console. */
+    googleProductId: 'com.getfit.fitness.pro.monthly',
     displayPrice: '₹199',
     period: '/month',
     currency: 'INR',
@@ -89,6 +94,7 @@ const PLANS = [
     durationDays: 365,
     amountPaise: 199000, // ₹1,990 (≈ 2 months free vs monthly)
     appleProductId: 'com.getfit.fitness.pro.yearly',
+    googleProductId: 'com.getfit.fitness.pro.yearly',
     displayPrice: '₹1,990',
     period: '/year',
     currency: 'INR',
@@ -117,6 +123,7 @@ const PLANS = [
     durationDays: 30,
     amountPaise: 39900, // ₹399
     appleProductId: 'com.getfit.fitness.proplus.monthly',
+    googleProductId: 'com.getfit.fitness.proplus.monthly',
     displayPrice: '₹399',
     period: '/month',
     currency: 'INR',
@@ -141,6 +148,7 @@ const PLANS = [
     durationDays: 365,
     amountPaise: 399000, // ₹3,990 (≈ 2 months free vs monthly)
     appleProductId: 'com.getfit.fitness.proplus.yearly',
+    googleProductId: 'com.getfit.fitness.proplus.yearly',
     displayPrice: '₹3,990',
     period: '/year',
     currency: 'INR',
@@ -168,6 +176,11 @@ const APPLE_PRODUCT_INDEX = Object.fromEntries(
   PLANS.filter((p) => p.appleProductId).map((p) => [p.appleProductId, p])
 );
 
+/** Reverse lookup: Google Play product id → internal SKU. */
+const GOOGLE_PRODUCT_INDEX = Object.fromEntries(
+  PLANS.filter((p) => p.googleProductId).map((p) => [p.googleProductId, p])
+);
+
 export const getAllPlans = () => PLANS;
 
 export const getPaidPlans = () => PLANS.filter((p) => p.tier !== 'free');
@@ -177,6 +190,10 @@ export const getPlanById = (planId) => PLAN_INDEX[planId] || null;
 /** Resolve a plan from its Apple App Store product identifier. */
 export const getPlanByAppleProductId = (productId) =>
   APPLE_PRODUCT_INDEX[productId] || null;
+
+/** Resolve a plan from its Google Play product identifier. */
+export const getPlanByGoogleProductId = (productId) =>
+  GOOGLE_PRODUCT_INDEX[productId] || null;
 
 /** Returns the feature list for a plan tier ("pro", "pro_plus", "free"). */
 export const getFeaturesForTier = (tier) => {
@@ -197,6 +214,7 @@ export default {
   getPaidPlans,
   getPlanById,
   getPlanByAppleProductId,
+  getPlanByGoogleProductId,
   getFeaturesForTier,
   tierRank,
 };

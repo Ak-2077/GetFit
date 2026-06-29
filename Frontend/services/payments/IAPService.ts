@@ -8,7 +8,6 @@
  *   SDK 54 + new arch, and has a cleaner API.
  *
  * Why we lazy-load:
- *   • iOS-only module (Android uses Razorpay).
  *   • If the user runs Expo Go (no native modules bundled), a
  *     top-level import would crash the whole app. Lazy-load lets
  *     us gracefully degrade.
@@ -21,17 +20,17 @@
  *   5. finishTx        → tells StoreKit the tx is acknowledged
  *
  * Backend contract:
- *   POST /api/payments/apple/verify { receipt, productId }
- *   → 200 { subscription: { tier, expiryDate, autoRenew, ... } }
+ *   iOS: POST /api/payments/apple/verify { receipt, productId }
+ *   Android: POST /api/payments/google/verify { purchaseToken, productId }
  *
  * SECURITY:
- *   The receipt is the source of truth. Even if a jailbroken
+ *   The receipt/token is the source of truth. Even if a jailbroken
  *   client spoofs success, the backend rejects the entitlement
- *   unless Apple confirms the receipt.
+ *   unless Apple/Google confirms the purchase.
  * ──────────────────────────────────────────────────────────── */
 
 import { Platform, Linking } from 'react-native';
-import { verifyAppleReceipt } from '../api';
+import { verifyAppleReceipt, verifyGooglePurchase } from '../api';
 
 /* ---------- Module loader (lazy + safe) ---------- */
 
@@ -41,7 +40,6 @@ let _loadAttempted = false;
 function loadIAP(): any | null {
   if (_loadAttempted) return _IAP;
   _loadAttempted = true;
-  if (Platform.OS !== 'ios') return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     _IAP = require('expo-iap');
@@ -81,12 +79,12 @@ let _purchaseErrorSub: { remove: () => void } | null = null;
 /* ---------- Service ---------- */
 
 const IAPService = {
-  /** True only when iOS + native module bundled. */
+  /** True when native module is bundled. */
   isAvailable(): boolean {
-    return Platform.OS === 'ios' && loadIAP() != null;
+    return loadIAP() != null;
   },
 
-  /** Open StoreKit connection. Idempotent. No-op on Android. */
+  /** Open StoreKit/Play Billing connection. Idempotent. */
   async init(): Promise<boolean> {
     if (!IAPService.isAvailable()) return false;
     if (_initialized) return true;
@@ -106,8 +104,8 @@ const IAPService = {
   },
 
   /**
-   * Fetch product metadata from Apple. SKUs MUST be auto-renewable
-   * subscriptions in the same group (configured in App Store Connect).
+   * Fetch product metadata from Apple/Google. SKUs MUST be auto-renewable
+   * subscriptions in the same group (configured in App Store Connect / Google Play Console).
    */
   async getProducts(skus: string[]): Promise<IAPProduct[]> {
     if (!(await IAPService.init())) return [];
@@ -141,7 +139,7 @@ const IAPService = {
       return { kind: 'failed', reason: 'In-App Purchase not available on this device' };
     }
     if (!(await IAPService.init())) {
-      return { kind: 'failed', reason: 'Could not connect to App Store' };
+      return { kind: 'failed', reason: 'Could not connect to App Store or Google Play' };
     }
 
     const IAP = loadIAP();
@@ -168,15 +166,25 @@ const IAPService = {
             purchase.jwsRepresentationIos;
 
           if (!receipt) {
-            finish({ kind: 'failed', reason: 'Empty receipt from StoreKit' });
+            finish({ kind: 'failed', reason: 'Empty receipt from App Store or Google Play' });
             return;
           }
 
-          // Backend round-trips to Apple verifyReceipt
-          const res = await verifyAppleReceipt({
-            receipt,
-            productId: purchase.productId || purchase.id || productId,
-          });
+          const txProductId = purchase.productId || purchase.id || productId;
+
+          // Backend round-trips to Apple verifyReceipt or Google Play verification
+          let res;
+          if (Platform.OS === 'android') {
+             res = await verifyGooglePurchase({
+               purchaseToken: receipt,
+               productId: txProductId,
+             });
+          } else {
+             res = await verifyAppleReceipt({
+               receipt,
+               productId: txProductId,
+             });
+          }
 
           // Acknowledge so StoreKit clears the transaction
           await IAP.finishTransaction({ purchase, isConsumable: false });
@@ -189,8 +197,6 @@ const IAPService = {
             productId: purchase.productId || purchase.id || productId,
           });
         } catch (e: any) {
-          // Don't finish the tx on backend failure — Apple will
-          // retry on next launch until we acknowledge.
           finish({
             kind: 'failed',
             reason: e?.response?.data?.message || e?.message || 'Verification failed',
@@ -253,10 +259,19 @@ const IAPService = {
         return { ok: false, message: 'No receipt available' };
       }
 
-      const res = await verifyAppleReceipt({
-        receipt,
-        productId: latest.productId || latest.id,
-      });
+      const txProductId = latest.productId || latest.id;
+      let res;
+      if (Platform.OS === 'android') {
+         res = await verifyGooglePurchase({
+           purchaseToken: receipt,
+           productId: txProductId,
+         });
+      } else {
+         res = await verifyAppleReceipt({
+           receipt,
+           productId: txProductId,
+         });
+      }
       const sub = res.data?.subscription;
       if (!sub) return { ok: false, message: 'Verification returned no subscription' };
 
@@ -270,10 +285,13 @@ const IAPService = {
   },
 
   /**
-   * iOS does NOT allow apps to cancel subs in-app. App Review will
-   * reject any UI that does. Deep-link to Apple's subscriptions page.
+   * App Review explicitly forbids in-app cancellation for IAP.
+   * Deep-link to Apple's / Google's subscriptions page.
    */
   openManageSubscriptions(): Promise<void> {
+    if (Platform.OS === 'android') {
+      return Linking.openURL('https://play.google.com/store/account/subscriptions');
+    }
     return Linking.openURL('https://apps.apple.com/account/subscriptions');
   },
 

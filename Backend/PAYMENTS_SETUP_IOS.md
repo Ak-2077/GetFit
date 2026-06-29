@@ -1,8 +1,7 @@
 # iOS In-App Purchase (Apple IAP) Setup Guide
 
 This guide walks through everything needed to enable Apple StoreKit
-subscriptions for GetFit. Companion to `PAYMENTS_SETUP.md` (Razorpay
-for Android).
+subscriptions for GetFit. Companion to the Google Play Billing setup.
 
 ---
 

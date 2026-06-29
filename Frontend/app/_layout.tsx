@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthToken } from '@/services/api';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Keep the native splash visible until we're ready
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -93,8 +94,9 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -120,8 +122,9 @@ export default function RootLayout() {
         <Stack.Screen name="analytics/steps" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="analytics/calories" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
-      <StatusBar style="light" />
-    </ThemeProvider>
-    </GestureHandlerRootView>
+        <StatusBar style="light" />
+      </ThemeProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

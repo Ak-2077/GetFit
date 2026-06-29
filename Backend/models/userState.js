@@ -52,8 +52,6 @@ const userStateSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userStateSchema.index({ userId: 1 });
-
 // ── Methods ──
 
 /**

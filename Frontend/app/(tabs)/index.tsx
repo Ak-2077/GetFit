@@ -1,15 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Image, Alert, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount, updateStreak } from '../../services/api';
+import { getUserProfile, getCaloriesToday, getFeatures, setAuthToken, getUnreadNotificationCount, updateStreak, getMonthlyStreak } from '../../services/api';
 import { useFitness } from '../../hooks/useFitness';
 import { HomeSkeleton } from '../../components/SkeletonScreens';
 import NutritionStreak from '../../components/NutritionStreak';
+import { TAB_BAR_HEIGHT } from '../../components/GlassTabBar';
 
 const C = {
   bg: '#060D09', card: 'rgba(25,25,25,1)', cardBorder: 'rgba(29,36,31,0.18)', accent: '#1FA463',
@@ -34,8 +36,80 @@ const TOOLS = [
   { key: 'WWP', label: 'Workout', icon: 'barbell-outline' as const, color: '#e80cbfff', route: '/workout-plan' },
 ];
 
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// ─── ACHIEVEMENT / AWARD DEFINITIONS (Apple Fitness-style) ───
+// Each badge unlocks when `progress(stats) >= target`. Progress is shown
+// on locked badges so users see how close they are.
+type BadgeStats = {
+  steps: number;
+  distanceKm: number;
+  caloriesBurned: number;
+  consumed: number;
+  currentStreak: number;
+  longestStreak: number;
+};
+
+type Badge = {
+  key: string;
+  label: string;
+  desc: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  colors: [string, string];
+  target: number;
+  value: (s: BadgeStats) => number;
+  unit?: string;
+};
+
+const BADGES: Badge[] = [
+  { key: 'first_steps', label: 'First Steps', desc: 'Walk 1,000 steps', icon: 'walk', colors: ['#34D399', '#1FA463'], target: 1000, value: (s) => s.steps, unit: 'steps' },
+  { key: 'step_master', label: 'Step Master', desc: 'Hit 10,000 steps', icon: 'footsteps', colors: ['#60A5FA', '#2563EB'], target: 10000, value: (s) => s.steps, unit: 'steps' },
+  { key: 'calorie_burner', label: 'Calorie Burn', desc: 'Burn 500 kcal', icon: 'flame', colors: ['#FF8A65', '#FF5252'], target: 500, value: (s) => s.caloriesBurned, unit: 'kcal' },
+  { key: 'distance_5k', label: '5K Club', desc: 'Cover 5 km', icon: 'trail-sign', colors: ['#A78BFA', '#7C3AED'], target: 5, value: (s) => s.distanceKm, unit: 'km' },
+  { key: 'streak_3', label: 'On a Roll', desc: '3-day streak', icon: 'bonfire', colors: ['#FBBF24', '#F59E0B'], target: 3, value: (s) => s.currentStreak, unit: 'days' },
+  { key: 'streak_7', label: 'Week Warrior', desc: '7-day streak', icon: 'ribbon', colors: ['#F472B6', '#DB2777'], target: 7, value: (s) => s.longestStreak, unit: 'days' },
+  { key: 'streak_30', label: 'Unstoppable', desc: '30-day streak', icon: 'trophy', colors: ['#FFD700', '#C8A84E'], target: 30, value: (s) => s.longestStreak, unit: 'days' },
+];
+
+function AwardBadge({ badge, stats }: { badge: Badge; stats: BadgeStats }) {
+  const current = badge.value(stats);
+  const unlocked = current >= badge.target;
+  const pct = Math.min((current / badge.target) * 100, 100);
+
+  return (
+    <View style={{ alignItems: 'center', width: 92, marginRight: 12 }}>
+      <View style={{ width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center' }}>
+        {unlocked ? (
+          <LinearGradient colors={badge.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center', shadowColor: badge.colors[0], shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 6 }}>
+            <Ionicons name={badge.icon} size={32} color="#fff" />
+          </LinearGradient>
+        ) : (
+          <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' }}>
+            <Ionicons name={badge.icon} size={30} color="rgba(255,255,255,0.22)" />
+            {/* progress ring text */}
+            <View style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: '#0E140F', borderRadius: 9, paddingHorizontal: 5, paddingVertical: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 8, fontWeight: '800' }}>{Math.floor(pct)}%</Text>
+            </View>
+          </View>
+        )}
+      </View>
+      <Text style={{ color: unlocked ? '#F0F0F0' : 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700', marginTop: 8, textAlign: 'center' }} numberOfLines={1}>{badge.label}</Text>
+      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, marginTop: 1, textAlign: 'center' }} numberOfLines={1}>
+        {unlocked ? 'Earned' : `${Math.round(current).toLocaleString()}/${badge.target.toLocaleString()}`}
+      </Text>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -43,6 +117,7 @@ export default function HomeScreen() {
   const [allowed, setAllowed] = useState<string[]>([]);
   const [subPlan, setSubPlan] = useState('free');
   const [unread, setUnread] = useState(0);
+  const [streak, setStreak] = useState({ current: 0, longest: 0 });
 
   // ── HealthKit-backed fitness data (steps + burn) ──
   const fitness = useFitness();
@@ -70,6 +145,11 @@ export default function HomeScreen() {
       const waterKey = `water_${new Date().toISOString().slice(0, 10)}`;
       const currentWater = await AsyncStorage.getItem(waterKey);
       updateStreak({ water: Number(currentWater || 0) }).catch(() => {});
+      // Fetch streak stats for the Awards section
+      const month = new Date().toISOString().slice(0, 7);
+      getMonthlyStreak(month)
+        .then((s) => setStreak({ current: Number(s.data?.currentStreak || 0), longest: Number(s.data?.longestStreak || 0) }))
+        .catch(() => {});
     } catch (e) { console.warn('Home error', e); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
@@ -87,6 +167,15 @@ export default function HomeScreen() {
   const consumed = Number(daily?.consumedCalories || 0);
   const target = Number(user?.goalCalories || user?.maintenanceCalories || daily?.targetCalories || 2000);
   const userName = user?.name || 'User';
+  const badgeStats: BadgeStats = {
+    steps: Number(fitness.steps || 0),
+    distanceKm: Number(fitness.distanceKm || 0),
+    caloriesBurned: Number(fitness.caloriesBurned || 0),
+    consumed,
+    currentStreak: streak.current,
+    longestStreak: streak.longest,
+  };
+  const earnedCount = BADGES.filter((b) => b.value(badgeStats) >= b.target).length;
   const fl = userName.charAt(0).toUpperCase();
   const isFree = subPlan === 'free';
 
@@ -104,8 +193,8 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
-      <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 20 }} showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.card} />}>
 
           {/* ═══ HEADER ═══ */}
@@ -133,7 +222,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ fontSize: 12, color: C.label }}>Welcome back</Text>
+              <Text style={{ fontSize: 12, color: C.label }}>{getGreeting()}</Text>
               <Text style={{ fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: -0.3 }}>{userName}</Text>
             </View>
             {/* Search icon → navigates to SearchScreen */}
@@ -227,6 +316,17 @@ export default function HomeScreen() {
               );
             })}
           </View>
+
+          {/* ═══ AWARDS — Apple Fitness-style achievement badges ═══ */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: C.label, letterSpacing: 1, textTransform: 'uppercase' }}>Awards</Text>
+            <Text style={{ fontSize: 11, color: C.accent, fontWeight: '700' }}>{earnedCount}/{BADGES.length} earned</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 22 }} contentContainerStyle={{ paddingRight: 8 }}>
+            {BADGES.map((b) => (
+              <AwardBadge key={b.key} badge={b} stats={badgeStats} />
+            ))}
+          </ScrollView>
 
           {/* ═══ MONTHLY NUTRITION STREAK ═══ */}
           <NutritionStreak />

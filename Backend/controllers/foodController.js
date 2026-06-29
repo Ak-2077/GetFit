@@ -442,7 +442,8 @@ export const getFoodByBarcode = async (req, res) => {
 // Add food to log (record what user ate)
 export const addFoodToLog = async (req, res) => {
   try {
-    const { foodId, quantity, servings, meal, mealType, servingText, servingUnit, date } = req.body;
+    const { foodId, quantity, servings, meal, mealType, servingText, servingUnit, date,
+            foodName, estimatedWeight, selectedWeight, userModifiedWeight } = req.body;
     const userId = req.userId;
 
     if (!userId) {
@@ -495,6 +496,26 @@ export const addFoodToLog = async (req, res) => {
     });
 
     await foodLog.save();
+
+    // ── Merged Portion Learning (Stage 5/14) ──
+    // Persist a portion correction ONLY when the user changed the AI estimate.
+    // No dedicated endpoint — happens inside the single /log request.
+    try {
+      const est = Number(estimatedWeight);
+      const sel = Number(selectedWeight);
+      const learnName = (foodName || food.name || '').toString();
+      if (learnName && Number.isFinite(est) && Number.isFinite(sel) && sel > 0 && Math.abs(est - sel) > 5) {
+        const diff = sel - est;
+        const pctDiff = est > 0 ? Math.round((diff / est) * 100) : 0;
+        const { default: PortionLearning } = await import('../models/portionLearning.js');
+        await PortionLearning.record(userId, learnName, est, sel);
+        console.log(`[PortionLearning] ${learnName}: est=${est}g sel=${sel}g (${pctDiff >= 0 ? '+' : ''}${pctDiff}%) modified=${!!userModifiedWeight}`);
+      }
+    } catch (learnErr) {
+      // Non-fatal: never block the log on a learning write
+      console.warn('[PortionLearning] skipped:', learnErr.message);
+    }
+
     res.status(201).json({ message: 'Food added to log', foodLog });
   } catch (err) {
     res.status(500).json({ message: 'Error adding food to log', error: err.message });

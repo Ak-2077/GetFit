@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import health, chat, diet, video, pose, memory, embeddings, orchestrator, agent, evaluator, food_vision
 from app.core.config import settings
 from app.core.llm import ollama
+from app.vision import vision_adapter
 import logging
 
 logger = logging.getLogger("getfit-ai")
@@ -14,6 +15,13 @@ async def lifespan(app: FastAPI):
     # Startup: warm models into VRAM
     logger.info("Warming up models...")
     await ollama.warmup()
+    # Warm the vision adapter (primary + fallback availability)
+    try:
+        await vision_adapter.warmup()
+        logger.info("Vision adapter ready (primary=%s, fallback=%s)",
+                    settings.VISION_PRIMARY, settings.VISION_FALLBACK)
+    except Exception as e:
+        logger.warning(f"Vision adapter warmup skipped: {e}")
     logger.info("Models warmed up — ready for low-latency inference")
     yield
 

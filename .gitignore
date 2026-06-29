@@ -33,3 +33,10 @@ Thumbs.db
 
 # VSCode
 .vscode/
+
+# Benchmark artifacts (large datasets / generated results — keep code, drop data)
+ai-service/benchmark/.hf_cache/
+ai-service/benchmark/food101/
+ai-service/benchmark/results/
+ai-service/benchmark/dataset/
+ai-service/benchmark/getfit_benchmark.json

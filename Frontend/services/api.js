@@ -58,6 +58,41 @@ const API = axios.create({
   },
 });
 
+import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+
+// Global API Error Interceptor
+API.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    // Check if error is network related or a 500+ server error
+    if (!error.response) {
+      console.warn('[API Network Error]', error.message);
+      // Only alert occasionally or if requested, to prevent spam
+    } else if (error.response.status === 401) {
+      console.warn('[API 401 Unauthorized] Clearing session...');
+      try {
+        await AsyncStorage.removeItem('token');
+        setAuthToken(null);
+        if (router.canGoBack() || router.canDismiss()) {
+           router.replace('/auth');
+        }
+      } catch (e) {
+        // ignore
+      }
+    } else if (error.response.status >= 500) {
+      console.warn(`[API Server Error ${error.response.status}]`, error.config.url);
+      // Suppress alert for AI endpoints as they stream and handle their own UX
+      if (!error.config.url?.includes('/api/ai')) {
+        Alert.alert('Server Error', 'The server encountered a problem. Please try again later.');
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // Auth endpoints
 export const sendOtpRequest = (data) => API.post('/api/auth/send-otp', data);
 export const verifyOtpRequest = (data) => API.post('/api/auth/verify-otp', data);
@@ -76,7 +111,7 @@ export const saveOnboarding = (data) => API.post('/api/user/onboarding', data);
 export const getUserProfile = () => API.get('/api/user/profile');
 export const updateUserProfile = (data) => API.put('/api/user/profile', data);
 export const changeUserPassword = (data) => API.post('/api/user/change-password', data);
-export const deleteUserAccount = () => API.delete('/api/user/delete-account');
+export const deleteUserAccount = () => API.delete('/api/user/delete-account', { data: { confirm: true } });
 export const getWeeklyCalories = () => API.get('/api/user/weekly-calories');
 export const sendProfileEmailOtp = (data) => API.post('/api/user/send-email-otp', data);
 export const verifyProfileEmailOtp = (data) => API.post('/api/user/verify-email-otp', data);
@@ -99,12 +134,13 @@ export const addFoodToLog = (data) => API.post('/api/food/log', data);
 export const getTodaysFoodLog = () => API.get('/api/food/log/today');
 export const removeFoodFromLog = (logId) => API.delete(`/api/food/log/${logId}`);
 export const recognizeFood = (image_base64, mime_type = 'image/jpeg', food_type = 'homemade', cooking_methods = []) =>
-  API.post('/api/food/recognize', { image_base64, mime_type, food_type, cooking_methods }, { timeout: 55000 });
+  API.post('/api/food/recognize', { image_base64, mime_type, food_type, cooking_methods }, { timeout: 120000 });
 export const smartFoodSearch = (foods, cooking_methods = []) =>
   API.post('/api/food/smart-search', { foods, cooking_methods }, { timeout: 30000 });
 export const trackFoodMemory = (data) => API.post('/api/food/memory/track', data);
 export const getFrequentFoods = () => API.get('/api/food/memory/frequent');
 export const getRecentFoodMemory = () => API.get('/api/food/memory/recent');
+export const submitFoodFeedback = (data) => API.post('/api/food/feedback', data);
 
 // Calories tab endpoints
 export const searchFoodsAutocomplete = (q, limit = 12) => API.get('/api/foods/search', { params: { q, limit } });
@@ -155,17 +191,10 @@ export const generateAIDiet = (data) => API.post('/api/diet/generate', data);
 // Workout Plan endpoints
 export const getWorkoutPlan = () => API.get('/api/workout-plan/plan');
 
-// Subscription endpoints (legacy — maps to monthly SKUs; UI should prefer /api/payments/plans)
 export const getSubscriptionPlans = () => API.get('/api/subscription/plans');
-/** @deprecated Use createRazorpayOrder + verifyRazorpayPayment instead. Returns 410. */
-export const upgradeSubscription = (plan) => API.post('/api/subscription/upgrade', { plan });
-
-// ─── Payments (Razorpay) ──────────────────────────────────────
 export const getPaymentPlans = () => API.get('/api/payments/plans');
-export const createRazorpayOrder = (planId) =>
-  API.post('/api/payments/razorpay/create-order', { planId });
-export const verifyRazorpayPayment = (payload) =>
-  API.post('/api/payments/razorpay/verify', payload);
+export const verifyGooglePurchase = (payload) =>
+  API.post('/api/payments/google/verify', payload);
 export const getSubscriptionStatus = () =>
   API.get('/api/payments/subscription/status');
 export const restoreSubscription = () =>

@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.getfit.fitness",
       "icon": {
-        "source": "./assets/images/RealLogo.png",
+        "source": "./assets/images/iOS_ICON.jpeg",
         "backgroundColor": "#1B4332"
       },
       "supportsTablet": true,

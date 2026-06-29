@@ -92,7 +92,7 @@ export default function AITrainerScreen() {
     return (
       <View style={s.root}>
         <View style={{ position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
 
             <View style={{ paddingTop: 8, paddingBottom: 8 }}>
@@ -194,7 +194,7 @@ export default function AITrainerScreen() {
       <View style={{ position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: C.accentGlow }} />
       <View style={{ position: 'absolute', bottom: -80, left: -80, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(100,231,241,0.03)' }} />
 
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}

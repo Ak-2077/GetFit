@@ -35,12 +35,22 @@ const calculateBmr = (gender: 'male' | 'female', age: number, weightKg: number, 
   return 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
 };
 
-function CaloriesMeter({ total }: { total: number }) {
+// Macro split: protein 30% / carbs 40% / fat 30% of total calories.
+// 4 kcal/g protein & carbs, 9 kcal/g fat.
+const calculateMacros = (totalKcal: number) => ({
+  protein: Math.round((totalKcal * 0.3) / 4),
+  carbs: Math.round((totalKcal * 0.4) / 4),
+  fat: Math.round((totalKcal * 0.3) / 9),
+});
+
+function CaloriesMeter({ total, tdee }: { total: number; tdee: number }) {
   const size = 170;
   const stroke = 12;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const maxCalories = 4000;
+  // Scale the ring to the user's own maintenance (TDEE) so the fill is meaningful,
+  // with headroom for surplus goals.
+  const maxCalories = Math.max(total, tdee) * 1.15 || 4000;
   const progress = Math.max(0, Math.min(total / maxCalories, 1));
   const offset = circumference * (1 - progress);
 
@@ -69,11 +79,10 @@ function CaloriesMeter({ total }: { total: number }) {
           />
         </Svg>
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: C.white, fontSize: 22, fontWeight: '800' }}>{Math.round(total)}</Text>
-          <Text style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>kcal/day</Text>
+          <Text style={{ color: C.white, fontSize: 26, fontWeight: '800' }}>{Math.round(total)}</Text>
+          <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>kcal/day</Text>
         </View>
       </View>
-      <Text style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>Target scale {maxCalories} kcal</Text>
     </View>
   );
 }
@@ -87,7 +96,7 @@ export default function CaloriesCalculatorScreen() {
   const [activity, setActivity] = useState(activityOptions[0]);
   const [goal, setGoal] = useState(goalOptions[0]);
   const [showResult, setShowResult] = useState(false);
-  const [result, setResult] = useState<{ bmr: number; tdee: number; total: number } | null>(null);
+  const [result, setResult] = useState<{ bmr: number; tdee: number; total: number; macros: { protein: number; carbs: number; fat: number } } | null>(null);
 
   const handleCalculate = () => {
     const ageNum = Number(age);
@@ -100,7 +109,7 @@ export default function CaloriesCalculatorScreen() {
     const bmr = calculateBmr(gender, ageNum, weightNum, heightNum);
     const tdee = bmr * activity.multiplier;
     const total = tdee + goal.adjust;
-    setResult({ bmr, tdee, total });
+    setResult({ bmr, tdee, total, macros: calculateMacros(total) });
     setShowResult(true);
   };
 
@@ -173,25 +182,44 @@ export default function CaloriesCalculatorScreen() {
             {showResult && result && (
               <View style={{ backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.cardBorder, padding: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: C.white, fontSize: 16, fontWeight: '800' }}>Result</Text>
-                  <Text style={{ color: C.muted, fontSize: 12 }}>Daily Calories</Text>
+                  <Text style={{ color: C.white, fontSize: 16, fontWeight: '800' }}>Daily Target</Text>
+                  <Text style={{ color: C.muted, fontSize: 12 }}>{goal.label}</Text>
                 </View>
-                <CaloriesMeter total={result.total} />
-                <Text style={{ color: C.accent, fontSize: 26, fontWeight: '800', marginBottom: 10 }}>{Math.round(result.total)} kcal</Text>
+                <CaloriesMeter total={result.total} tdee={result.tdee} />
+
+                {/* Macro breakdown */}
+                <Text style={{ color: C.label, fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Recommended Macros</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  {[
+                    { l: 'Protein', v: result.macros.protein, c: '#00E676' },
+                    { l: 'Carbs', v: result.macros.carbs, c: '#60A5FA' },
+                    { l: 'Fat', v: result.macros.fat, c: '#FFA500' },
+                  ].map((m) => (
+                    <View key={m.l} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 12, alignItems: 'center' }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: m.c, marginBottom: 6 }} />
+                      <Text style={{ color: C.white, fontSize: 17, fontWeight: '800' }}>{m.v}g</Text>
+                      <Text style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>{m.l}</Text>
+                    </View>
+                  ))}
+                </View>
 
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1, backgroundColor: 'rgba(0,230,118,0.08)', borderRadius: 14, padding: 14, alignItems: 'center' }}>
                     <Text style={{ color: C.muted, fontSize: 10, marginBottom: 4 }}>BMR</Text>
                     <Text style={{ color: C.white, fontSize: 18, fontWeight: '800' }}>{Math.round(result.bmr)}</Text>
-                    <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>kcal/day</Text>
+                    <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>at rest</Text>
                   </View>
                   <View style={{ flex: 1, backgroundColor: 'rgba(0,230,118,0.08)', borderRadius: 14, padding: 14, alignItems: 'center' }}>
                     <Text style={{ color: C.muted, fontSize: 10, marginBottom: 4 }}>TDEE</Text>
                     <Text style={{ color: C.white, fontSize: 18, fontWeight: '800' }}>{Math.round(result.tdee)}</Text>
-                    <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>kcal/day</Text>
+                    <Text style={{ color: C.muted, fontSize: 9, marginTop: 2 }}>maintenance</Text>
                   </View>
                 </View>
-                <Text style={{ color: C.muted, fontSize: 11, marginTop: 10 }}>Goal adjustment: {goal.adjust > 0 ? `+${goal.adjust}` : goal.adjust} kcal</Text>
+                {goal.adjust !== 0 && (
+                  <Text style={{ color: C.muted, fontSize: 11, marginTop: 12, textAlign: 'center' }}>
+                    {goal.adjust > 0 ? `+${goal.adjust}` : goal.adjust} kcal vs. maintenance for your goal
+                  </Text>
+                )}
               </View>
             )}
 
