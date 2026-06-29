@@ -23,8 +23,8 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 
-from ..core.config import settings  # type: ignore
-from ..vision import vision_adapter
+from app.core.config import settings  # type: ignore
+from app.vision import vision_adapter
 
 logger = logging.getLogger("getfit-ai")
 
