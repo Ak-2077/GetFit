@@ -30,7 +30,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -95,6 +95,7 @@ interface ServerPlan {
 export default function UpgradeScreen() {
   const router = useRouter();
   const subscription = useSubscription();
+  const insets = useSafeAreaInsets();
 
   const [plans, setPlans] = useState<ServerPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,8 +208,14 @@ export default function UpgradeScreen() {
       } else if (result.kind === 'cancelled') {
         setPaymentState({ kind: 'cancelled' });
       } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        setPaymentState({ kind: 'failed', reason: result.reason });
+        // A user-cancelled purchase sometimes surfaces as a generic failure —
+        // treat it as a cancellation (neutral), not a red error.
+        if (/cancel/i.test(result.reason || '')) {
+          setPaymentState({ kind: 'cancelled' });
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+          setPaymentState({ kind: 'failed', reason: result.reason });
+        }
       }
       return;
   };
@@ -260,9 +267,9 @@ export default function UpgradeScreen() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={styles.glow} />
 
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 48 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
@@ -277,10 +284,10 @@ export default function UpgradeScreen() {
             >
               <Ionicons name="chevron-back" size={22} color={C.white} />
             </TouchableOpacity>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.title}>Choose Your Plan</Text>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={styles.title}>Go Premium</Text>
               <Text style={styles.subtitle}>
-                Unlock premium features and reach your goals faster
+                Unlock everything and reach your goals faster
               </Text>
             </View>
           </View>
@@ -507,20 +514,30 @@ const PlanCard: React.FC<{
   onPurchase: () => void;
 }> = ({ plan, isCurrent, onPurchase }) => {
   const isProPlus = plan.tier === 'pro_plus';
-  const accent = isProPlus ? '#FF7F00' : C.accent;
-  const gradientColors: [string, string] = [C.card, C.card];
+  // Refined gold for Pro+ (premium feel, not a harsh orange).
+  const accent = isProPlus ? '#D4A93C' : C.accent;
+  const gradientColors: [string, string] = isProPlus
+    ? ['rgba(212,169,60,0.06)', 'rgba(20,22,24,0.92)']
+    : ['rgba(31,164,99,0.06)', 'rgba(20,22,24,0.92)'];
+  const highlighted = plan.isPopular || isCurrent;
 
   return (
     <View
       style={[
         styles.planCard,
         {
-          borderColor: isCurrent ? C.accent : C.cardBorder,
-          borderWidth: plan.isPopular || isCurrent ? 1.5 : 1,
+          borderColor: isCurrent ? C.accent : highlighted ? `${accent}55` : C.cardBorder,
+          borderWidth: highlighted ? 1.5 : 1,
+          // Subtle elevation/glow on the highlighted plan — premium, not flashy.
+          shadowColor: highlighted ? accent : '#000',
+          shadowOpacity: highlighted ? 0.18 : 0.08,
+          shadowRadius: highlighted ? 16 : 8,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: highlighted ? 6 : 2,
         },
       ]}
     >
-      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 20 }}>
+      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ padding: 22 }}>
         {/* Badge */}
         {plan.badge && (
           <View style={[styles.badge, { backgroundColor: `${accent}25`, borderColor: `${accent}80` }]}>
@@ -615,25 +632,27 @@ const PaymentResultModal: React.FC<{
         <View style={styles.modalCard}>
           {state.kind === 'processing' && (
             <>
-              <ActivityIndicator size="large" color={C.accent} />
-              <Text style={styles.modalTitle}>Processing payment…</Text>
+              <View style={[styles.iconCircle, { backgroundColor: C.accentSoft }]}>
+                <ActivityIndicator size="small" color={C.accent} />
+              </View>
+              <Text style={styles.modalTitle}>Processing payment</Text>
               <Text style={styles.modalBody}>
-                Please don't close the app. We're verifying your payment securely.
+                Please keep the app open while we securely verify your payment.
               </Text>
             </>
           )}
 
           {state.kind === 'success' && (
             <>
-              <View style={[styles.iconCircle, { backgroundColor: C.accentSoft, borderColor: C.accent }]}>
-                <Ionicons name="checkmark" size={36} color={C.accent} />
+              <View style={[styles.iconCircle, { backgroundColor: C.accentSoft }]}>
+                <Ionicons name="checkmark-circle" size={44} color={C.accent} />
               </View>
-              <Text style={styles.modalTitle}>Welcome to Premium!</Text>
+              <Text style={styles.modalTitle}>You're all set</Text>
               <Text style={styles.modalBody}>
                 Your {state.planTier === 'pro_plus' ? 'Pro+' : 'Pro'} subscription is now active.
                 {state.expiryDate ? `\nValid until ${new Date(state.expiryDate).toLocaleDateString()}.` : ''}
               </Text>
-              <TouchableOpacity onPress={onDone} style={[styles.modalBtn, { backgroundColor: C.accent }]}>
+              <TouchableOpacity onPress={onDone} style={[styles.modalBtn, { backgroundColor: C.accent }]} activeOpacity={0.85}>
                 <Text style={styles.modalBtnText}>Start exploring</Text>
               </TouchableOpacity>
             </>
@@ -641,28 +660,34 @@ const PaymentResultModal: React.FC<{
 
           {state.kind === 'failed' && (
             <>
-              <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,107,107,0.14)', borderColor: C.burn }]}>
-                <Ionicons name="close" size={36} color={C.burn} />
+              <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,107,107,0.12)' }]}>
+                <Ionicons name="alert-circle" size={44} color={C.burn} />
               </View>
-              <Text style={styles.modalTitle}>Payment failed</Text>
+              <Text style={styles.modalTitle}>Payment didn't go through</Text>
               <Text style={styles.modalBody}>{state.reason}</Text>
-              <TouchableOpacity onPress={onClose} style={[styles.modalBtn, { backgroundColor: C.burn }]}>
+              <TouchableOpacity onPress={onClose} style={[styles.modalBtn, { backgroundColor: C.accent }]} activeOpacity={0.85}>
                 <Text style={styles.modalBtnText}>Try again</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={styles.modalBtnGhost} activeOpacity={0.7}>
+                <Text style={styles.modalBtnGhostText}>Not now</Text>
               </TouchableOpacity>
             </>
           )}
 
           {state.kind === 'cancelled' && (
             <>
-              <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.20)' }]}>
-                <Ionicons name="close-circle-outline" size={36} color={C.muted} />
+              <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+                <Ionicons name="close-circle" size={44} color={C.muted} />
               </View>
-              <Text style={styles.modalTitle}>Payment cancelled</Text>
+              <Text style={styles.modalTitle}>Purchase cancelled</Text>
               <Text style={styles.modalBody}>
-                You cancelled the payment. Your selection is preserved — try again anytime.
+                No charge was made. Your selection is saved — you can subscribe anytime.
               </Text>
-              <TouchableOpacity onPress={onClose} style={[styles.modalBtn, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
-                <Text style={[styles.modalBtnText, { color: C.white }]}>Close</Text>
+              <TouchableOpacity onPress={onClose} style={[styles.modalBtn, { backgroundColor: C.accent }]} activeOpacity={0.85}>
+                <Text style={styles.modalBtnText}>Try again</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={styles.modalBtnGhost} activeOpacity={0.7}>
+                <Text style={styles.modalBtnGhostText}>Maybe later</Text>
               </TouchableOpacity>
             </>
           )}
@@ -688,21 +713,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 18,
+    paddingTop: 6,
+    paddingBottom: 22,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { fontSize: 22, fontWeight: '800', color: C.white, letterSpacing: -0.3 },
-  subtitle: { fontSize: 12, color: C.label, marginTop: 4 },
+  title: { fontSize: 28, fontWeight: '700', color: C.white, letterSpacing: 0.2, lineHeight: 34 },
+  subtitle: { fontSize: 14, color: C.label, marginTop: 3, lineHeight: 19 },
 
   currentBanner: {
     flexDirection: 'row',
@@ -719,27 +744,27 @@ const styles = StyleSheet.create({
 
   toggleWrap: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 18,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: 5,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.07)',
   },
   toggleSeg: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'transparent',
     gap: 8,
   },
   toggleText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: C.label,
     letterSpacing: 0.2,
   },
@@ -752,25 +777,25 @@ const styles = StyleSheet.create({
   saveText: { color: '#0B0B0B', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
 
   planCard: {
-    marginBottom: 14,
-    borderRadius: 22,
+    marginBottom: 16,
+    borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: C.card,
   },
   badge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   badgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  planName: { color: C.white, fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
-  planPrice: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  planPeriod: { color: C.muted, fontSize: 11, fontWeight: '500', marginTop: 2 },
+  planName: { color: C.white, fontSize: 20, fontWeight: '700', letterSpacing: 0.1 },
+  planPrice: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
+  planPeriod: { color: C.muted, fontSize: 12, fontWeight: '500', marginTop: 2 },
 
-  featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   featureIcon: {
     width: 22,
     height: 22,
@@ -779,18 +804,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  featureText: { fontSize: 13, fontWeight: '500' },
+  featureText: { fontSize: 14, fontWeight: '500', lineHeight: 20, flex: 1 },
 
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
-    borderRadius: 14,
-    marginTop: 12,
+    height: 52,
+    borderRadius: 16,
+    marginTop: 16,
     gap: 8,
   },
-  ctaText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
+  ctaText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
   planTerms: {
     color: C.muted,
     fontSize: 10.5,
@@ -870,52 +895,66 @@ const styles = StyleSheet.create({
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalCard: {
     width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#0F1116',
-    borderRadius: 24,
-    padding: 24,
+    maxWidth: 340,
+    backgroundColor: '#16181B',
+    borderRadius: 28,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
   },
   iconCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 2,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 18,
   },
   modalTitle: {
     color: C.white,
-    fontSize: 19,
-    fontWeight: '800',
-    marginTop: 6,
-    marginBottom: 6,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
     textAlign: 'center',
-    letterSpacing: -0.2,
+    letterSpacing: 0.2,
+    lineHeight: 26,
   },
   modalBody: {
     color: C.label,
-    fontSize: 13,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 18,
+    lineHeight: 20,
+    marginBottom: 22,
   },
   modalBtn: {
     width: '100%',
-    height: 46,
-    borderRadius: 12,
+    height: 50,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnText: { color: '#0B0B0B', fontSize: 14, fontWeight: '700' },
+  modalBtnText: { color: '#0B0B0B', fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
+  modalBtnGhost: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  modalBtnGhostText: { color: C.label, fontSize: 15, fontWeight: '600' },
 });

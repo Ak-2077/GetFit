@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
-import { searchFoodsByName, addFoodToLog, recognizeFood, smartFoodSearch, trackFoodMemory, submitFoodFeedback } from '../services/api';
+import { searchFoodsByName, addFoodToLog, recognizeFood, smartFoodSearch, trackFoodMemory, submitFoodFeedback, getUsageToday } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
@@ -331,9 +331,9 @@ function FoodCard({ item, onPress, index }: { item: FoodResult; onPress: () => v
 // ═══ CONFIDENCE BADGE SYSTEM ═══
 function getConfidenceBadge(conf: number): { label: string; color: string; bg: string; icon: any } {
   const pct = conf <= 1 ? conf * 100 : conf;
-  if (pct >= 96) return { label: 'Verified', color: '#00E676', bg: 'rgba(0,230,118,0.14)', icon: 'check-circle' };
+  if (pct >= 96) return { label: 'Verified', color: '#1FA463', bg: 'rgba(31,164,99,0.14)', icon: 'check-circle' };
   if (pct >= 90) return { label: 'High Confidence', color: '#4ECDC4', bg: 'rgba(78,205,196,0.14)', icon: 'shield' };
-  if (pct >= 80) return { label: 'Needs Confirmation', color: '#FFE66D', bg: 'rgba(255,230,109,0.14)', icon: 'question-circle' };
+  if (pct >= 80) return { label: 'Needs Confirmation', color: '#60A5FA', bg: 'rgba(96,165,250,0.14)', icon: 'question-circle' };
   return { label: 'Please Verify', color: '#FF6B6B', bg: 'rgba(255,107,107,0.14)', icon: 'exclamation-triangle' };
 }
 
@@ -354,10 +354,10 @@ function computeHealthScore(f: { calories: number; protein: number; carbs: numbe
   score -= Math.min(15, (f.fat / cals) * 100 * 1.2); // fat penalty (mild)
   score = Math.max(1, Math.min(100, Math.round(score)));
 
-  let label = 'Fair', color = '#FFE66D';
-  if (score >= 80) { label = 'Excellent'; color = '#00E676'; }
+  let label = 'Fair', color = '#60A5FA';
+  if (score >= 80) { label = 'Excellent'; color = '#1FA463'; }
   else if (score >= 65) { label = 'Good'; color = '#4ECDC4'; }
-  else if (score >= 45) { label = 'Fair'; color = '#FFE66D'; }
+  else if (score >= 45) { label = 'Fair'; color = '#60A5FA'; }
   else { label = 'Poor'; color = '#FF6B6B'; }
   return { score, label, color };
 }
@@ -445,9 +445,47 @@ function MacroBar({ protein, carbs, fat }: { protein: number; carbs: number; fat
 
   return (
     <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.04)' }}>
-      <View style={{ width: `${pPct}%` as any, backgroundColor: '#00E676', borderRadius: 3 }} />
-      <View style={{ width: `${cPct}%` as any, backgroundColor: '#FFB74D' }} />
-      <View style={{ width: `${fPct}%` as any, backgroundColor: '#42A5F5', borderRadius: 3 }} />
+      <View style={{ width: `${pPct}%` as any, backgroundColor: '#1FA463', borderRadius: 3 }} />
+      <View style={{ width: `${cPct}%` as any, backgroundColor: '#60A5FA' }} />
+      <View style={{ width: `${fPct}%` as any, backgroundColor: '#FF6B6B', borderRadius: 3 }} />
+    </View>
+  );
+}
+
+// ═══ SCAN CREDITS BADGE (free: "X left", premium: "Unlimited") ═══
+function ScanCreditsBadge({
+  usage, type,
+}: {
+  usage: { subscription: 'free' | 'premium'; food: { remaining: number | null; limit: number | null }; barcode: { remaining: number | null; limit: number | null } } | null;
+  type: 'food' | 'barcode';
+}) {
+  if (!usage) return null;
+  const isPremium = usage.subscription === 'premium';
+  const data = type === 'food' ? usage.food : usage.barcode;
+
+  if (isPremium) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: 'rgba(31,164,99,0.16)', borderWidth: 1, borderColor: 'rgba(31,164,99,0.35)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+        <FontAwesome name="star" size={11} color={C.accent} />
+        <Text style={{ color: C.accent, fontSize: 12, fontWeight: '800' }}>Unlimited scans  ∞</Text>
+      </View>
+    );
+  }
+
+  const remaining = data.remaining ?? 0;
+  const limit = data.limit ?? 0;
+  const out = remaining <= 0;
+  const low = !out && remaining <= Math.max(1, Math.ceil((limit || 1) * 0.2));
+  const color = out ? '#FF6B6B' : low ? '#FFB74D' : '#FFFFFF';
+  const bg = out ? 'rgba(255,107,107,0.16)' : low ? 'rgba(255,183,77,0.16)' : 'rgba(255,255,255,0.10)';
+  const border = out ? 'rgba(255,107,107,0.4)' : low ? 'rgba(255,183,77,0.4)' : 'rgba(255,255,255,0.18)';
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+      <FontAwesome name={type === 'food' ? 'camera' : 'barcode'} size={11} color={color} />
+      <Text style={{ color, fontSize: 12, fontWeight: '800' }}>
+        {out ? `No ${type === 'food' ? 'food' : 'barcode'} scans left today` : `${remaining} of ${limit} ${type === 'food' ? 'food' : 'barcode'} scans left`}
+      </Text>
     </View>
   );
 }
@@ -495,6 +533,31 @@ export default function ScanScreen() {
   const [adding, setAdding] = useState(false);
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
+  // Daily scan limit (free tier) — shown when backend returns HTTP 429
+  const [limitInfo, setLimitInfo] = useState<{ limit: number; resetAt?: string } | null>(null);
+
+  // Live daily usage (food + barcode) — accurate, backend is source of truth
+  const [usage, setUsage] = useState<{
+    subscription: 'free' | 'premium';
+    food: { remaining: number | null; limit: number | null };
+    barcode: { remaining: number | null; limit: number | null };
+  } | null>(null);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      const res = await getUsageToday();
+      const d = res?.data;
+      if (!d?.success) return;
+      setUsage({
+        subscription: d.subscription === 'premium' ? 'premium' : 'free',
+        food: { remaining: d.foodScans?.remaining ?? null, limit: d.foodScans?.limit ?? null },
+        barcode: { remaining: d.barcodeScans?.remaining ?? null, limit: d.barcodeScans?.limit ?? null },
+      });
+    } catch (_) {
+      // non-fatal — indicator just won't show
+    }
+  }, []);
+
   const ANALYSIS_STAGES = ['Capturing image', 'Identifying foods', 'Estimating nutrition', 'Matching database'];
   const COOKING_METHODS = ['Boiled', 'Fried', 'Grilled', 'Steamed', 'Baked', 'Roasted', 'Sauteed', 'Raw'];
   const FOOD_TYPES = ['homemade', 'restaurant', 'packaged'];
@@ -509,6 +572,7 @@ export default function ScanScreen() {
   }, []);
 
   useEffect(() => { loadRecentFoods(); }, []);
+  useEffect(() => { refreshUsage(); }, [refreshUsage]);
 
   const loadRecentFoods = async () => {
     try {
@@ -690,6 +754,16 @@ export default function ScanScreen() {
         setMealDescription(aiData.meal_description || '');
         setAiReasoningData(aiData.reasoning || null);
 
+        // Update live usage from the authoritative response (exact remaining count)
+        setUsage(prev => ({
+          subscription: aiData.subscription === 'premium' ? 'premium' : 'free',
+          food: {
+            remaining: aiData.remainingFoodScans ?? null,
+            limit: aiData.dailyLimit ?? null,
+          },
+          barcode: prev?.barcode ?? { remaining: null, limit: null },
+        }));
+
         // Stage 3: Done
         setAnalysisStageIdx(3);
         await new Promise(r => setTimeout(r, 500));
@@ -708,6 +782,18 @@ export default function ScanScreen() {
       }
     } catch (err: any) {
       console.warn('[FoodCapture] error:', err?.message);
+
+      // ── Daily scan limit reached (HTTP 429) — show upgrade modal, do NOT retry ──
+      if (err?.response?.status === 429 && err?.response?.data?.code === 'DAILY_SCAN_LIMIT') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        setLimitInfo({
+          limit: err.response.data.limit ?? 10,
+          resetAt: err.response.data.resetAt,
+        });
+        setFoodScanPhase('camera');
+        return;
+      }
+
       const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
       const isNetwork = !err?.response && err?.message?.includes('Network');
       
@@ -1093,7 +1179,7 @@ export default function ScanScreen() {
   const toggleLeft = toggleAnim.interpolate({ inputRange: [0, 1], outputRange: [3, (SCREEN_W - 80) / 2 - 3] });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* ═══ BARCODE MODE ═══ */}
       {mode === 'barcode' ? (
         <View style={{ flex: 1 }}>
@@ -1102,12 +1188,16 @@ export default function ScanScreen() {
             onBarcodeScanned={isScannerEnabled && !isProcessing ? ({ data }) => handleBarcodeScanned(data) : undefined}
             barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'] }}
           />
-          <View style={styles.overlay}>
+          <View style={[styles.overlay, { paddingTop: insets.top + 14 }]}>
             <View style={styles.topRow}>
               <TouchableOpacity style={styles.iconButton} onPress={goBackSafe}>
                 <FontAwesome name="chevron-left" size={16} color="#fff" />
               </TouchableOpacity>
               <Text style={styles.title}>Scan Barcode</Text>
+            </View>
+            {/* Live scans-left indicator (barcode) */}
+            <View style={{ marginTop: 10 }}>
+              <ScanCreditsBadge usage={usage} type="barcode" />
             </View>
             <View style={styles.centerContent}>
               <View style={styles.scanFrame}>
@@ -1134,7 +1224,7 @@ export default function ScanScreen() {
           {foodScanPhase === 'camera' && !showManualSearch && (
             <View style={{ flex: 1 }}>
               <CameraView ref={foodCameraRef} style={StyleSheet.absoluteFillObject} />
-              <View style={styles.overlay}>
+              <View style={[styles.overlay, { paddingTop: insets.top + 14 }]}>
                 <View style={styles.topRow}>
                   <TouchableOpacity style={styles.iconButton} onPress={goBackSafe}>
                     <FontAwesome name="chevron-left" size={16} color="#fff" />
@@ -1144,6 +1234,11 @@ export default function ScanScreen() {
                   <TouchableOpacity style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.15)' }]} onPress={() => setShowManualSearch(true)}>
                     <FontAwesome name="search" size={14} color="#fff" />
                   </TouchableOpacity>
+                </View>
+
+                {/* Live scans-left indicator (food) */}
+                <View style={{ marginTop: 10 }}>
+                  <ScanCreditsBadge usage={usage} type="food" />
                 </View>
 
                 <View style={styles.centerContent}>
@@ -1249,13 +1344,11 @@ export default function ScanScreen() {
           {foodScanPhase === 'results' && (
             <View style={{ flex: 1, backgroundColor: C.bg }}>
               {/* Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: insets.top + 8, paddingBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: insets.top + 8, paddingBottom: 8 }}>
                 <TouchableOpacity onPress={resetFoodScan} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center' }}>
                   <FontAwesome name="chevron-left" size={14} color={C.text} />
                 </TouchableOpacity>
-                <View style={{ alignItems: 'center' }}>
-                  <Text style={{ color: C.text, fontSize: 17, fontWeight: '800', letterSpacing: -0.3 }}>Scan Results</Text>
-                </View>
+                <Text style={{ color: C.text, fontSize: 17, fontWeight: '800', letterSpacing: -0.3 }}>Scan Results</Text>
                 <TouchableOpacity onPress={() => setShowManualSearch(true)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, justifyContent: 'center', alignItems: 'center' }}>
                   <FontAwesome name="search" size={14} color={C.text} />
                 </TouchableOpacity>
@@ -1275,15 +1368,14 @@ export default function ScanScreen() {
                         <FontAwesome name="magic" size={10} color="#fff" />
                         <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>AI Scan</Text>
                       </View>
-                      {/* Object Detection Layer Overlay */}
+                      {/* Detected items overlay — plain language */}
                       {aiReasoningData?.objects_detected && aiReasoningData.objects_detected.length > 0 && (
-                        <View style={{ position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-                          <Text style={{ color: '#FFE66D', fontSize: 9, fontWeight: '800', letterSpacing: 0.5, marginBottom: 4 }}>OBJECT DETECTION LAYER</Text>
-                          {aiReasoningData.objects_detected.map((obj, i) => (
-                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                              <FontAwesome name="crosshairs" size={10} color="#FFE66D" />
-                              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>
-                                {obj.name} <Text style={{ color: 'rgba(255,255,255,0.6)' }}>×{obj.count || 1}</Text>
+                        <View style={{ position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, maxWidth: '70%' }}>
+                          {aiReasoningData.objects_detected.slice(0, 3).map((obj, i) => (
+                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: i < Math.min(aiReasoningData.objects_detected.length, 3) - 1 ? 3 : 0 }}>
+                              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#fff' }} />
+                              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
+                                {obj.name}{obj.count > 1 ? ` ×${obj.count}` : ''}
                               </Text>
                             </View>
                           ))}
@@ -1314,7 +1406,7 @@ export default function ScanScreen() {
                         </View>
                         <Text style={{ color: C.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginTop: -2 }}>TOTAL CALORIES</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent }} />
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.muted }} />
                           <Text style={{ color: C.subtext, fontSize: 11, fontWeight: '600' }}>
                             {confirmedTotals.count} food{confirmedTotals.count !== 1 ? 's' : ''} detected
                           </Text>
@@ -1328,9 +1420,9 @@ export default function ScanScreen() {
 
                     {/* Macro bars (animated fill) */}
                     {[
-                      { label: 'Protein', value: confirmedTotals.protein, color: '#00E676', max: 50 },
-                      { label: 'Carbs', value: confirmedTotals.carbs, color: '#FFB74D', max: 100 },
-                      { label: 'Fat', value: confirmedTotals.fat, color: '#42A5F5', max: 50 },
+                      { label: 'Protein', value: confirmedTotals.protein, color: '#1FA463', max: 50 },
+                      { label: 'Carbs', value: confirmedTotals.carbs, color: '#60A5FA', max: 100 },
+                      { label: 'Fat', value: confirmedTotals.fat, color: '#FF6B6B', max: 50 },
                     ].map(m => (
                       <View key={m.label} style={{ marginBottom: 10 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -1372,32 +1464,14 @@ export default function ScanScreen() {
                       {mealSuggestions.map((s, i) => (
                         <View key={i} style={{
                           flexDirection: 'row', alignItems: 'center', gap: 5,
-                          backgroundColor: s.type === 'good' ? 'rgba(0,230,118,0.10)' : s.type === 'warn' ? 'rgba(255,167,38,0.10)' : 'rgba(66,165,245,0.10)',
+                          backgroundColor: s.type === 'good' ? 'rgba(31,164,99,0.10)' : s.type === 'warn' ? 'rgba(255,107,107,0.10)' : 'rgba(96,165,250,0.10)',
                           borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
-                          borderWidth: 1, borderColor: s.type === 'good' ? 'rgba(0,230,118,0.15)' : s.type === 'warn' ? 'rgba(255,167,38,0.15)' : 'rgba(66,165,245,0.15)',
+                          borderWidth: 1, borderColor: s.type === 'good' ? 'rgba(31,164,99,0.15)' : s.type === 'warn' ? 'rgba(255,107,107,0.15)' : 'rgba(96,165,250,0.15)',
                         }}>
-                          <FontAwesome name={s.type === 'good' ? 'check' : s.type === 'warn' ? 'exclamation' : 'info'} size={9} color={s.type === 'good' ? '#00E676' : s.type === 'warn' ? '#FFB74D' : '#42A5F5'} />
-                          <Text style={{ color: s.type === 'good' ? '#00E676' : s.type === 'warn' ? '#FFB74D' : '#42A5F5', fontSize: 11, fontWeight: '600' }}>{s.text}</Text>
+                          <FontAwesome name={s.type === 'good' ? 'check' : s.type === 'warn' ? 'exclamation' : 'info'} size={9} color={s.type === 'good' ? '#1FA463' : s.type === 'warn' ? '#FF6B6B' : '#60A5FA'} />
+                          <Text style={{ color: s.type === 'good' ? '#1FA463' : s.type === 'warn' ? '#FF6B6B' : '#60A5FA', fontSize: 11, fontWeight: '600' }}>{s.text}</Text>
                         </View>
                       ))}
-                    </View>
-                  )}
-
-                  {/* ── Meal recommendation banner (Stage 9) ── */}
-                  {confirmedTotals.count > 0 && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(31,164,99,0.06)', borderRadius: 14, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(31,164,99,0.12)' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(31,164,99,0.12)', justifyContent: 'center', alignItems: 'center' }}>
-                          <FontAwesome name="clock-o" size={15} color={C.accent} />
-                        </View>
-                        <View>
-                          <Text style={{ color: C.muted, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>LOOKS LIKE</Text>
-                          <Text style={{ color: C.text, fontSize: 15, fontWeight: '800', textTransform: 'capitalize' }}>{recommendedMeal.meal}</Text>
-                        </View>
-                      </View>
-                      <View style={{ backgroundColor: 'rgba(0,230,118,0.12)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}>
-                        <Text style={{ color: '#00E676', fontSize: 11, fontWeight: '800' }}>{recommendedMeal.conf}%</Text>
-                      </View>
                     </View>
                   )}
 
@@ -1446,9 +1520,9 @@ export default function ScanScreen() {
                     return (
                       <StaggerCard key={idx} index={idx}>
                       <View style={{
-                        backgroundColor: food.confirmed ? 'rgba(31,164,99,0.06)' : C.card,
+                        backgroundColor: C.card,
                         borderRadius: 20, padding: 16, marginBottom: 12,
-                        borderWidth: 1.5, borderColor: food.confirmed ? 'rgba(31,164,99,0.25)' : C.cardBorder,
+                        borderWidth: 1.5, borderColor: food.confirmed ? 'rgba(31,164,99,0.35)' : C.cardBorder,
                       }}>
                         {/* Top row: checkbox + name + badges */}
                         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
@@ -1520,17 +1594,17 @@ export default function ScanScreen() {
                             </View>
                             <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
                             <View style={{ alignItems: 'center', flex: 1 }}>
-                              <Text style={{ color: '#00E676', fontSize: 15, fontWeight: '800' }}>{food.protein}g</Text>
+                              <Text style={{ color: '#1FA463', fontSize: 15, fontWeight: '800' }}>{food.protein}g</Text>
                               <Text style={{ color: C.muted, fontSize: 8, fontWeight: '700', marginTop: 2, letterSpacing: 0.5 }}>PROTEIN</Text>
                             </View>
                             <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
                             <View style={{ alignItems: 'center', flex: 1 }}>
-                              <Text style={{ color: C.orange, fontSize: 15, fontWeight: '800' }}>{food.carbs}g</Text>
+                              <Text style={{ color: '#60A5FA', fontSize: 15, fontWeight: '800' }}>{food.carbs}g</Text>
                               <Text style={{ color: C.muted, fontSize: 8, fontWeight: '700', marginTop: 2, letterSpacing: 0.5 }}>CARBS</Text>
                             </View>
                             <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
                             <View style={{ alignItems: 'center', flex: 1 }}>
-                              <Text style={{ color: C.blue, fontSize: 15, fontWeight: '800' }}>{food.fat}g</Text>
+                              <Text style={{ color: '#FF6B6B', fontSize: 15, fontWeight: '800' }}>{food.fat}g</Text>
                               <Text style={{ color: C.muted, fontSize: 8, fontWeight: '700', marginTop: 2, letterSpacing: 0.5 }}>FAT</Text>
                             </View>
                           </View>
@@ -1636,10 +1710,10 @@ export default function ScanScreen() {
 
                         {/* ── Did you mean? (auto-shown when confidence < 90%) ── */}
                         {food.alternatives && food.alternatives.length > 0 && (
-                          <View style={{ marginTop: 12, backgroundColor: confPct < 90 ? 'rgba(255,230,109,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: confPct < 90 ? 'rgba(255,230,109,0.15)' : 'rgba(255,255,255,0.04)' }}>
+                          <View style={{ marginTop: 12, backgroundColor: confPct < 90 ? 'rgba(96,165,250,0.06)' : 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: confPct < 90 ? 'rgba(96,165,250,0.18)' : 'rgba(255,255,255,0.04)' }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
-                              {confPct < 90 && <FontAwesome name="question-circle" size={10} color="#FFE66D" />}
-                              <Text style={{ color: confPct < 90 ? '#FFE66D' : C.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
+                              {confPct < 90 && <FontAwesome name="question-circle" size={10} color="#60A5FA" />}
+                              <Text style={{ color: confPct < 90 ? '#60A5FA' : C.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
                                 {confPct < 90 ? 'NOT QUITE RIGHT? DID YOU MEAN:' : 'DID YOU MEAN?'}
                               </Text>
                             </View>
@@ -1988,7 +2062,35 @@ export default function ScanScreen() {
           </TouchableOpacity>
         </Modal>
       )}
-    </SafeAreaView>
+
+      {/* ═══ DAILY SCAN LIMIT MODAL (free tier — HTTP 429) ═══ */}
+      <Modal visible={!!limitInfo} transparent animationType="fade" onRequestClose={() => setLimitInfo(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ width: '100%', maxWidth: 360, backgroundColor: C.glass, borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: C.cardBorder }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,183,77,0.14)', borderWidth: 2, borderColor: C.orange, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <FontAwesome name="lock" size={30} color={C.orange} />
+            </View>
+            <Text style={{ color: C.text, fontSize: 19, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
+              Daily AI Scan Limit Reached
+            </Text>
+            <Text style={{ color: C.subtext, fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 20 }}>
+              You've used all {limitInfo?.limit ?? 10} AI scans today. Unlimited scans are available with GetFit Pro.
+            </Text>
+            <TouchableOpacity
+              onPress={() => { setLimitInfo(null); router.push('/upgrade' as any); }}
+              activeOpacity={0.85}
+              style={{ width: '100%', height: 50, borderRadius: 14, backgroundColor: C.accent, justifyContent: 'center', alignItems: 'center', marginBottom: 10, flexDirection: 'row', gap: 8 }}
+            >
+              <FontAwesome name="star" size={14} color="#000" />
+              <Text style={{ color: '#000', fontSize: 15, fontWeight: '800' }}>Upgrade to Pro</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setLimitInfo(null)} activeOpacity={0.7} style={{ paddingVertical: 10 }}>
+              <Text style={{ color: C.muted, fontSize: 13, fontWeight: '600' }}>Try Again Tomorrow</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 

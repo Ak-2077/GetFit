@@ -137,6 +137,7 @@ export const recognizeFood = (image_base64, mime_type = 'image/jpeg', food_type 
   API.post('/api/food/recognize', { image_base64, mime_type, food_type, cooking_methods }, { timeout: 120000 });
 export const smartFoodSearch = (foods, cooking_methods = []) =>
   API.post('/api/food/smart-search', { foods, cooking_methods }, { timeout: 30000 });
+export const getUsageToday = () => API.get('/api/food/usage/today');
 export const trackFoodMemory = (data) => API.post('/api/food/memory/track', data);
 export const getFrequentFoods = () => API.get('/api/food/memory/frequent');
 export const getRecentFoodMemory = () => API.get('/api/food/memory/recent');

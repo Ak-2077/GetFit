@@ -9,6 +9,8 @@ import FoodCorrection from '../models/foodCorrection.js';
 import mongoose from 'mongoose';
 import { hardNegativeReject, evidenceMatrixCheck, deriveHierarchy } from './foodHierarchy.js';
 import { extractVisualFeatures, featuresToTokens } from './visualFeatureExtractor.js';
+import { inferPrimaryFamily, restrictToFamily, dishFamily, detectSauces, SAUCE_PATTERNS, specificDishScoreDelta } from './primaryDishRecognition.js';
+import { RECIPE_CONFIDENCE_THRESHOLD, isSpecificRecipe, detectVisibleSauce, extractVisibleIngredients, computeVisualCertainty } from './visualCertainty.js';
 
 // True only when a live MongoDB connection exists (readyState 1).
 const dbReady = () => mongoose.connection?.readyState === 1;
@@ -522,7 +524,23 @@ export async function reason(rawVisionText, detectedObjects = [], cookingMethods
   // Hard-negative gate uses ingredients + visual cues + cooking indicators +
   // structured visual feature tokens (Stage 17) for richer evidence.
   const evidenceTokens = [...visualCues, ...cookingIndicators, ...featuresToTokens(visualFeatures)];
-  const candidatePool = generateCandidates(ingredients, detectedObjects, evidenceTokens);
+  let candidatePool = generateCandidates(ingredients, detectedObjects, evidenceTokens);
+
+  // ── STAGE 29: Primary Dish Recognition & Family Mutual Exclusion ──
+  // Infer ONE primary dish family from structural evidence BEFORE scoring.
+  // When a single family is inferred, restrict the candidate pool to that
+  // family (e.g. penne+tomato → Pasta only; reject Soup/Pizza/Burger).
+  // No family / multiple families → no restriction (legacy behavior preserved).
+  const lowerTextForFamily = rawVisionText.toLowerCase();
+  const primaryFamily = inferPrimaryFamily(lowerTextForFamily, ingredients, detectedObjects);
+  const detectedSauces = primaryFamily?.sauces || detectSauces(lowerTextForFamily);
+  if (primaryFamily && primaryFamily.family) {
+    const { pool: restrictedPool, rejected: familyRejected } = restrictToFamily(candidatePool, primaryFamily.family);
+    candidatePool = restrictedPool;
+    if (familyRejected.length > 0 && process.env.NODE_ENV !== 'production') {
+      console.log(`[Stage29] Primary family = ${primaryFamily.family}; rejected ${familyRejected.length} out-of-family dishes: ${familyRejected.slice(0, 6).join(' | ')}${familyRejected.length > 6 ? ' …' : ''}`);
+    }
+  }
 
   // STAGE 1 (Layers 1-3): expose the recognition hierarchy for observability.
   const hierarchy = deriveHierarchy(ingredients, foodState, cookingIndicators);
@@ -542,6 +560,29 @@ export async function reason(rawVisionText, detectedObjects = [], cookingMethods
       if (!matrix.ok) continue;
       if (!passesEvidenceCheck(dish.dishNameLower, lowerText, visualCues, cookingIndicators)) {
         continue;
+      }
+      // ── STAGE 29: Sauce boost — dishes requiring a detected sauce get a lift ──
+      if (detectedSauces.length > 0) {
+        for (const sauce of detectedSauces) {
+          const pat = SAUCE_PATTERNS.find(s => s.sauce === sauce);
+          if (pat && pat.boosts.test(dish.dishNameLower)) {
+            result.score = Math.min(1, result.score + 0.06);
+            result.explanation.push(`Boosted: matches detected ${sauce}`);
+            break;
+          }
+        }
+      }
+      // ── STAGE 29: Specificity gate — a specific named recipe is boosted when
+      //    its distinguishing signal is present, and penalized when absent so a
+      //    generic family dish wins (penne in plain red sauce → "Penne Pasta",
+      //    not "Arrabbiata"; creamy → "Alfredo"). Specifics survive as
+      //    lower-ranked alternatives.
+      const specDelta = specificDishScoreDelta(dish.dishNameLower, lowerText);
+      if (specDelta !== 0) {
+        result.score = Math.max(0.06, Math.min(1, result.score + specDelta));
+        result.explanation.push(specDelta > 0
+          ? 'Boosted: specific dish signature detected'
+          : 'Penalized: specific named dish without distinguishing evidence — prefer generic');
       }
       candidates.push({ dish, score: result.score, explanation: result.explanation });
     }
@@ -634,6 +675,26 @@ export async function reason(rawVisionText, detectedObjects = [], cookingMethods
       finalFoods.push(cands[0]); // primary for this ingredient
     }
 
+    // ── STAGE 30: Recipe Confidence Demotion ──
+    // If the chosen primary is a SPECIFIC recipe whose distinguishing visual
+    // signal is ABSENT, prefer a generic dish from the same group so we never
+    // surface an unconfirmable recipe (e.g. "Arrabbiata") as the primary food.
+    // The recipe is preserved as an alternative below.
+    if (finalFoods.length > 0) {
+      const p = finalFoods[0];
+      const lacksSignal = specificDishScoreDelta(p.dish.dishNameLower, lowerText) < 0;
+      if (isSpecificRecipe(p.dish.dishNameLower) && lacksSignal) {
+        const grp = groups.get(baseOf(p.dish)) || [];
+        const generic = grp.find(c => !isSpecificRecipe(c.dish.dishNameLower) && c.dish.dishNameLower !== p.dish.dishNameLower);
+        if (generic) {
+          finalFoods[0] = generic;
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[Stage30] Demoted unconfirmable recipe "${p.dish.dishNameLower}" → generic "${generic.dish.dishNameLower}"`);
+          }
+        }
+      }
+    }
+
     // STAGE 7 + 9: Build alternatives for the PRIMARY food only.
     // Alternatives = mutually-exclusive siblings of the primary + raw base.
     if (finalFoods.length > 0) {
@@ -708,6 +769,43 @@ export async function reason(rawVisionText, detectedObjects = [], cookingMethods
   const topConfidence = finalFoods[0]?.finalConfidence || 0;
   const isUnknown = finalFoods.length === 0 || topConfidence < 0.60;
 
+  // ── STAGE 30: Visual Certainty & Recipe Confidence ──
+  // Separate VISUAL FACTS (food/base/sauce) from RECIPE INFERENCE. A recipe is
+  // only surfaced as `recipe` when its confidence meets the threshold.
+  const visibleSauce = detectVisibleSauce(lowerText);
+  const visibleIngredients = extractVisibleIngredients(lowerText, detectedObjects);
+  const primaryPred = finalFoods[0];
+  const primaryIsRecipe = primaryPred ? isSpecificRecipe(primaryPred.dish.dishNameLower) : false;
+  const visualConfidence = primaryPred
+    ? computeVisualCertainty({
+        dishNameLower: primaryPred.dish.dishNameLower,
+        ingredients,
+        detectedObjects,
+        familyInferred: !!(primaryFamily && primaryFamily.family),
+        cueMatches: visualCues.length,
+      })
+    : 0;
+  const recipeConfidence = primaryIsRecipe ? Number((primaryPred.finalConfidence).toFixed(2)) : null;
+  // Recipe is only "known" when it's a specific recipe AND clears the threshold.
+  const recipeName = (primaryIsRecipe && recipeConfidence >= RECIPE_CONFIDENCE_THRESHOLD)
+    ? primaryPred.dish.dishName
+    : null;
+  // Possible recipes = alternatives that are themselves recipe names.
+  const possibleRecipes = calibratedAlternatives.filter(a => isSpecificRecipe(a.normalized_name));
+
+  // Per-prediction helper for visual vs recipe certainty.
+  const certaintyFor = (dishNameLower, confidence) => {
+    const recipe = isSpecificRecipe(dishNameLower);
+    const vis = computeVisualCertainty({
+      dishNameLower, ingredients, detectedObjects,
+      familyInferred: !!(primaryFamily && primaryFamily.family), cueMatches: visualCues.length,
+    });
+    return {
+      visualCertainty: vis,
+      recipeCertainty: recipe ? Number(confidence.toFixed(2)) : null,
+    };
+  };
+
   return {
     predictions: finalFoods.map(c => ({
       dishName: c.dish.dishName,
@@ -728,6 +826,9 @@ export async function reason(rawVisionText, detectedObjects = [], cookingMethods
       offKeyword: c.dish.offKeyword || c.dish.dishName,
       cuisines: c.dish.cuisines || [],
       tags: c.dish.tags || [],
+      // Stage 30: independent visual vs recipe certainty
+      ...certaintyFor(c.dish.dishNameLower, c.finalConfidence),
+      isRecipe: isSpecificRecipe(c.dish.dishNameLower),
     })),
     isMeal,
     mealType,
@@ -735,6 +836,21 @@ export async function reason(rawVisionText, detectedObjects = [], cookingMethods
     hierarchy,
     isUnknown,
     visualFeatures,
+    // Stage 30: visual facts vs recipe inference (independent confidences)
+    visibleSauce,
+    visibleIngredients,
+    recipe: recipeName,                 // null when recipe is uncertain
+    recipeConfidence,                   // null when primary is a generic food
+    visualConfidence,                   // certainty of the visible food
+    recipeThreshold: RECIPE_CONFIDENCE_THRESHOLD,
+    possibleRecipes,                    // recipe candidates shown as "possible"
+    foodFamily: primaryFamily?.family || null,
+    foodType: foodState,
+    cookingStyle: primaryPred ? determineCookingStyle(primaryPred.dish) : 'unknown',
+    // Stage 29: inferred primary dish family (null when not applicable)
+    primaryFamily: primaryFamily?.family || null,
+    primaryFamilyGroup: primaryFamily?.group || null,
+    detectedSauces,
     alternatives: calibratedAlternatives,
     extractedIngredients: ingredients,
     objectCount: detectedObjects.length,

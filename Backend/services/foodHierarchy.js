@@ -35,6 +35,9 @@ export const HARD_NEGATIVE_RULES = [
   { match: /\b(sandwich|toast|burger|bread roll|bruschetta)\b/, requires: ['bread'], label: 'bread dish' },
   { match: /\b(ramen|chow ?mein|noodle|noodles|hakka)\b/, requires: ['noodle', 'noodles'], label: 'noodle dish' },
   { match: /\b(pasta|spaghetti|macaroni|penne|lasagna)\b/, requires: ['pasta', 'spaghetti', 'macaroni'], label: 'pasta dish' },
+  // Meat-based sauces/dishes require a visible protein. A plain tomato-sauce
+  // pasta must NOT be classified as Bolognese/meat-sauce when no meat is seen.
+  { match: /\b(bolognese|ragu|meat sauce|keema|kheema|minced meat|ground beef|carbonara)\b/, requires: ['meat', 'beef', 'pork', 'chicken', 'mutton', 'lamb', 'sausage', 'bacon', 'mince', 'ham', 'turkey'], label: 'meat-based dish' },
   { match: /\b(curry|gravy|masala|korma|kadai|tikka masala)\b/, requires: ['gravy', 'curry', 'sauce'], label: 'curry/gravy dish', evidenceToken: true },
   { match: /\b(stew|soup|broth|rasam|sambar)\b/, requires: ['soup', 'broth', 'liquid', 'bowl', 'gravy'], label: 'liquid dish', evidenceToken: true },
   { match: /\b(wrap|roll|burrito|kathi)\b/, requires: ['rolled', 'wrapped', 'bread', 'wrap'], label: 'wrap dish', evidenceToken: true },

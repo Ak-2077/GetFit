@@ -21,6 +21,10 @@ import FoodMemory from '../models/foodMemory.js';
 import FoodOntology from '../models/foodOntology.js';
 import FoodCorrection from '../models/foodCorrection.js';
 import FoodAnalytics from '../models/foodAnalytics.js';
+import checkDailyUsage from '../middleware/checkDailyUsage.js';
+import UserUsage from '../models/userUsage.js';
+import { resolveActivePlan } from '../services/subscriptionService.js';
+import { USAGE_LIMITS, UNLIMITED_TIERS, nextMidnightISO } from '../config/usageLimits.js';
 
 const router = express.Router();
 
@@ -102,7 +106,7 @@ const FALLBACK_NUTRITION = {
 // Load ontology cache on first request
 let _ontologyLoaded = false;
 
-router.post('/recognize', auth, async (req, res) => {
+router.post('/recognize', auth, checkDailyUsage('foodScans'), async (req, res) => {
   const startTime = Date.now();
   try {
     const { image_base64, mime_type, food_type, cooking_methods } = req.body;
@@ -338,7 +342,18 @@ router.post('/recognize', auth, async (req, res) => {
       raw_ai_response: rawDescription.substring(0, 300),
       processing_time_ms: elapsed,
       pipeline_version: 'v3',
+      // ── Daily usage (free vs premium) ──
+      remainingFoodScans: req.usageInfo?.unlimited ? null : (req.usageInfo?.remaining ?? null),
+      dailyLimit: req.usageInfo?.unlimited ? null : (req.usageInfo?.limit ?? null),
+      subscription: req.usageInfo?.subscription || 'free',
     });
+
+    // ── Scan analytics (non-blocking) ──
+    try {
+      console.log(`[ScanEvent] user=${userId} sub=${req.usageInfo?.subscription} success=true ` +
+        `remaining=${req.usageInfo?.unlimited ? 'unlimited' : req.usageInfo?.remaining} ` +
+        `timeMs=${elapsed} model=${aiData?.model_used || 'vision-adapter'}`);
+    } catch (_) {}
   } catch (err) {
     const elapsed = Date.now() - startTime;
     console.error(`[Pipeline] error after ${elapsed}ms:`, err.message);
@@ -711,7 +726,47 @@ router.post('/add-food', auth, addBrandFood);
 router.get('/brand-foods', auth, getBrandFoods);
 router.get('/search', auth, searchFoods);
 router.get('/search-name', auth, searchFoodsByName);
-router.get('/barcode/:barcode', auth, getFoodByBarcode);
+
+// ═══ DAILY USAGE STATUS (read-only, never consumes) ═══
+// Lets the app show remaining scans proactively. Source of truth is
+// still the backend — this only reflects the stored counters.
+router.get('/usage/today', auth, async (req, res) => {
+  try {
+    const usage = await UserUsage.getToday(req.userId);
+    let tier = 'free';
+    try {
+      const plan = await resolveActivePlan(req.userId);
+      tier = plan?.tier || 'free';
+    } catch (_) {}
+
+    const unlimited = UNLIMITED_TIERS.includes(tier);
+    return res.json({
+      success: true,
+      subscription: unlimited ? 'premium' : 'free',
+      tier,
+      foodScans: {
+        used: usage.foodScans,
+        limit: unlimited ? null : USAGE_LIMITS.foodScans,
+        remaining: unlimited ? null : Math.max(0, USAGE_LIMITS.foodScans - usage.foodScans),
+      },
+      barcodeScans: {
+        used: usage.barcodeScans,
+        limit: unlimited ? null : USAGE_LIMITS.barcodeScans,
+        remaining: unlimited ? null : Math.max(0, USAGE_LIMITS.barcodeScans - usage.barcodeScans),
+      },
+      aiCoachChats: {
+        used: usage.aiCoachChats,
+        limit: unlimited ? null : USAGE_LIMITS.aiCoachChats,
+        remaining: unlimited ? null : Math.max(0, USAGE_LIMITS.aiCoachChats - usage.aiCoachChats),
+      },
+      resetAt: nextMidnightISO(),
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.get('/barcode/:barcode', auth, checkDailyUsage('barcodeScans'), getFoodByBarcode);
 router.get('/:id', auth, getFoodById);
 
 // Food logging

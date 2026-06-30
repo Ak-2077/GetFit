@@ -377,9 +377,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    fontFamily: "Poppins_400Regular",
     fontSize: 14,
     color: "rgba(255,255,255,0.55)",
+    fontWeight: "400",
     letterSpacing: 0.8,
     marginBottom: 14,
   },
@@ -398,8 +398,8 @@ const styles = StyleSheet.create({
   brand: {
     position: "absolute",
     bottom: height * 0.06,
-    fontFamily: "Poppins_500Medium",
     fontSize: 12,
+    fontWeight: "500",
     letterSpacing: 4,
     color: "rgba(255,255,255,0.2)",
   },

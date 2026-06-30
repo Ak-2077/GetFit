@@ -3,8 +3,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Text, TextInput } from 'react-native';
-import { useFonts, Poppins_400Regular, Poppins_500Medium } from '@expo-google-fonts/poppins';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 
 import "../global.css";
@@ -26,10 +25,6 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const pathname = usePathname();
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-  });
 
   useEffect(() => {
     (async () => {
@@ -78,24 +73,15 @@ export default function RootLayout() {
   }, [pathname, router]);
 
   useEffect(() => {
-    if (!fontsLoaded) return;
-
-    // Hide the native system splash screen once fonts are ready
+    // No custom fonts — React Native uses the native system font automatically
+    // (SF Pro on iOS, Roboto on Android). Hide the splash once mounted.
     SplashScreen.hideAsync().catch(() => {});
-
-    (Text as any).defaultProps = (Text as any).defaultProps || {};
-    (Text as any).defaultProps.style = [{ fontFamily: 'Poppins_400Regular', fontWeight: '400' }, (Text as any).defaultProps.style];
-
-    (TextInput as any).defaultProps = (TextInput as any).defaultProps || {};
-    (TextInput as any).defaultProps.style = [{ fontFamily: 'Poppins_400Regular', fontWeight: '400' }, (TextInput as any).defaultProps.style];
-  }, [fontsLoaded]);
-
-  // Don't render the nav tree until fonts are ready
-  if (!fontsLoaded) return null;
+  }, []);
 
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
         screenOptions={{
@@ -124,6 +110,7 @@ export default function RootLayout() {
       </Stack>
         <StatusBar style="light" />
       </ThemeProvider>
+      </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

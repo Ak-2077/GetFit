@@ -146,15 +146,15 @@ const PLANS = [
     name: 'Kyro Pro+',
     billingCycle: 'yearly',
     durationDays: 365,
-    amountPaise: 399000, // ₹3,990 (≈ 2 months free vs monthly)
+    amountPaise: 399900, // ₹3,999 (matches Apple IAP product price)
     appleProductId: 'com.getfit.fitness.proplus.yearly',
     googleProductId: 'com.getfit.fitness.proplus.yearly',
-    displayPrice: '₹3,990',
+    displayPrice: '₹3,999',
     period: '/year',
     currency: 'INR',
     badge: 'Best Value',
     isPopular: false,
-    discountPercent: 17,
+    discountPercent: 16,
     trialDays: 0,
     allowedFeatures: PRO_PLUS_FEATURES,
     featureList: [

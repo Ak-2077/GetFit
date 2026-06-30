@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 13,
     color: 'rgba(255,255,255,0.50)',
-    fontFamily: 'Poppins_400Regular',
+    fontWeight: '400',
     letterSpacing: 0.4,
   },
 });
