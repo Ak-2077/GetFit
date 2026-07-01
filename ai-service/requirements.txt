@@ -8,5 +8,13 @@ redis>=5.2.0
 numpy>=2.0.0
 opencv-python-headless>=4.10.0
 python-dotenv>=1.0.1
-# mediapipe — install separately when needed for video analysis
-# pip install mediapipe (requires Python <=3.12 as of now)
+
+# ── Exercise-analysis runtime pose engine ──
+# MediaPipe publishes no working wheel for Python 3.14 (its py3-none wheel is a
+# non-functional stub). The runtime pipeline therefore uses an ONNX pose engine
+# that DOES run on 3.14: RTMPose via rtmlib on onnxruntime (CPU). rtmlib
+# auto-downloads its ONNX model on first use and caches it under ~/.cache/rtmlib.
+onnxruntime>=1.27.0
+rtmlib>=0.0.15
+# opencv-python is pulled in transitively by rtmlib and is used for real video
+# decode/probe in app/analysis/acquire.py.

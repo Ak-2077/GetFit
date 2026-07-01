@@ -341,5 +341,145 @@ export const getVideoAnalysisResult = (jobId) =>
 export const getVideoAnalysisHistory = () =>
   API.get('/api/ai/video/history');
 
+// ── AI Exercise Analysis (async job model: upload → submit → poll → result) ──
+// Upload a recorded workout video to temporary server storage via multipart/
+// form-data. Returns { id, videoUrl, sizeBytes, expiresInMs }. Reports upload
+// progress and supports cancellation. The AI worker fetches `videoUrl`, then
+// deletes its transient copy after processing — a local file:// URI is NEVER
+// sent to the AI service.
+/**
+ * @param {string} fileUri - Local file:// URI of the recorded video.
+ * @param {{ name?: string, type?: string,
+ *           onProgress?: (loaded: number, total: number, computable: boolean) => void,
+ *           registerCancel?: (cancel: () => void) => void }} [options]
+ * @returns {Promise<{ id: string, videoUrl: string, sha256?: string, sizeBytes?: number, expiresInMs?: number }>}
+ */
+const uploadExerciseVideoOnce = (
+  fileUri,
+  { name = 'workout.mp4', type = 'video/mp4', onProgress, registerCancel } = {}
+) =>
+  new Promise((resolve, reject) => {
+    const authToken = API.defaults.headers?.common?.Authorization;
+    const form = new FormData();
+    // React Native FormData file part — RN streams the file and sets the
+    // multipart boundary automatically (do NOT set Content-Type manually).
+    form.append('video', { uri: fileUri, name, type });
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${resolvedBaseURL}/api/ai/analysis/media/upload`);
+    if (authToken) xhr.setRequestHeader('Authorization', authToken);
+
+    if (xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (onProgress) onProgress(e.loaded || 0, e.total || 0, e.lengthComputable);
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(Object.assign(new Error('Malformed upload response.'), { code: 'UPLOAD_FAILED' }));
+        }
+      } else {
+        let payload = {};
+        try {
+          payload = JSON.parse(xhr.responseText) || {};
+        } catch {}
+        reject(
+          Object.assign(new Error(payload.message || 'Upload failed.'), {
+            code: payload.code || 'UPLOAD_FAILED',
+            status: xhr.status,
+          })
+        );
+      }
+    };
+    xhr.onerror = () =>
+      reject(Object.assign(new Error('Network error during upload.'), { code: 'NETWORK_ERROR' }));
+    xhr.ontimeout = () =>
+      reject(Object.assign(new Error('Upload timed out. Check your connection and retry.'), { code: 'UPLOAD_TIMEOUT' }));
+    // Explicit abort handling so a user-cancelled upload rejects deterministically
+    // (rather than leaving the promise pending).
+    xhr.onabort = () =>
+      reject(Object.assign(new Error('Upload canceled.'), { code: 'UPLOAD_CANCELED', aborted: true }));
+    xhr.timeout = 180000; // 3 min for large clips on slow connections
+
+    // Expose an abort handle so the UI (and the retry wrapper) can cancel.
+    if (registerCancel) registerCancel(() => { try { xhr.abort(); } catch {} });
+
+    xhr.send(form);
+  });
+
+/**
+ * Upload with automatic exponential-backoff retry on transient failures.
+ * Retries NETWORK_ERROR / UPLOAD_TIMEOUT / 5xx up to 3 attempts (1s, 2s, 4s).
+ * Never retries a user cancellation or a 4xx client error. A single cancel
+ * handle passed via `registerCancel` cancels whichever attempt is in flight and
+ * stops further retries.
+ * @param {string} fileUri
+ * @param {Object} [options] - same options as uploadExerciseVideoOnce.
+ * @returns {Promise<{ id: string, videoUrl: string, sha256?: string, sizeBytes?: number, expiresInMs?: number }>}
+ */
+export const uploadExerciseVideo = async (fileUri, options = {}) => {
+  const { registerCancel, ...rest } = options;
+  const backoffMs = [1000, 2000, 4000];
+  const maxAttempts = backoffMs.length;
+
+  let canceled = false;
+  let cancelCurrent = null;
+  if (registerCancel) {
+    registerCancel(() => {
+      canceled = true;
+      if (cancelCurrent) cancelCurrent();
+    });
+  }
+
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (canceled) {
+      throw Object.assign(new Error('Upload canceled.'), { code: 'UPLOAD_CANCELED', aborted: true });
+    }
+    try {
+      return await uploadExerciseVideoOnce(fileUri, {
+        ...rest,
+        registerCancel: (cancel) => { cancelCurrent = cancel; },
+      });
+    } catch (e) {
+      lastErr = e;
+      if (canceled || e?.code === 'UPLOAD_CANCELED' || e?.aborted) throw e;
+      const isTransient =
+        e?.code === 'NETWORK_ERROR' ||
+        e?.code === 'UPLOAD_TIMEOUT' ||
+        (typeof e?.status === 'number' && e.status >= 500);
+      if (!isTransient || attempt === maxAttempts - 1) throw e;
+      // Wait with exponential backoff, but bail immediately if canceled meanwhile.
+      await new Promise((r) => setTimeout(r, backoffMs[attempt]));
+    }
+  }
+  throw lastErr;
+};
+
+// Submit a recorded workout video for analysis. Returns { jobId } immediately (Req 19.1).
+// `videoUrl` MUST be the server URL returned by uploadExerciseVideo — never a file:// URI.
+/**
+ * @param {string} videoUrl
+ * @param {string|null} [exerciseHint]
+ * @param {string|null} [videoSha256] - Optional SHA-256 integrity digest from upload.
+ */
+export const submitExerciseAnalysis = (videoUrl, exerciseHint = null, videoSha256 = null) =>
+  API.post('/api/ai/analysis/submit', { videoUrl, exerciseHint, videoSha256 });
+// Poll the current job state + human-readable progress label (Req 20.3, 20.4).
+export const getExerciseAnalysisStatus = (jobId) =>
+  API.get(`/api/ai/analysis/status/${jobId}`);
+// Fetch the persisted Analysis_Result once the job is completed (Req 11).
+export const getExerciseAnalysisResult = (jobId) =>
+  API.get(`/api/ai/analysis/result/${jobId}`);
+// Cancel a queued or in-flight Analysis_Job (runtime reliability).
+export const cancelExerciseAnalysis = (jobId) =>
+  API.post(`/api/ai/analysis/cancel/${jobId}`);
+// Submit a user correction on a stored Analysis_Result (Req 13.3).
+export const submitExerciseAnalysisCorrection = (id, correction) =>
+  API.post(`/api/ai/analysis/${id}/correction`, correction);
+
 export default API;
 

@@ -26,10 +26,13 @@
     "jsonwebtoken": "^9.0.3",
     "marked": "^18.0.5",
     "mongoose": "^9.2.1",
+    "multer": "^2.2.0",
     "nodemailer": "^7.0.5",
     "twilio": "^5.13.1"
   },
   "devDependencies": {
+    "fast-check": "^4.8.0",
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.11",
     "puppeteer": "^25.0.2"
   }

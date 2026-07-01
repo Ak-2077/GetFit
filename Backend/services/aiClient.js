@@ -148,6 +148,109 @@ export const getVideoResult = async (jobId) => {
 };
 
 /**
+ * Submit a recorded workout video for async exercise/form analysis.
+ * Enqueues an Analysis_Job and returns immediately with a Job_Id (Req 19.1).
+ * @param {string} videoUrl - URL of the uploaded video
+ * @param {string|null} exerciseHint - Optional exercise type hint
+ * @param {string|null} videoSha256 - Optional SHA-256 integrity digest of the upload
+ * @returns {{ jobId: string }}
+ */
+export const submitAnalysis = async (videoUrl, exerciseHint = null, videoSha256 = null) => {
+  const res = await aiClient.post('/exercise-analysis/submit', {
+    video_url: videoUrl,
+    exercise_hint: exerciseHint,
+    video_sha256: videoSha256,
+  });
+  return res.data;
+};
+
+/**
+ * Cancel a queued or in-flight Analysis_Job (runtime reliability).
+ * @param {string} jobId - Job ID from submitAnalysis
+ * @returns {{ job_id: string, cancelled: boolean, state: string }}
+ */
+export const cancelAnalysis = async (jobId) => {
+  const res = await aiClient.post(`/exercise-analysis/cancel/${jobId}`);
+  return res.data;
+};
+
+/**
+ * Query the current state and progress of an Analysis_Job (Req 19.8, 20.4).
+ * @param {string} jobId - Job ID from submitAnalysis
+ * @returns {{ jobState: string, progress: Object }}
+ */
+export const getAnalysisStatus = async (jobId) => {
+  const res = await aiClient.get(`/exercise-analysis/status/${jobId}`);
+  return res.data;
+};
+
+/**
+ * Fetch the AnalysisResult for a completed Analysis_Job (Req 31.2).
+ * @param {string} jobId - Job ID from submitAnalysis
+ * @returns {Object} The AnalysisResult
+ */
+export const getAnalysisResult = async (jobId) => {
+  const res = await aiClient.get(`/exercise-analysis/result/${jobId}`);
+  return res.data;
+};
+
+// ─── Version 2 additive methods (Req 52.1, 52.2) ─────────────────────────────
+// The following methods are ADDITIVE. They do not modify the signatures or
+// behavior of submitAnalysis / getAnalysisStatus / getAnalysisResult above, and
+// preserve every existing backend API contract (Req 52.2). They follow the same
+// axios `aiClient` pattern and carry only a video HASH — never the video —
+// across the duplicate-lookup boundary (privacy preserved, Req 52.5).
+
+/**
+ * Ask the AI service whether a prior AnalysisResult already exists for the
+ * exact (userId, videoHash, pipelineVersion) triple, so a duplicate submission
+ * can return the cached result without re-running the pipeline (Req 34.2).
+ * Sends the SHA256 Video_Hash ONLY — never the video bytes.
+ * @param {string} userId - End_User identifier.
+ * @param {string} videoHash - Local SHA256 hash of the video (hash only).
+ * @param {string} pipelineVersion - Pipeline version component of the match key.
+ * @returns {{ duplicate: boolean, result?: Object }}
+ */
+export const lookupDuplicate = async (userId, videoHash, pipelineVersion) => {
+  const res = await aiClient.post('/exercise-analysis/duplicate-check', {
+    user_id: userId,
+    video_hash: videoHash,
+    pipeline_version: pipelineVersion,
+  });
+  return res.data;
+};
+
+/**
+ * Submit a video for analysis using a completed chunked upload and/or a
+ * client-side compressed video (Req 33, 32). Additive alternative to
+ * submitAnalysis — references the already-uploaded content by id/URL plus
+ * optional compression metadata and video hash; never transmits the video here.
+ * @param {Object} params
+ * @param {string} [params.uploadSessionId] - Completed chunk-upload session id.
+ * @param {string} [params.videoUrl] - URL of the assembled/compressed video.
+ * @param {string} [params.videoHash] - SHA256 Video_Hash for duplicate keying.
+ * @param {Object} [params.compressionMeta] - Client Compression_Metadata (Req 32.7).
+ * @param {string|null} [params.exerciseHint] - Optional exercise type hint.
+ * @returns {{ jobId: string }}
+ */
+export const submitChunkedAnalysis = async ({
+  uploadSessionId = null,
+  videoUrl = null,
+  videoHash = null,
+  compressionMeta = null,
+  exerciseHint = null,
+} = {}) => {
+  const res = await aiClient.post('/exercise-analysis/submit-chunked', {
+    upload_session_id: uploadSessionId,
+    video_url: videoUrl,
+    video_hash: videoHash,
+    compression_metadata: compressionMeta,
+    exercise_hint: exerciseHint,
+  });
+  return res.data;
+};
+
+/**
  * Analyze a single frame of pose keypoints.
  * @param {Array<Array<number>>} keypoints - 17 COCO keypoints [[x,y,conf],...]
  * @param {string|null} exerciseType - Exercise being performed

@@ -399,6 +399,48 @@ export default function WorkoutScreen() {
           {/* ═══ AI CARD ═══ */}
           {renderAICard()}
 
+          {/* ═══ FORM ANALYSIS CARD ═══ */}
+          <PressableCard onPress={() => router.push('/exercise-analysis' as any)} style={{ marginTop: 14 }}>
+            <LinearGradient
+              colors={['rgba(31,164,99,0.18)', 'rgba(31,164,99,0.04)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 23, padding: 1 }}
+            >
+              <View style={{
+                borderRadius: 22, backgroundColor: C.card, padding: 20,
+                flexDirection: 'row', alignItems: 'center',
+              }}>
+                {/* Icon */}
+                <View style={{
+                  width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(31,164,99,0.14)',
+                  justifyContent: 'center', alignItems: 'center', marginRight: 16,
+                }}>
+                  <Ionicons name="videocam" size={26} color={C.accent} />
+                </View>
+
+                {/* Text */}
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 18, fontWeight: '800', color: C.white }}>Form Analysis</Text>
+                    <Ionicons name="sparkles" size={14} color={C.accent} style={{ marginLeft: 6 }} />
+                  </View>
+                  <Text style={{ fontSize: 12, color: C.label, marginTop: 3, lineHeight: 16 }}>
+                    Record or upload a lift and get instant AI form feedback
+                  </Text>
+                </View>
+
+                {/* Arrow */}
+                <View style={{
+                  width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(31,164,99,0.14)',
+                  justifyContent: 'center', alignItems: 'center',
+                }}>
+                  <Ionicons name="arrow-forward" size={16} color={C.accent} />
+                </View>
+              </View>
+            </LinearGradient>
+          </PressableCard>
+
           {/* ═══ FEATURES ═══ */}
           <View style={{ marginTop: 18 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: C.muted, marginBottom: 10, letterSpacing: 0.8 }}>WHAT YOU GET</Text>

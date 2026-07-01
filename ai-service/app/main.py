@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import health, chat, diet, video, pose, memory, embeddings, orchestrator, agent, evaluator, food_vision
+from app.routers import health, chat, diet, video, pose, memory, embeddings, orchestrator, agent, evaluator, food_vision, exercise_analysis
 from app.core.config import settings
 from app.core.llm import ollama
 from app.vision import vision_adapter
@@ -22,8 +22,16 @@ async def lifespan(app: FastAPI):
                     settings.VISION_PRIMARY, settings.VISION_FALLBACK)
     except Exception as e:
         logger.warning(f"Vision adapter warmup skipped: {e}")
+    # Start the always-on exercise-analysis Background_Worker so queued jobs are
+    # consumed continuously and out-of-band (Req 19.2).
+    from app.analysis import runtime as analysis_runtime
+    analysis_runtime.start()
     logger.info("Models warmed up — ready for low-latency inference")
-    yield
+    try:
+        yield
+    finally:
+        # Graceful shutdown: drain/stop the Background_Worker.
+        await analysis_runtime.stop()
 
 
 app = FastAPI(
@@ -53,6 +61,8 @@ app.include_router(orchestrator.router, prefix="/orchestrate", tags=["Orchestrat
 app.include_router(agent.router, prefix="/agent", tags=["Agent"])
 app.include_router(evaluator.router, prefix="/evaluator", tags=["Evaluator"])
 app.include_router(food_vision.router, tags=["Food Vision"])
+# exercise_analysis declares its own "/exercise-analysis" prefix → include without one
+app.include_router(exercise_analysis.router, tags=["Exercise Analysis"])
 
 
 @app.get("/")
@@ -83,5 +93,8 @@ async def root():
             "evaluator_causal": "/evaluator/causal",
             "food_recognize": "/food-vision/recognize",
             "food_vision_health": "/food-vision/health",
+            "exercise_analysis_submit": "/exercise-analysis/submit",
+            "exercise_analysis_status": "/exercise-analysis/status/{job_id}",
+            "exercise_analysis_result": "/exercise-analysis/result/{job_id}",
         },
     }

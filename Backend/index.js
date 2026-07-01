@@ -82,6 +82,10 @@ import authRoute from './routes/authRoutes.js';
 import foodRoute from './routes/foodRoute.js';
 import burnRoute from './routes/burnRoute.js';
 import aiRoute from './routes/aiRoute.js';
+import analysisRoute from './routes/analysisRoute.js';
+import chunkUploadRoute from './routes/chunkUploadRoute.js';
+import videoUploadRoute from './routes/videoUploadRoute.js';
+import adminAnalyticsRoute from './routes/adminAnalyticsRoute.js';
 import workoutRoute from './routes/workoutRoute.js';
 import userRoute from './routes/userRoute.js';
 import caloriesRoute from './routes/caloriesRoute.js';
@@ -105,6 +109,13 @@ app.use('/api/foods', foodRoute);
 app.use('/api/burn', burnRoute);
 app.use('/api/calories', caloriesRoute);
 app.use('/api/steps', stepsRoute);
+// V2 additive: chunked upload mounted BEFORE the analysis route so its more
+// specific base path resolves cleanly; changes no existing route (Req 33, 52.2).
+app.use('/api/ai/analysis/upload', chunkUploadRoute);
+// Runtime pipeline: temporary server storage for recorded videos (raw upload +
+// internal fetch by the AI worker). Mounted before the general analysis route.
+app.use('/api/ai/analysis/media', videoUploadRoute);
+app.use('/api/ai/analysis', analysisRoute);
 app.use('/api/ai', aiRoute);
 app.use('/api/workout', workoutRoute);
 app.use('/api/user', userRoute);
@@ -119,6 +130,8 @@ app.use('/api/subscription', subscriptionRoute);
 app.use('/api/exercises', exerciseRoute);
 app.use('/api/payments', paymentsRoute);
 app.use('/api/streaks', streakRoute);
+// V2 additive: admin analytics dashboard (aggregate-only, admin-gated) (Req 46).
+app.use('/api/admin/analytics', adminAnalyticsRoute);
 
 app.get("/", (req, res) => {
     res.send("Welcome to GetFit!");

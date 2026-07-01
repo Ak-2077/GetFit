@@ -5,6 +5,7 @@ node_modules/
 # Frontend
 Frontend/node_modules/
 Frontend/.expo/
+Frontend/.tmp-pbt/
 
 # Backend
 Backend/node_modules/
